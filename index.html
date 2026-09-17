@@ -1541,6 +1541,21 @@
       </section>
 
       <section class="card">
+        <div class="card-label">黑貓託運單 PDF(選填)</div>
+        <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          訂單一次全部倒進黑貓系統之後,把黑貓吐回來的那份託運單 PDF 丟進來,<br>
+          下面每一組就會多一顆「⬇ 託運單」,依撿貨分組把 PDF 拆成每組一個檔。
+        </p>
+        <div class="file-row">
+          <div id="zonedPdfDisplay" class="file-display empty">尚未選擇檔案…</div>
+          <input type="file" id="zonedPdfInput" class="file-input-hidden" accept=".pdf,application/pdf">
+          <button class="btn btn-secondary" onclick="document.getElementById('zonedPdfInput').click()">
+            選擇 PDF…
+          </button>
+        </div>
+      </section>
+
+      <section class="card">
         <div class="card-label">分區規則</div>
         <p style="margin: 0 0 14px; font-size: 15px; font-weight: 700; color: var(--accent-2); line-height: 1.7;">
           同品項(含顏色/星座/尺寸)超過門檻獨立出單,沒超過就併入「其他合併」——
@@ -1560,6 +1575,8 @@
       </div>
 
       <div id="zonedStatus" class="status">等待選擇 LINE 訂單檔…</div>
+
+      <div id="zonedPdfSummary"></div>
 
       <div class="stats-header">
         <span class="stats-title">分區筆數預覽</span>
@@ -1646,6 +1663,7 @@
 <script src="state.js"></script>
 <script src="shipping-core.js"></script>
 <script src="zoned-picking.js"></script>
+<script src="zoned-pdf.js"></script>
 <script src="offshore-label.js"></script>
 <script src="sheet-sync.js"></script>
 <script src="logistics-match.js"></script>

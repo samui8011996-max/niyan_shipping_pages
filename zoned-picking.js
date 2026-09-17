@@ -459,7 +459,10 @@ function renderZonedGroupList(groups) {
               <span class="pi-id">${escapeHtml(g.label)}</span>
             </button>
           </div>
-          <button class="btn btn-secondary btn-small" onclick="downloadZonedGroup(${idx})">${g.downloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+          <span style="display: flex; gap: 6px; flex-shrink: 0;">
+            <button class="btn btn-secondary btn-small" onclick="downloadZonedGroup(${idx})">${g.downloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+            ${typeof zonedPdfGroupButton === "function" ? zonedPdfGroupButton("own", idx) : ""}
+          </span>
         </div>
         <div style="font-size: 13px; color: var(--text); font-weight: 600; margin-top: 4px; margin-left: 47px;">共 ${g.qty} 件 · ${g.rows.length} 筆訂單</div>
         <div id="zonedGroupDetail-${idx}" ${expanded ? "" : "hidden"} style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
@@ -516,7 +519,10 @@ function renderZonedMergedBlock(mergedRows, threshold) {
     <div class="problem-item" style="flex-direction: column; align-items: stretch; ${downloadedStyle}">
       <div class="problem-item-row1" style="justify-content: space-between; width: 100%;">
         <span class="pi-id">其他合併(未超過 ${threshold} 個的品項)</span>
-        <button class="btn btn-secondary btn-small" onclick="downloadZonedMerged()">${zonedMergedDownloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+        <span style="display: flex; gap: 6px; flex-shrink: 0;">
+          <button class="btn btn-secondary btn-small" onclick="downloadZonedMerged()">${zonedMergedDownloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+          ${typeof zonedPdfGroupButton === "function" ? zonedPdfGroupButton("merged", -1) : ""}
+        </span>
       </div>
       <div style="font-size: 12px; color: var(--text-mute); margin-top: 4px;">
         共 ${detailLines.length} 個品項 · ${mergedRows.length} 筆訂單

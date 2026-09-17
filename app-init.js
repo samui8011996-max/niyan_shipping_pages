@@ -19,6 +19,14 @@ document.getElementById("zonedFileInput").addEventListener("change", (e) => {
   setFileDisplays(file.name);
   handleFile(file, "zonedStatus");
 });
+document.getElementById("zonedPdfInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const d = document.getElementById("zonedPdfDisplay");
+  d.textContent = file.name;
+  d.classList.remove("empty"); d.classList.add("has-file");
+  handleZonedPdf(file);
+});
 document.getElementById("lineTemplateInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
