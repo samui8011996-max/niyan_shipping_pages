@@ -219,46 +219,6 @@ function decodePageText(items) {
   return items.map(it => decodeWithShifts(it.str, shiftsFor(it.fontName))).join(" ");
 }
 
-// ===== 只有 PDF、沒有訂單總表時的分組 =====
-// 託運單的「備註」欄印的就是出貨表寫進去的品項描述(buildNote 的輸出:
-// 商品名稱 + 規格設定 + 客製刻印選項 + x數量),所以光靠 PDF 也分得出品項。
-// 注意:這條路沒有商品編號,所以 CODE_ALIASES(同商品不同編號)那類規則用不上,
-// 純文字比對。要分得更準就載入 LINE 訂單總表,程式會自動改走原本那條路。
-
-// 備註結束的位置:買家買了幾個會印成「- x1」,後面接的是黑貓自己的版面文字。
-// 比對前會把空白全部拿掉(pdf.js 會把「備註」切成「備」「註」兩段,不先拿掉就比不到),
-// 所以這裡的 pattern 也是以「沒有空白」為前提寫的。
-const NOTE_STOP = "(?:-?x\\d+|客戶代號|訂單編號|客戶專線|ymt)";
-
-// 規格設定裡的欄位名。粗分組時截到第一個欄位名之前 = 只留品項名。
-// 用固定清單而不是「任意兩到四個中文字 + 冒號」,因為後者會切在詞中間
-// (「繽紛好運精油組規格:」會被切成「繽紛好運精」)。賣場加新選項時補進來。
-const NOTE_FIELDS = new RegExp(
-  "(?:天然精油|其他刻字|刻印文字|選擇[\\u4e00-\\u9fff]{0,3}|加購[\\u4e00-\\u9fff]{0,4}" +
-  "|規格|顏色|星座|款式|口味|尺寸|精油|金運|招福|花色|蠟燭|數量)\\s*:");
-
-const ZODIAC_NAMES = ["牡羊", "金牛", "雙子", "巨蟹", "獅子", "處女",
-                      "天秤", "天蠍", "射手", "摩羯", "水瓶", "雙魚"];
-
-// 有訂單總表時,這幾組是靠商品編號(CODE_ALIASES)和分類規則合併的,
-// 純文字看不出來,所以這裡用關鍵字補上,結果才會跟有總表時一致:
-//   雷雕   —— 不管是什麼商品、什麼尺寸,撿完都送去同一個雷雕站,一律同一組
-//   精油組 —— 禮盒版寫「+精油禮盒」、一般版寫「繽紛好運精油組」,是同一個實體商品
-// 賣場上架新的同義寫法時補進這個表。
-const PDF_ALIAS_RULES = [
-  { test: /雷雕|刻印/, label: "雷雕客製刻印(不分商品/尺寸)", keepSize: false },
-  { test: /繽紛好運精油組|精油禮盒/, label: "精油組", keepSize: true },
-];
-
-function extractSizeTag(s) {
-  const m = s.match(/[(（]\s*(小|中|大)\s*[)）]/);
-  return m ? m[1] : "";
-}
-
-// pdf.js 給的是「繪製順序」,不是閱讀順序 —— 這份託運單會把欄位標籤一次畫完
-// (品名、備註、代收款…),數值另外畫,所以直接在文字流裡找「備註」後面接到的
-// 會是別欄的字。要照座標把同一列的片段重新拼回去(pdfplumber 就是這樣做的),
-// 標籤才會跟它自己的值配在一起。
 function buildPageLines(items) {
   calibrateFonts(items);
   const rows = new Map();
@@ -271,73 +231,6 @@ function buildPageLines(items) {
   return Array.from(rows)
     .sort((a, b) => b[0] - a[0])                       // 由上而下
     .map(pair => pair[1].sort((a, b) => a.x - b.x).map(o => o.s).join(""));
-}
-
-// 從重建好的行裡挖備註:找到含「備註」的那一行,取標籤後面的字,
-// 備註太長會折到下一行,所以往下接到看見「x數量」為止。
-function extractNoteFromLines(lines) {
-  for (let i = 0; i < lines.length; i++) {
-    const idx = lines[i].indexOf("備註");
-    if (idx < 0) continue;
-    // 標籤後面那個冒號有時是沒被解出來的字,所以不用冒號當依據,直接跳過標籤
-    let buf = lines[i].slice(idx + 2);
-    for (let k = i + 1; k < Math.min(i + 4, lines.length); k++) {
-      if (new RegExp(NOTE_STOP).test(buf)) break;
-      buf += lines[k];
-    }
-    const m = buf.replace(/\s+/g, "").match(new RegExp("^([\\s\\S]*?)" + NOTE_STOP));
-    return m ? m[1] : buf.replace(/\s+/g, "").slice(0, 60);
-  }
-  return "";
-}
-
-// 正規化:PDF 會在字中間插空白(「加 購」),全部拿掉;全形標點統一;
-// 加購選項不影響要撿哪個貨(同一個顏色不該因為加購不同被拆成好幾組),先濾掉
-function normalizeNote(s) {
-  let t = String(s).replace(/\s+/g, "")
-    .replace(/：/g, ":").replace(/，/g, ",").replace(/、/g, ",");
-  t = t.replace(/^[:,.\-–—\s]+/, "");     // 標籤後面那個冒號會跟著被切進來
-  t = t.replace(/\+?加購[^:]{0,6}:[^,]*/g, "");
-  return t.replace(/[,.\-–—]+$/, "").trim();
-}
-
-// 細分組 key:完整備註(同品項不同顏色/規格會各自一組)
-function noteKeyFine(note) { return note; }
-
-// 粗分組 key:只留品項名,再補上兩個「撿貨一定要分開」的差異:
-//   星座 —— 同一個星座才算同一組(星座可能寫在品名裡,也可能在「星座:」欄位)
-//   金運/招福 —— 是不同的公仔,實體長得不一樣,不能混撿
-function noteKeyCoarse(note) {
-  // 先看有沒有命中「靠商品編號合併」的那幾組(雷雕、精油組),有的話直接用固定名稱,
-  // 不再往下接星座/金運招福 —— 有訂單總表時這幾組本來就不分那些
-  for (let i = 0; i < PDF_ALIAS_RULES.length; i++) {
-    const rule = PDF_ALIAS_RULES[i];
-    if (!rule.test.test(note)) continue;
-    const size = rule.keepSize ? extractSizeTag(note) : "";
-    return size ? rule.label + "(" + size + ")" : rule.label;
-  }
-
-  const m = note.match(NOTE_FIELDS);
-  let base = (m ? note.slice(0, m.index) : note).replace(/[,.\-–—+]+$/, "").trim();
-  if (!base) base = note;
-
-  const mz = note.match(/星座:([一-鿿]{2})座?/);
-  if (mz && ZODIAC_NAMES.indexOf(mz[1]) >= 0) {
-    const z = mz[1] + "座";
-    if (base.indexOf(z) < 0) base = z + base;
-  }
-
-  const styles = ["金運", "招福"];
-  for (let i = 0; i < styles.length; i++) {
-    const st = styles[i];
-    const hit = new RegExp("(?:規格|款式)[^,]*" + st).test(note) ||
-                new RegExp("[【\\[]" + st).test(note);
-    if (hit) {
-      if (base.indexOf(st) < 0) base = base + "-" + st;
-      break;
-    }
-  }
-  return base;
 }
 
 async function handleZonedPdf(file) {
@@ -359,11 +252,7 @@ async function handleZonedPdf(file) {
       const text = decodePageText(tc.items);
       const lines = buildPageLines(tc.items);
       const orderId = extractOrderIdFromLines(lines, text);
-      const note = normalizeNote(extractNoteFromLines(lines));
-      zonedPdfPages.push({
-        index: i - 1, orderId: orderId, trackNo: extractTrackNo(text),
-        note: note, keyCoarse: noteKeyCoarse(note), keyFine: noteKeyFine(note),
-      });
+      zonedPdfPages.push({ index: i - 1, orderId: orderId, trackNo: extractTrackNo(text) });
       if (orderId) {
         if (!zonedPdfByOrder.has(orderId)) zonedPdfByOrder.set(orderId, []);
         zonedPdfByOrder.get(orderId).push(i - 1);
@@ -380,13 +269,10 @@ async function handleZonedPdf(file) {
     const noId = zonedPdfPages.filter(p => !p.orderId).length;
     let msg = "✓ 已讀取 " + zonedPdfPages.length + " 頁託運單";
     if (noId > 0) msg += ",其中 " + noId + " 頁抓不到訂單編號";
-    // 沒載訂單總表時改用託運單自己的「備註」分組,不是分不了組
+    // 分組要靠訂單總表裡的品項,PDF 上只有訂單編號,兩個都要才分得出來
     if (!zonedHasOrders()) {
-      const noNote = zonedPdfPages.filter(p => !p.note).length;
-      const n = zonedPdfBuildNoteGroups().own.length;
-      let m2 = msg + " · 用託運單的備註分成 " + n + " 組";
-      if (noNote > 0) m2 += "(" + noNote + " 頁抓不到備註)";
-      setStatus("zonedStatus", noNote > 0 ? "warn" : "success", m2);
+      setStatus("zonedStatus", "warn",
+        msg + " —— 還缺 LINE 訂單總表,兩個都選了才會分組。");
     } else {
       setStatus("zonedStatus", noId > 0 ? "warn" : "success", msg);
     }
@@ -482,7 +368,10 @@ async function downloadZonedGroupPdf(kind, idx) {
 // 目前清單上每一組各出一個 PDF 檔;瀏覽器對「連續觸發下載」很敏感,所以中間留間隔
 async function downloadAllZonedPdfs() {
   if (!zonedPdfReady()) { setStatus("zonedStatus", "warn", "請先選擇黑貓託運單 PDF"); return; }
-  if (!zonedHasOrders()) { return downloadAllNoteGroupPdfs(); }
+  if (!zonedHasOrders()) {
+    setStatus("zonedStatus", "warn", "還缺 LINE 訂單總表 —— 兩個都選了才會分組");
+    return;
+  }
 
   const jobs = [];
   (zonedGroupsCache || []).forEach(g => jobs.push({ label: g.label, rows: g.rows }));
@@ -554,7 +443,19 @@ function renderZonedPdfSummary() {
   const matched = zonedPdfPages.filter(p => p.orderId && known.has(p.orderId)).length;
   const unmatched = zonedPdfPages.length - matched;
 
-  if (!zonedHasOrders()) { renderZonedPdfOnly(el); return; }
+  if (!zonedHasOrders()) {
+    el.innerHTML =
+      '<div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 12px;">' +
+        '<div class="stat-card orange">' +
+          '<div class="stat-label">還缺 LINE 訂單總表</div>' +
+          '<div><span class="stat-number">' + zonedPdfPages.length +
+            '</span><span class="stat-unit">頁託運單已讀取</span></div>' +
+          '<div class="stat-sub">分組要靠訂單總表裡的品項(商品編號、別名、尺寸那些規則),' +
+            'PDF 上只有訂單編號。請在最上面補選當天的 LINE 訂單總表,這裡就會自動分好。</div>' +
+        '</div>' +
+      '</div>';
+    return;
+  }
 
   const extras = zonedPdfExtraBuckets().map((b, i) =>
     '<button class="btn btn-secondary btn-small" onclick="downloadZonedExtraPdf(' + i + ')">⬇ ' +
@@ -583,155 +484,6 @@ function renderZonedPdfSummary() {
       'title="清單上每一組各出一個 PDF 檔">▶ 全部下載託運單(每組一檔)</button>' +
       extras +
     '</div>';
-}
-
-// ===================================================================
-// 只有 PDF 時的分組清單(沒有訂單總表)
-// ===================================================================
-let zonedPdfNoteMode = "coarse";   // coarse=只到品項名 / fine=含顏色規格
-
-function setZonedNoteMode(mode) {
-  zonedPdfNoteMode = mode === "fine" ? "fine" : "coarse";
-  renderZonedPdfSummary();
-}
-
-// 依備註分組。跟訂單總表那條路一樣套「合併門檻」:
-// 數量沒超過門檻的品項全部併成一份「其他合併」,不然一天會印出一堆只有一頁的檔。
-function zonedPdfBuildNoteGroups() {
-  const threshold = getZonedOptions().threshold;
-  const map = new Map();
-  zonedPdfPages.forEach(p => {
-    const key = (zonedPdfNoteMode === "fine" ? p.keyFine : p.keyCoarse) || "(沒有備註)";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(p.index);
-  });
-
-  const own = [];
-  let mergedPages = [];
-  Array.from(map).forEach(([label, pages]) => {
-    if (pages.length > threshold) own.push({ label: label, pages: pages });
-    else mergedPages = mergedPages.concat(pages.map(x => ({ label: label, page: x })));
-  });
-
-  own.sort((a, b) => b.pages.length - a.pages.length || a.label.localeCompare(b.label));
-  // 併單裡面同品項的頁還是要排在一起,撿貨才不用在一疊裡跳來跳去
-  mergedPages.sort((a, b) => a.label.localeCompare(b.label) || a.page - b.page);
-
-  return {
-    own: own,
-    mergedPages: mergedPages.map(x => x.page),
-    threshold: threshold,
-    distinct: map.size,
-  };
-}
-
-function renderZonedPdfOnly(el) {
-  const g = zonedPdfBuildNoteGroups();
-  const noNote = zonedPdfPages.filter(p => !p.note).length;
-
-  const rows = g.own.map((grp, i) =>
-    '<div class="problem-item">' +
-      '<div class="problem-item-main">' +
-        '<div class="problem-item-row1"><span class="pi-id">' + escapeHtml(grp.label) + '</span></div>' +
-        '<div style="font-size: 13px; color: var(--text); font-weight: 600; margin-top: 4px;">' +
-          grp.pages.length + ' 頁託運單</div>' +
-      '</div>' +
-      '<button class="btn btn-lavender btn-small" onclick="downloadNoteGroupPdf(' + i + ')">⬇ 託運單</button>' +
-    '</div>').join("");
-
-  const mergedRow = g.mergedPages.length === 0 ? "" :
-    '<div class="problem-item">' +
-      '<div class="problem-item-main">' +
-        '<div class="problem-item-row1"><span class="pi-id">其他合併</span></div>' +
-        '<div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">' +
-          g.mergedPages.length + ' 頁 · 數量沒超過門檻(' + g.threshold + ')的品項,同品項的頁會排在一起</div>' +
-      '</div>' +
-      '<button class="btn btn-lavender btn-small" onclick="downloadNoteMergedPdf()">⬇ 託運單</button>' +
-    '</div>';
-
-  const modeBtn = (mode, text) =>
-    '<button class="btn ' + (zonedPdfNoteMode === mode ? "btn-primary" : "btn-secondary") +
-    ' btn-small" onclick="setZonedNoteMode(\'' + mode + '\')">' + text + '</button>';
-
-  el.innerHTML =
-    '<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 12px;">' +
-      '<div class="stat-card lavender">' +
-        '<div class="stat-label">託運單頁數</div>' +
-        '<div><span class="stat-number">' + zonedPdfPages.length + '</span><span class="stat-unit">頁</span></div>' +
-        '<div class="stat-sub">' + escapeHtml(zonedPdfName) + '</div>' +
-      '</div>' +
-      '<div class="stat-card green">' +
-        '<div class="stat-label">分出品項</div>' +
-        '<div><span class="stat-number">' + g.distinct + '</span><span class="stat-unit">組</span></div>' +
-        '<div class="stat-sub">其中 ' + g.own.length + ' 組超過門檻各自出檔' +
-          (g.mergedPages.length > 0 ? ",其餘併成 1 檔" : "") +
-          ';門檻設 1 就每組都獨立</div>' +
-      '</div>' +
-      '<div class="stat-card ' + (noNote > 0 ? "orange" : "gray") + '">' +
-        '<div class="stat-label">抓不到備註</div>' +
-        '<div><span class="stat-number">' + noNote + '</span><span class="stat-unit">頁</span></div>' +
-        '<div class="stat-sub">會併進「其他合併」,不會漏掉</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="stats-header">' +
-      '<span class="stats-title">依備註分組(沒載訂單總表時)</span>' +
-      '<span style="margin-left: auto; display: flex; gap: 6px;">' +
-        modeBtn("coarse", "依品項") + modeBtn("fine", "依品項+顏色") +
-      '</span>' +
-      '<button class="btn btn-lavender btn-small" onclick="downloadAllNoteGroupPdfs()">⬇ 全部下載</button>' +
-    '</div>' +
-    '<p class="hint" style="margin: 0 0 10px;">' +
-      '沒有訂單總表時,改用託運單上印的「備註」(品項描述)分組。' +
-      '載入 LINE 訂單總表會自動改走原本那條路,能多用到商品編號、別名、尺寸那些規則,分得更準。' +
-    '</p>' +
-    '<div class="problem-list">' + rows + mergedRow + '</div>';
-}
-
-async function downloadNoteGroupPdf(i) {
-  const g = zonedPdfBuildNoteGroups();
-  const grp = g.own[i];
-  if (!grp) return;
-  try {
-    await savePagesAsPdf(grp.pages, "託運單_" + sanitizeFilenamePart(grp.label) + ".pdf");
-    setStatus("zonedStatus", "success", "✓ 已下載「" + grp.label + "」" + grp.pages.length + " 頁");
-  } catch (e) {
-    setStatus("zonedStatus", "error", "✗ 下載失敗:" + e.message);
-    console.error(e);
-  }
-}
-
-async function downloadNoteMergedPdf() {
-  const g = zonedPdfBuildNoteGroups();
-  if (g.mergedPages.length === 0) return;
-  try {
-    await savePagesAsPdf(g.mergedPages, "託運單_其他合併.pdf");
-    setStatus("zonedStatus", "success", "✓ 已下載「其他合併」" + g.mergedPages.length + " 頁");
-  } catch (e) {
-    setStatus("zonedStatus", "error", "✗ 下載失敗:" + e.message);
-    console.error(e);
-  }
-}
-
-async function downloadAllNoteGroupPdfs() {
-  const g = zonedPdfBuildNoteGroups();
-  const jobs = g.own.slice();
-  if (g.mergedPages.length > 0) jobs.push({ label: "其他合併", pages: g.mergedPages });
-  if (jobs.length === 0) { setStatus("zonedStatus", "warn", "目前沒有可下載的組別"); return; }
-
-  let files = 0, pageTotal = 0;
-  try {
-    for (const job of jobs) {
-      await savePagesAsPdf(job.pages, "託運單_" + sanitizeFilenamePart(job.label) + ".pdf");
-      files++;
-      pageTotal += job.pages.length;
-      await new Promise(res => setTimeout(res, 300));
-    }
-    setStatus("zonedStatus", "success",
-      "✓ 已下載 " + files + " 個託運單 PDF,共 " + pageTotal + " 頁");
-  } catch (e) {
-    setStatus("zonedStatus", "error", "✗ 批次下載失敗:" + e.message);
-    console.error(e);
-  }
 }
 
 async function downloadZonedExtraPdf(i) {
