@@ -26,6 +26,7 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
 | Apps Script `/exec` 網址 | Cloudflare Pages 專案的環境變數 `GS_URL`(沒設就用 `functions/api.js` 裡的預設值) |
 | 各試算表「點字卡開啟」的網址 | 寫死在 `sheet-sync.js` 的 `SHEET_URLS`,不再開放設定 |
 | 深色/淺色偏好 | 瀏覽器 `localStorage`(`niyan_theme`,⚙ 設定裡切換) |
+| Logo | 內嵌在 `index.html` 的 SVG(從 `LOGO.png` 描出來的向量版),漸層吃 `--logo-1`/`--logo-2` 兩個變數。扳手是 `fill-rule="evenodd"` 的鏤空,所以深淺兩種模式都不用換圖。`LOGO.png` 留著當原始素材,頁面已經沒在用了 |
 | 試算表 ID | `Code.gs` 裡的 `SHEETS` |
 
 ---
