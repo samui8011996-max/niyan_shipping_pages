@@ -240,6 +240,21 @@ const NOTE_FIELDS = new RegExp(
 const ZODIAC_NAMES = ["牡羊", "金牛", "雙子", "巨蟹", "獅子", "處女",
                       "天秤", "天蠍", "射手", "摩羯", "水瓶", "雙魚"];
 
+// 有訂單總表時,這幾組是靠商品編號(CODE_ALIASES)和分類規則合併的,
+// 純文字看不出來,所以這裡用關鍵字補上,結果才會跟有總表時一致:
+//   雷雕   —— 不管是什麼商品、什麼尺寸,撿完都送去同一個雷雕站,一律同一組
+//   精油組 —— 禮盒版寫「+精油禮盒」、一般版寫「繽紛好運精油組」,是同一個實體商品
+// 賣場上架新的同義寫法時補進這個表。
+const PDF_ALIAS_RULES = [
+  { test: /雷雕|刻印/, label: "雷雕客製刻印(不分商品/尺寸)", keepSize: false },
+  { test: /繽紛好運精油組|精油禮盒/, label: "精油組", keepSize: true },
+];
+
+function extractSizeTag(s) {
+  const m = s.match(/[(（]\s*(小|中|大)\s*[)）]/);
+  return m ? m[1] : "";
+}
+
 // pdf.js 給的是「繪製順序」,不是閱讀順序 —— 這份託運單會把欄位標籤一次畫完
 // (品名、備註、代收款…),數值另外畫,所以直接在文字流裡找「備註」後面接到的
 // 會是別欄的字。要照座標把同一列的片段重新拼回去(pdfplumber 就是這樣做的),
@@ -293,6 +308,15 @@ function noteKeyFine(note) { return note; }
 //   星座 —— 同一個星座才算同一組(星座可能寫在品名裡,也可能在「星座:」欄位)
 //   金運/招福 —— 是不同的公仔,實體長得不一樣,不能混撿
 function noteKeyCoarse(note) {
+  // 先看有沒有命中「靠商品編號合併」的那幾組(雷雕、精油組),有的話直接用固定名稱,
+  // 不再往下接星座/金運招福 —— 有訂單總表時這幾組本來就不分那些
+  for (let i = 0; i < PDF_ALIAS_RULES.length; i++) {
+    const rule = PDF_ALIAS_RULES[i];
+    if (!rule.test.test(note)) continue;
+    const size = rule.keepSize ? extractSizeTag(note) : "";
+    return size ? rule.label + "(" + size + ")" : rule.label;
+  }
+
   const m = note.match(NOTE_FIELDS);
   let base = (m ? note.slice(0, m.index) : note).replace(/[,.\-–—+]+$/, "").trim();
   if (!base) base = note;
