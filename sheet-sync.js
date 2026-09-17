@@ -1,63 +1,29 @@
 // ===================================================================
-// 試算表網址(從 localStorage 讀;沒設定過就退回下方寫死的預設網址)
+// 試算表網址(全部寫死,不再開放設定/不再存 localStorage)
+// 這些只是給統計字卡「點擊 → 開啟試算表」用的,實際寫入是後端 Apps Script 在做。
+// 問題訂單 2026-09-17 起改存 D1,所以這裡已經沒有它了。
 // ===================================================================
-const SHEET_URL_KEYS = {
-  "雷雕":       "niyan_sheet_url_laser",
-  "黑熊":       "niyan_sheet_url_bear",
-  "注意品項":   "niyan_sheet_url_notice",
-  "盆景公仔組": "niyan_sheet_url_bonsai",
-  "離島•郵局":  "niyan_sheet_url_offshore",
-  "問題訂單":   "niyan_sheet_url_problem",
-  "包裹退貨":   "niyan_sheet_url_returns",
-};
-
-// 寫死的預設試算表網址,對應 gs 後端 SHEETS 設定裡的 spreadsheetId
-const DEFAULT_SHEET_URLS = {
+const SHEET_URLS = {
   "雷雕":       "https://docs.google.com/spreadsheets/d/1yWvDnbI9w1ukexlaZWNAOyPHUS7JKMgGIDPV83wlSQ8/edit",
   "黑熊":       "https://docs.google.com/spreadsheets/d/1SVuzdacjbJrX82pIRkkdB7B1kD3pF9nggkynzxzUTII/edit",
   "永生花":     "https://docs.google.com/spreadsheets/d/1ihfosKQwK8B9IA1768tHEACykPxHuTgzqd26kkA2YwM/edit",
   "注意品項":   "https://docs.google.com/spreadsheets/d/1dPGbWNIcslooHOkYtwIPc-moh88z1UR0aA1gTwZ-prU/edit",
   "盆景公仔組": "https://docs.google.com/spreadsheets/d/1hhx_HqK9m9XUxKQlGXcRYdY20Qpfg_zN9vTJW1U44Ts/edit",
   "離島•郵局":  OFFSHORE_SHEET_URL,
-  "問題訂單":   "https://docs.google.com/spreadsheets/d/1lbEXKYvUzFljxdZmBdg1K0GzOahbnBH39bbANMZ34d4/edit",
   "包裹退貨":   "https://docs.google.com/spreadsheets/d/1bMPA6GQ-tVaju85BFm9ETHOuG6hfGjPQfsDLtTWcEnk/edit",
 };
 
 function getSheetUrl(category) {
-  const key = SHEET_URL_KEYS[category];
-  const stored = key ? (localStorage.getItem(key) || "") : "";
-  if (stored) return stored;
-  return DEFAULT_SHEET_URLS[category] || "";
+  return SHEET_URLS[category] || "";
 }
 
 function openSheet(category) {
   const url = getSheetUrl(category);
-  if (url) {
-    window.open(url, "_blank");
-  } else {
-    setStatus("status", "warn", `⚠ 尚未設定「${category}」試算表網址,請先點「⚙ 設定」`);
-    openSettings();
-  }
-}
-
-function openProblemSheet() {
-  const url = getSheetUrl("問題訂單");
-  if (url) {
-    window.open(url, "_blank");
-  } else {
-    setStatus("status", "warn", "⚠ 尚未設定「問題訂單」試算表網址,請先點「⚙ 設定」");
-    openSettings();
-  }
+  if (url) window.open(url, "_blank");
 }
 
 function openReturnsSheet() {
-  const url = getSheetUrl("包裹退貨");
-  if (url) {
-    window.open(url, "_blank");
-  } else {
-    setStatus("returnStatus", "warn", "⚠ 尚未設定「包裹退貨」試算表網址,請先點「⚙ 設定」");
-    openSettings();
-  }
+  openSheet("包裹退貨");
 }
 
 // 點「未結案退貨」字卡 → 切到未結案篩選籤,並捲動到清單
@@ -68,47 +34,55 @@ function filterReturnsToOpen() {
   document.getElementById("returnList")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// 點「問題訂單」字卡 → 捲到下面的清單(以前是開試算表,現在資料在 D1)
+function scrollToProblemList() {
+  switchTab("problems");
+  document.getElementById("problemList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // ===================================================================
-// 設定
+// 深/淺色模式
 // ===================================================================
-// 後端改成同站的 Cloudflare Pages Function(functions/api.js):
-// 包貨字卡同步直接寫 D1,寫廠商試算表的部分由它轉送 Apps Script。
-// 前端不再需要知道 Apps Script 網址(要換部署網址改 Cloudflare 的 GS_URL 環境變數就好)。
+// 只存在這台瀏覽器(localStorage),預設深色。
+// 真正套用主題的那行在 index.html <head> 裡,要在畫面畫出來之前跑,不然會閃一下白底。
+const THEME_KEY = "niyan_theme";
+
+function getTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  } catch (_) {
+    return "dark";
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+}
+
+function setTheme(theme) {
+  const t = theme === "light" ? "light" : "dark";
+  applyTheme(t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (_) { /* 無痕模式寫不進去就算了 */ }
+  syncThemeButtons();
+}
+
+function syncThemeButtons() {
+  const cur = getTheme();
+  document.querySelectorAll("[data-theme-choice]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-theme-choice") === cur);
+  });
+}
+
+// ===================================================================
+// 設定(現在只剩外觀)
+// ===================================================================
 const GS_URL = "/api";
 
 function openSettings() {
-  for (const cat of Object.keys(SHEET_URL_KEYS)) {
-    const el = document.getElementById("sheetUrl_" + cat);
-    if (el) el.value = getSheetUrl(cat);
-  }
+  syncThemeButtons();
   document.getElementById("settingsModal").classList.add("show");
 }
 function closeSettings() { document.getElementById("settingsModal").classList.remove("show"); }
-
-function saveSettings() {
-  // 驗證每個試算表網址(允許留空)
-  for (const cat of Object.keys(SHEET_URL_KEYS)) {
-    const el = document.getElementById("sheetUrl_" + cat);
-    if (!el) continue;
-    const v = el.value.trim();
-    if (v && !v.startsWith("https://docs.google.com/spreadsheets/")) {
-      setStatus("status", "error", `✗「${cat}」網址格式不正確,應以 https://docs.google.com/spreadsheets/ 開頭`);
-      return;
-    }
-  }
-
-  // 通過驗證,寫入
-  for (const [cat, storageKey] of Object.entries(SHEET_URL_KEYS)) {
-    const el = document.getElementById("sheetUrl_" + cat);
-    if (!el) continue;
-    const v = el.value.trim();
-    if (v) localStorage.setItem(storageKey, v);
-    else localStorage.removeItem(storageKey);
-  }
-
-  setStatus("status", "success", "✓ 設定已儲存");
-  closeSettings();
-}
 
 function getGsUrl() { return GS_URL; }
 

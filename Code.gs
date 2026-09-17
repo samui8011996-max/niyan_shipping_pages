@@ -15,9 +15,9 @@
  *
  * 支援動作:
  *   body.action === "append"            → 分類訂單寫入(雷雕/黑熊/永生花/注意品項/盆景公仔組/離島•郵局)
- *   body.action === "addProblem"        → 新增/更新問題訂單
- *   body.action === "getProblems"       → 讀所有問題訂單
- *   body.action === "removeProblem"     → 移除問題訂單(rowIndex + orderId 雙重確認)
+ *   body.action === "addProblem"        → 【已停用】問題訂單 2026-09-17 起改存 D1,前端不再呼叫
+ *   body.action === "getProblems"       → 【已停用】同上
+ *   body.action === "removeProblem"     → 【已停用】同上
  *   body.action === "addReturn"         → 新增/更新包裹退貨紀錄(依平台 + 訂單編號 upsert)
  *   body.action === "getReturns"        → 讀所有包裹退貨紀錄(依平台分組)
  *   body.action === "removeReturn"      → 移除包裹退貨紀錄(rowIndex + orderId 雙重確認)
@@ -178,7 +178,10 @@ function handleAppend(body) {
 }
 
 // =============================================================
-// 2. 問題訂單
+// 2. 問題訂單【已停用】
+// 2026-09-17 起問題訂單改存 Cloudflare D1(shipping_problems),
+// 前端不會再送 addProblem/getProblems/removeProblem 過來。
+// 這段程式碼留著只是為了舊試算表還能被手動開啟查看,可以放心無視。
 // =============================================================
 function ensureProblemsSheet() {
   const ss = SpreadsheetApp.openById(PROBLEM_SHEET_ID);

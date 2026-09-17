@@ -1,15 +1,12 @@
 // ===================================================================
 // 問題訂單(Tab 3)
+// 2026-09-17 起改存 D1(shipping_problems),不再寫 Google 試算表。
+// 後端是同站的 /api,所以不會再有「網址沒設定」的情況。
 // ===================================================================
-let problemListCache = [];   // [{rowIndex, createdAt, orderId, type, note}]
+let problemListCache = [];   // [{id, createdAt, orderId, type, note}]
 
 function submitProblem() {
   const url = getGsUrl();
-  if (!url) {
-    setStatus("problemStatus", "warn", "⚠ 尚未設定 Apps Script 網址,請先點右上「⚙ 設定」");
-    openSettings();
-    return;
-  }
 
   const orderId = document.getElementById("problemOrderId").value.trim();
   if (!orderId) {
@@ -65,13 +62,6 @@ function clearProblemForm() {
 
 function loadProblems() {
   const url = getGsUrl();
-  if (!url) {
-    document.getElementById("problemListHint").textContent = "尚未設定 Apps Script 網址";
-    document.getElementById("problemList").innerHTML =
-      `<div class="problem-empty">請先點右上「⚙ 設定」設定網址。</div>`;
-    return;
-  }
-
   document.getElementById("problemListHint").textContent = "載入中…";
 
   fetch(url, {
@@ -111,8 +101,8 @@ function renderProblemList() {
 
   hint.textContent = `共 ${list.length} 筆`;
 
-  // 由新到舊排序(rowIndex 越大代表越新加)
-  const sorted = list.slice().sort((a, b) => b.rowIndex - a.rowIndex);
+  // 由新到舊排序(id 越大代表越新加)
+  const sorted = list.slice().sort((a, b) => b.id - a.id);
 
   container.innerHTML = sorted.map(p => {
     const safeId = escapeHtml(p.orderId);
@@ -123,7 +113,7 @@ function renderProblemList() {
       ? `<div class="pi-note">${safeNote}</div>`
       : "";
     return `
-      <div class="problem-item" data-row="${p.rowIndex}" data-id="${safeId}">
+      <div class="problem-item" data-pid="${p.id}" data-id="${safeId}">
         <div class="problem-item-main">
           <div class="problem-item-row1">
             <span class="pi-id">${safeId}</span>
@@ -132,7 +122,7 @@ function renderProblemList() {
           </div>
           ${noteHtml}
         </div>
-        <button class="pi-resolve" onclick="resolveProblem(${p.rowIndex}, '${safeId.replace(/'/g, "\\'")}', this)">
+        <button class="pi-resolve" onclick="resolveProblem(${p.id}, '${safeId.replace(/'/g, "\\'")}', this)">
           🗑 刪除
         </button>
       </div>
@@ -140,13 +130,9 @@ function renderProblemList() {
   }).join("");
 }
 
-function resolveProblem(rowIndex, orderId, btn) {
+function resolveProblem(id, orderId, btn) {
   const url = getGsUrl();
-  if (!url) {
-    setStatus("problemStatus", "warn", "⚠ 尚未設定 Apps Script 網址");
-    return;
-  }
-  if (!confirm(`確定要刪除問題訂單 ${orderId} ?(會從試算表移除)`)) return;
+  if (!confirm(`確定要刪除問題訂單 ${orderId} ?`)) return;
 
   if (btn) {
     btn.disabled = true;
@@ -157,7 +143,7 @@ function resolveProblem(rowIndex, orderId, btn) {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "removeProblem", rowIndex, orderId }),
+    body: JSON.stringify({ action: "removeProblem", id, orderId }),
   })
     .then(r => r.json())
     .then(data => {
@@ -182,7 +168,7 @@ function checkProblemOrdersAgainstLoaded() {
 
   // 若清單還沒載過,先靜默載一次再比對
   const url = getGsUrl();
-  if (problemListCache.length === 0 && url) {
+  if (problemListCache.length === 0) {
     fetch(url, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },

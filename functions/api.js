@@ -5,7 +5,8 @@
  * 分工：
  *   1. 「包貨字卡」同步（Line禮物 / 離島•郵局 的平台件數）→ 這裡直接寫 D1 niyan-db，
  *      不再繞 Apps Script 的 UrlFetchApp，省掉一趟跨專案往返。
- *   2. 「寫廠商試算表」（雷雕/黑熊/永生花/注意品項/盆景公仔組/離島包裹/問題訂單/包裹退貨）
+ *   2. 「問題訂單」→ 也直接讀寫 D1（shipping_problems），2026-09-17 起不再用試算表。
+ *   3. 「寫廠商試算表」（雷雕/黑熊/永生花/注意品項/盆景公仔組/離島包裹/包裹退貨）
  *      → 原封不動轉送給現有的 Apps Script，同事看的試算表完全不受影響。
  *
  * D1 綁定名稱：DB（wrangler.toml 的 [[d1_databases]]，Pages Git 部署會自動綁）
@@ -47,7 +48,11 @@ export async function onRequestPost(context) {
       case 'uploadLineRegular': return await handleUploadLineRegular(env, body);
       // 分類訂單 → 廠商試算表（Apps Script），離島那批順便填包貨「離島•郵局(郵局)」字卡
       case 'append':            return await handleAppend(env, body);
-      // 問題訂單 / 包裹退貨：全部是試算表的事，原樣轉送
+      // 問題訂單：純 D1，不碰試算表
+      case 'addProblem':        return await handleAddProblem(env, body);
+      case 'getProblems':       return await handleGetProblems(env);
+      case 'removeProblem':     return await handleRemoveProblem(env, body);
+      // 包裹退貨：還是試算表的事，原樣轉送
       default:                  return json(await callGas(env, body));
     }
   } catch (err) {
@@ -69,6 +74,10 @@ const todayTw = () => tw(10);            // yyyy-MM-dd
 let _seq = 0;
 function newId(prefix) {
   return prefix + Date.now() + ((_seq++ % 1000) * 1000 + Math.floor(Math.random() * 1000));
+}
+function requireDb(env) {
+  if (!env || !env.DB) throw new Error('D1 尚未綁定(DB)');
+  return env.DB;
 }
 function jparse(v) {
   if (typeof v === 'string' && v) { try { return JSON.parse(v); } catch (_) { return []; } }
@@ -128,6 +137,72 @@ async function handleUploadLineRegular(env, body) {
     日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: count,
   });
   return json({ ok: true, updated: !!r.updated, total: r.total || 0 });
+}
+
+/* ---------- 問題訂單（D1 shipping_problems）---------- */
+// 同一張訂單只會有一筆問題紀錄：訂單編號已存在就更新，不新增重複列
+// （沿用舊試算表版 handleAddProblem 的行為，前端流程不用改）
+async function handleAddProblem(env, body) {
+  const p = body.problem || {};
+  const orderId = String(p.orderId || '').trim();
+  const type = String(p.type || p.action || '').trim() || '其他';
+  const note = String(p.note || '').trim();
+  if (!orderId) return json({ ok: false, error: '缺少訂單編號' });
+
+  const DB = requireDb(env);
+  const stamp = tw(16).replace(/-/g, '/');   // yyyy/MM/dd HH:mm，跟舊試算表同格式
+  const existing = await DB.prepare('SELECT id FROM shipping_problems WHERE "訂單編號"=? LIMIT 1')
+    .bind(orderId).first();
+
+  if (existing) {
+    await DB.prepare('UPDATE shipping_problems SET "問題類別"=?,"備註"=?,"建立時間"=? WHERE id=?')
+      .bind(type, note, stamp, existing.id).run();
+    return json({ ok: true, updated: true, id: existing.id });
+  }
+
+  const r = await DB.prepare(
+    'INSERT INTO shipping_problems ("訂單編號","問題類別","備註","建立時間") VALUES (?,?,?,?)'
+  ).bind(orderId, type, note, stamp).run();
+  return json({ ok: true, updated: false, id: (r.meta && r.meta.last_row_id) || null });
+}
+
+async function handleGetProblems(env) {
+  const DB = requireDb(env);
+  const rs = await DB.prepare(
+    'SELECT id,"訂單編號","問題類別","備註","建立時間" FROM shipping_problems ORDER BY id'
+  ).all();
+  const problems = (rs.results || []).map(r => ({
+    id: r.id,
+    orderId: String(r['訂單編號'] || ''),
+    type: String(r['問題類別'] || ''),
+    note: String(r['備註'] || ''),
+    createdAt: String(r['建立時間'] || ''),
+  }));
+  return json({ ok: true, problems });
+}
+
+// id 與訂單編號雙重確認後才刪，避免清單過期時刪錯一筆
+async function handleRemoveProblem(env, body) {
+  const DB = requireDb(env);
+  const id = parseInt(body.id, 10);
+  const orderId = String(body.orderId || '').trim();
+
+  if (Number.isFinite(id) && id > 0) {
+    const row = await DB.prepare('SELECT "訂單編號" FROM shipping_problems WHERE id=?').bind(id).first();
+    if (row && (!orderId || String(row['訂單編號']) === orderId)) {
+      await DB.prepare('DELETE FROM shipping_problems WHERE id=?').bind(id).run();
+      return json({ ok: true, deletedId: id });
+    }
+  }
+  if (orderId) {
+    const row = await DB.prepare('SELECT id FROM shipping_problems WHERE "訂單編號"=? LIMIT 1')
+      .bind(orderId).first();
+    if (row) {
+      await DB.prepare('DELETE FROM shipping_problems WHERE id=?').bind(row.id).run();
+      return json({ ok: true, deletedId: row.id });
+    }
+  }
+  return json({ ok: false, error: '找不到對應的問題訂單' });
 }
 
 /* ---------- 包貨系統 platform_orders 的 upsert ----------

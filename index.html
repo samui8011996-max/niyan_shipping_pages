@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // 主題要在畫面畫出來之前就套上,不然深色使用者每次進來會先閃一下白底
+  (function () {
+    try {
+      document.documentElement.setAttribute(
+        'data-theme', localStorage.getItem('niyan_theme') === 'light' ? 'light' : 'dark');
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 <title>出貨幫手 | 泥研製所</title>
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
@@ -28,6 +39,7 @@
     --accent-2: #a371f7;
     --accent-3: #4DD0E1;
     --accent-glow: rgba(247, 120, 186, 0.25);
+    --on-accent: #0a0d14;      /* 疊在 accent 底色上的字/勾勾 */
     --success: #3fb950;
     --warn: #d29922;
     --error: #f85149;
@@ -50,6 +62,45 @@
     --cat-lavender-text: #D1C4E9; --cat-lavender-num: #B39DDB;
   }
 
+  /* ===== 淺色模式:同一套紫粉,粉紫壓深一點才在淺底上看得清楚 ===== */
+  :root[data-theme="light"] {
+    --bg: #f7f3fa;
+    --bg-grad-1: #fbf7fc;
+    --bg-grad-2: #f3eef8;
+    --bg-card: #ffffff;
+    --bg-card-2: #faf6fc;
+    --bg-input: #ffffff;
+    --border: #e7dcee;
+    --text: #2a2233;
+    --text-dim: #6c6379;
+    --text-mute: #9b92a8;
+    --accent: #d4308c;
+    --accent-2: #7c4dd6;
+    --accent-3: #1a8ba0;
+    --accent-glow: rgba(212, 48, 140, 0.18);
+    --on-accent: #fffdfe;
+    --success: #1f7a33;
+    --warn: #9a6b00;
+    --error: #c0362b;
+
+    --cat-red-bg: #fdecec;     --cat-red-border: #c62828;
+    --cat-red-text: #8f1f1f;   --cat-red-num: #c62828;
+    --cat-yellow-bg: #fdf6dd;  --cat-yellow-border: #e0b400;
+    --cat-yellow-text: #7a5d00;--cat-yellow-num: #b98900;
+    --cat-green-bg: #e9f5ec;   --cat-green-border: #2E7D32;
+    --cat-green-text: #216127; --cat-green-num: #2E7D32;
+    --cat-cyan-bg: #e6f4f8;    --cat-cyan-border: #4DB6D3;
+    --cat-cyan-text: #175f72;  --cat-cyan-num: #1a8ba0;
+    --cat-gray-bg: #f0ecf3;    --cat-gray-border: #9a93a6;
+    --cat-gray-text: #5a5366;  --cat-gray-num: #6b6379;
+    --cat-pink-bg: #fdeaf4;    --cat-pink-border: #ec4899;
+    --cat-pink-text: #9c2b66;  --cat-pink-num: #d4308c;
+    --cat-orange-bg: #fdf0e3;  --cat-orange-border: #e08c1a;
+    --cat-orange-text: #8a5210;--cat-orange-num: #c2760f;
+    --cat-lavender-bg: #f1ecfb; --cat-lavender-border: #9575CD;
+    --cat-lavender-text: #4e3a86; --cat-lavender-num: #7c4dd6;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
@@ -67,6 +118,20 @@
       linear-gradient(180deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
     min-height: 100vh;
     padding: 40px 20px 60px;
+  }
+
+  :root[data-theme="light"] body {
+    background:
+      radial-gradient(ellipse at top left, rgba(124, 77, 214, 0.10), transparent 55%),
+      radial-gradient(ellipse at bottom right, rgba(212, 48, 140, 0.08), transparent 55%),
+      linear-gradient(180deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
+  }
+  /* 這兩顆按鈕的漸層是寫死的亮色,淺底上配白字太淡,壓深一階 */
+  :root[data-theme="light"] .btn-primary {
+    background: linear-gradient(135deg, #d4308c 0%, #b02a7a 100%);
+  }
+  :root[data-theme="light"] .btn-lavender {
+    background: linear-gradient(135deg, #7c4dd6 0%, #6a3fc0 100%);
   }
 
   .container { max-width: 1040px; margin: 0 auto; }
@@ -165,7 +230,7 @@
   .card-label .num {
     display: inline-block;
     background: var(--accent);
-    color: #0a0d14;
+    color: var(--on-accent);
     width: 18px; height: 18px;
     border-radius: 50%;
     text-align: center;
@@ -225,7 +290,7 @@
 
   .btn-primary {
     background: linear-gradient(135deg, var(--accent) 0%, #ff6bb5 100%);
-    color: #0a0d14;
+    color: var(--on-accent);
     padding: 13px 26px;
     font-size: 15px;
     font-weight: 700;
@@ -239,7 +304,7 @@
 
   .btn-lavender {
     background: linear-gradient(135deg, #9575CD 0%, #B39DDB 100%);
-    color: #0a0d14;
+    color: var(--on-accent);
     padding: 13px 26px;
     font-size: 15px;
     font-weight: 700;
@@ -308,7 +373,7 @@
 }
 .settings-link:hover {
   background: var(--accent);
-  color: #0a0d14;
+  color: var(--on-accent);
 }
 .settings-link:active {
   transform: translateY(0);
@@ -951,7 +1016,7 @@
     top: 1px;
     width: 4px;
     height: 8px;
-    border: solid #0a0d14;
+    border: solid var(--on-accent);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
   }
@@ -1005,6 +1070,49 @@
     .problem-item-btns .pi-edit,
     .problem-item-btns .pi-resolve { flex: 1; text-align: center; }
   }
+  /* ===== 設定面板裡的深/淺色切換 ===== */
+  .theme-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .theme-choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 12px;
+    background: var(--bg-input);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-dim);
+    transition: border-color .15s, color .15s, transform .15s;
+  }
+  .theme-choice:hover { transform: translateY(-2px); }
+  .theme-choice.active {
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .theme-swatch {
+    width: 100%;
+    height: 54px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  /* 兩塊預覽色一律寫死,才能同時看到深色和淺色長什麼樣 */
+  .theme-swatch.dark {
+    background: linear-gradient(135deg, #13081c 0%, #0a0d14 60%, #f778ba 160%);
+  }
+  .theme-swatch.light {
+    background: linear-gradient(135deg, #fbf7fc 0%, #f3eef8 60%, #d4308c 160%);
+  }
+  .theme-name { font-weight: 500; letter-spacing: .04em; }
+
 </style>
 </head>
 <body>
@@ -1222,10 +1330,10 @@
     <div id="tab-problems" class="tab-panel">
 
       <!-- 橘色統計字卡 -->
-      <div class="stat-card orange clickable" onclick="openProblemSheet()" title="點我開啟問題訂單試算表" style="margin-bottom: 14px;">
+      <div class="stat-card orange clickable" onclick="scrollToProblemList()" title="點我看下面的問題訂單清單" style="margin-bottom: 14px;">
         <div class="stat-label">問題訂單總數</div>
         <div><span id="stat-problem-total" class="stat-number">—</span><span class="stat-unit">筆</span></div>
-        <div class="stat-sub">點我 → 開啟試算表</div>
+        <div class="stat-sub">存在資料庫 · 點我 → 看清單</div>
       </div>
 
       <section class="card">
@@ -1271,7 +1379,7 @@
         </div>
       </section>
 
-      <div id="problemStatus" class="status">填寫後送出 → 自動上傳到 Google 試算表…</div>
+      <div id="problemStatus" class="status">填寫後送出 → 直接存進資料庫,全部裝置同步…</div>
 
       <div class="stats-header">
         <span class="stats-title">目前問題訂單清單</span>
@@ -1491,40 +1599,29 @@
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal-backdrop" onclick="if(event.target===this) closeSettings()">
     <div class="modal">
-      <h2>Google Sheet 上傳設定</h2>
+      <h2>外觀</h2>
       <p class="hint">
-        用 <code>Google Apps Script</code> 把訂單自動附加到對應 Google 試算表(給廠商看的)。<br>
-        所有設定只存在你這台瀏覽器(<code>localStorage</code>),不會送到任何地方,也不會跟著程式碼上傳。
+        深色 / 淺色只影響你這台瀏覽器(存在 <code>localStorage</code>),不會動到其他人的畫面。
       </p>
 
-      <p class="hint" style="margin-top: 0; margin-bottom: 6px;">
-        各分類試算表網址(讓字卡可以「點擊 → 開啟試算表」,留空則該字卡不可點開)
+      <div class="theme-choices">
+        <button type="button" class="theme-choice" data-theme-choice="dark" onclick="setTheme('dark')">
+          <span class="theme-swatch dark"></span>
+          <span class="theme-name">深色</span>
+        </button>
+        <button type="button" class="theme-choice" data-theme-choice="light" onclick="setTheme('light')">
+          <span class="theme-swatch light"></span>
+          <span class="theme-name">淺色</span>
+        </button>
+      </div>
+
+      <p class="hint" style="margin-top: 16px; margin-bottom: 0;">
+        各分類試算表的網址已經寫死在程式碼裡,不用再貼。<br>
+        問題訂單改存資料庫(D1),已經沒有對應的試算表了。
       </p>
-
-      <label>雷雕</label>
-      <input type="text" id="sheetUrl_雷雕" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>黑熊</label>
-      <input type="text" id="sheetUrl_黑熊" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>離島•郵局</label>
-      <input type="text" id="sheetUrl_離島•郵局" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>注意品項</label>
-      <input type="text" id="sheetUrl_注意品項" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>盆景公仔組</label>
-      <input type="text" id="sheetUrl_盆景公仔組" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>問題訂單試算表</label>
-      <input type="text" id="sheetUrl_問題訂單" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
-
-      <label>包裹退貨試算表</label>
-      <input type="text" id="sheetUrl_包裹退貨" placeholder="https://docs.google.com/spreadsheets/d/..../edit">
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
-        <button class="btn btn-primary" onclick="saveSettings()">儲存</button>
+        <button class="btn btn-primary" onclick="closeSettings()">關閉</button>
       </div>
     </div>
   </div>

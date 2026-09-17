@@ -11,6 +11,7 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
               ├─ 靜態前端 index.html + *.js
               └─ functions/api.js  ← 唯一的後端入口 /api
                     ├─ 填包貨字卡 ──────────► D1「niyan-db」platform_orders(直接寫,很快)
+                    ├─ 問題訂單 ────────────► D1「niyan-db」shipping_problems(直接寫,很快)
                     └─ 寫 Google 試算表 ────► Apps Script(Code.gs)──► 同事看的那幾張試算表
 ```
 
@@ -23,7 +24,8 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
 | 前端 + Pages Function | 這個 repo,推 `main` 自動部署 |
 | D1 資料庫 `niyan-db` | `wrangler.toml` 的 `[[d1_databases]]`,Pages Git 部署會自動綁,不用去後台設定 |
 | Apps Script `/exec` 網址 | Cloudflare Pages 專案的環境變數 `GS_URL`(沒設就用 `functions/api.js` 裡的預設值) |
-| 各試算表「點字卡開啟」的網址 | 瀏覽器 `localStorage`(⚙ 設定裡可改) |
+| 各試算表「點字卡開啟」的網址 | 寫死在 `sheet-sync.js` 的 `SHEET_URLS`,不再開放設定 |
+| 深色/淺色偏好 | 瀏覽器 `localStorage`(`niyan_theme`,⚙ 設定裡切換) |
 | 試算表 ID | `Code.gs` 裡的 `SHEETS` |
 
 ---
@@ -34,7 +36,7 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
 |---|---|---|
 | `uploadLineRegular` | Cloudflare(D1) | 一般訂單筆數累加進包貨系統當天「Line禮物(黑貓)」平台字卡 |
 | `append` | Apps Script + Cloudflare | 分類訂單寫進廠商試算表;離島那批再累加進「離島•郵局(郵局)」字卡 |
-| `addProblem` / `getProblems` / `removeProblem` | Apps Script | 問題訂單試算表 |
+| `addProblem` / `getProblems` / `removeProblem` | Cloudflare(D1) | 問題訂單(`shipping_problems`),2026-09-17 起不再用試算表 |
 | `addReturn` / `getReturns` / `removeReturn` | Apps Script | 包裹退貨試算表 |
 
 包貨字卡一律是**累加**不是覆蓋(同一天同平台已有紀錄就把件數加上去),
@@ -96,11 +98,8 @@ npx wrangler pages dev . --binding GS_URL=<測試用網址>
 日期  姓名  地址  電話  備注  訂單編號  數量  離島縣市
 ```
 
-問題訂單:
-
-```
-加入時間  訂單編號  問題類別  備註
-```
+問題訂單已經不在試算表了,改存 D1 的 `shipping_problems`(欄位見 `schema.sql`)。
+「訂單編號」是 UNIQUE —— 同一張單重送是更新那筆,不會產生第二筆。
 
 包裹退貨:同一張工作表裡橫向並排三個平台區塊(line禮物 A 欄起、蝦皮 J 欄起、mo P 欄起),
 **不能用整列刪除**,會把旁邊平台的資料錯位。
