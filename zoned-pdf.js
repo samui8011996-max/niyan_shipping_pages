@@ -97,7 +97,14 @@ async function handleZonedPdf(file) {
     const noId = zonedPdfPages.filter(p => !p.orderId).length;
     let msg = "✓ 已讀取 " + zonedPdfPages.length + " 頁託運單";
     if (noId > 0) msg += ",其中 " + noId + " 頁抓不到訂單編號";
-    setStatus("zonedStatus", noId > 0 ? "warn" : "success", msg);
+    // 分組資訊全部來自訂單總表(PDF 上只有訂單編號,沒有品項),沒載總表就分不了組。
+    // 這時候不該默默把每一頁都歸到「未對應」,要直接講缺什麼。
+    if (!zonedHasOrders()) {
+      setStatus("zonedStatus", "warn",
+        msg + " —— 但還沒載入 LINE 訂單總表,沒辦法分組。請先在上面選訂單總表。");
+    } else {
+      setStatus("zonedStatus", noId > 0 ? "warn" : "success", msg);
+    }
   } catch (e) {
     zonedPdfBytes = null; zonedPdfSrcDoc = null;
     zonedPdfPages = []; zonedPdfByOrder = new Map();
@@ -118,6 +125,10 @@ function refreshZonedListsForPdf() {
 }
 
 function zonedPdfReady() { return !!zonedPdfSrcDoc && zonedPdfPages.length > 0; }
+
+function zonedHasOrders() {
+  return typeof loadedRows !== "undefined" && !!loadedRows && loadedRows.length > 0;
+}
 
 // 一組訂單 → 要抽哪幾頁。頁序照訂單在組內的順序(也就是撿貨順序),
 // 找不到託運單的訂單另外回報,不靜靜吞掉。
@@ -186,6 +197,10 @@ async function downloadZonedGroupPdf(kind, idx) {
 // 目前清單上每一組各出一個 PDF 檔;瀏覽器對「連續觸發下載」很敏感,所以中間留間隔
 async function downloadAllZonedPdfs() {
   if (!zonedPdfReady()) { setStatus("zonedStatus", "warn", "請先選擇黑貓託運單 PDF"); return; }
+  if (!zonedHasOrders()) {
+    setStatus("zonedStatus", "warn", "還沒載入 LINE 訂單總表,沒辦法分組 —— 請先在上面選訂單總表");
+    return;
+  }
 
   const jobs = [];
   (zonedGroupsCache || []).forEach(g => jobs.push({ label: g.label, rows: g.rows }));
@@ -256,6 +271,19 @@ function renderZonedPdfSummary() {
   const known = new Set(rows.map(r => String(r["訂單編號"] == null ? "" : r["訂單編號"]).trim()));
   const matched = zonedPdfPages.filter(p => p.orderId && known.has(p.orderId)).length;
   const unmatched = zonedPdfPages.length - matched;
+
+  if (!zonedHasOrders()) {
+    el.innerHTML =
+      '<div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 12px;">' +
+        '<div class="stat-card orange">' +
+          '<div class="stat-label">還缺 LINE 訂單總表</div>' +
+          '<div><span class="stat-number">' + zonedPdfPages.length + '</span><span class="stat-unit">頁託運單已讀取</span></div>' +
+          '<div class="stat-sub">分組靠的是訂單總表裡的品項,PDF 上只有訂單編號。' +
+            '請先在最上面選當天的 LINE 訂單總表,這裡就會自動分好。</div>' +
+        '</div>' +
+      '</div>';
+    return;
+  }
 
   const extras = zonedPdfExtraBuckets().map((b, i) =>
     '<button class="btn btn-secondary btn-small" onclick="downloadZonedExtraPdf(' + i + ')">⬇ ' +

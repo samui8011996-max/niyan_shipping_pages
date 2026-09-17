@@ -361,6 +361,8 @@ function getZonedExportRows(rows) {
 
 // 分區列印分頁的字卡+品項清單:載入訂單(或切換選項)後即時預覽分組結果,不用等下載才知道
 function updateZonedStats(rows) {
+  // 使用者可能先丟 PDF 才選訂單總表,總表進來後摘要卡片要重算
+  if (typeof renderZonedPdfSummary === "function") setTimeout(renderZonedPdfSummary, 0);
   const elRegularTotal = document.getElementById("zoned-stat-regular-total");
   if (!elRegularTotal) return;
   if (!rows) { resetZonedStats(); return; }
