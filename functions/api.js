@@ -108,11 +108,17 @@ async function handleAppend(env, body) {
   if (!gas || !gas.ok) return json(gas || { ok: false, error: '未知錯誤' });
 
   // 離島那批寫進試算表成功後，順手把件數累加進包貨系統的「離島•郵局」平台字卡。
-  // 舊版 Apps Script 自己會同步（回傳裡帶 packingSync），若偵測到就不重複加，
-  // 避免 Apps Script 還沒換成新版時同一批件數被灌兩次。
+  // 舊版 Apps Script（v5）自己也會同步（回傳裡帶 packingSync），為了不讓同一批件數
+  // 被灌兩次，它同步成功時這裡就不重複加。
+  // ⚠ 只認「同步成功」(packingSync.ok)，不能只看有沒有 packingSync 這個欄位：
+  // v5 的 PACKING_API_URL 寫死在 Apps Script 裡，包貨系統搬到 Cloudflare 後那個舊網址
+  // 已經失效，v5 會回 packingSync.ok=false；舊的判斷式把「失敗」也當成「已經同步過」而跳過，
+  // 結果 Apps Script 和 Cloudflare 兩邊都沒寫，離島件數整個掉了。
+  // （Line禮物字卡不經過 Apps Script，所以那張卡一直正常，只有離島•郵局壞掉。）
   const offshoreRows = (body.targets || {})[OFFSHORE_PLATFORM];
   const gasResult = (gas.results || {})[OFFSHORE_PLATFORM];
-  if (Array.isArray(offshoreRows) && offshoreRows.length > 0 && gasResult && gasResult.ok && !gasResult.packingSync) {
+  const gasSyncedOk = !!(gasResult && gasResult.packingSync && gasResult.packingSync.ok);
+  if (Array.isArray(offshoreRows) && offshoreRows.length > 0 && gasResult && gasResult.ok && !gasSyncedOk) {
     const qty = offshoreRows.reduce((s, r) => s + (parseInt(r.qty, 10) || 1), 0);
     try {
       const synced = await upsertPlatform(env.DB, {
