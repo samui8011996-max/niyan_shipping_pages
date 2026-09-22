@@ -45,6 +45,9 @@
     --success: #3fb950;
     --warn: #d29922;
     --error: #f85149;
+    /* 同色的 rgb 三元組,給需要半透明底色的地方用(見 .shopee-row.miss/.unknown) */
+    --warn-rgb: 210 153 34;
+    --error-rgb: 248 81 73;
 
     --cat-red-bg: #2a1114;     --cat-red-border: #C62828;
     --cat-red-text: #FF8A8A;   --cat-red-num: #FF5252;
@@ -86,6 +89,8 @@
     --success: #1f7a33;
     --warn: #9a6b00;
     --error: #c0362b;
+    --warn-rgb: 154 107 0;
+    --error-rgb: 192 54 43;
 
     --cat-red-bg: #fdecec;     --cat-red-border: #c62828;
     --cat-red-text: #8f1f1f;   --cat-red-num: #c62828;
@@ -264,6 +269,13 @@
     transition: border-color 0.15s;
   }
   .file-display.empty { color: var(--text-mute); }
+  /* 蝦皮那格會列出好幾個檔名,單行截斷會看不到後面丟了什麼 */
+  .file-display-wrap {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.9;
+  }
   .file-display.has-file {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-glow);
@@ -412,6 +424,52 @@
   .status.warn    { border-left-color: var(--warn);    color: var(--warn); }
   .status.error   { border-left-color: var(--error);   color: var(--error); }
   .status.loading { border-left-color: var(--accent);  color: var(--accent); }
+
+  /* 蝦皮出貨:逐頁預覽 */
+  .shopee-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 9px 12px; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .shopee-row:last-child { border-bottom: none; }
+  .shopee-flag {
+    flex: 0 0 18px; font-size: 14px; line-height: 1;
+  }
+  .shopee-pg {
+    flex: 0 0 44px; font-size: 12px; color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .shopee-sn {
+    flex: 0 0 132px; font-size: 12px; color: var(--text-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .shopee-code { flex: 1 1 auto; font-weight: 700; color: var(--text); }
+  .shopee-total {
+    flex: 0 0 64px; text-align: right; font-size: 13px; color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .shopee-total.muted { color: var(--text-mute); text-decoration: line-through; }
+  .shopee-del {
+    flex: 0 0 auto; margin-left: 4px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-mute); font-size: 14px; line-height: 1;
+    padding: 4px 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .shopee-del:hover { color: var(--error); background: rgba(var(--error-rgb), 0.12); }
+  .shopee-noinv {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--text-dim); cursor: pointer; user-select: none;
+  }
+  /* 對不到裝箱單 / 認不出品項的頁,列印前一定要看到 */
+  .shopee-row.miss    { background: rgba(var(--error-rgb), 0.10); }
+  .shopee-row.miss    .shopee-code { color: var(--error); }
+  .shopee-row.unknown { background: rgba(var(--warn-rgb), 0.10); }
+  .shopee-row.unknown .shopee-code { color: var(--warn); }
+  @media (max-width: 640px) {
+    .shopee-row { flex-wrap: wrap; gap: 4px 10px; }
+    .shopee-code { flex-basis: 100%; }
+  }
 
   .spinner {
     display: inline-block;
@@ -653,6 +711,18 @@
   }
 
   .file-input-hidden { display: none; }
+
+  /* 拖曳上傳:整張卡片都是放置區 */
+  .card.drag-over, .dropzone.drag-over {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .card.drag-over * { pointer-events: none; }   /* 子元素不要搶走 dragleave */
+  .dropzone-body { display: flex; flex-direction: column; gap: 8px; }
+  .dropzone-hint {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--text-dim);
+  }
 
   /* ============ 廠商對照區塊(每廠商一張卡) ============ */
   .vendor-blocks {
@@ -1159,6 +1229,9 @@
       <button class="tab" data-tab="zoned" onclick="switchTab('zoned')">
         🧪  分區列印<span style="opacity:.6; font-size:11px; margin-left:2px;">BETA</span>
       </button>
+      <button class="tab" data-tab="shopee" onclick="switchTab('shopee')">
+        🛒  蝦皮出貨<span style="opacity:.6; font-size:11px; margin-left:2px;">BETA</span>
+      </button>
     </div>
 
     <!-- ================ Tab 1: 出貨單產生 ================ -->
@@ -1624,6 +1697,65 @@
 
     </div>
 
+    <!-- ================ Tab 6: 蝦皮出貨(BETA) ================ -->
+    <div id="tab-shopee" class="tab-panel">
+
+      <section class="card" id="shopeeDrop">
+        <div class="card-label">把當天的檔案丟進來</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          蝦皮是<strong style="color: var(--text);">每種寄送方式各出一份</strong>,一次全部丟進來就好,
+          會合成同一個檔 —— xlsx 當裝箱單、pdf 當熱感應單,自動分。<br>
+          <strong style="color: var(--text);">熱感應單不一定要有</strong>:黑貓宅急便本來就沒有,
+          那些訂單下面改印「蝦皮黑貓」+ 大字物流單號 + 訂單編號。只丟裝箱單也能直接產。<br>
+          有熱感應單的就照原樣貼在下面,<strong style="color: var(--text);">條碼和 QR 完全不動</strong>。
+        </p>
+        <div class="dropzone-body">
+          <div class="dropzone-hint">
+            把檔案拖進這張卡片,或
+            <button class="btn btn-secondary btn-small" onclick="document.getElementById('shopeeInput').click()">
+              選擇檔案…
+            </button>
+            <button class="btn btn-secondary btn-small" onclick="clearShopeeFiles()" title="清掉已選的裝箱單和 PDF,重新開始">
+              清除
+            </button>
+          </div>
+          <input type="file" id="shopeeInput" class="file-input-hidden" accept=".xlsx,.xls,.pdf" multiple>
+          <div id="shopeeFileList" class="file-display file-display-wrap empty">尚未選擇檔案…</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-label">位置微調</div>
+        <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 8px; font-weight: 500;">
+          標籤上下位移(mm,正數往上、負數往下;印壞了才需要動)
+        </label>
+        <input type="number" id="shopeeNudge" class="form-input" value="0" step="1"
+               style="max-width: 120px;">
+      </section>
+
+      <div class="actions">
+        <button id="shopeeGenBtn" class="btn btn-primary" disabled onclick="generateShopeeLabels()">
+          ▶  產生出貨單
+        </button>
+      </div>
+
+      <div id="shopeeStatus" class="status">還差裝箱單…</div>
+
+      <div class="stats-header" style="margin-top: 18px;">
+        <span class="stats-title">逐頁預覽(列印前先看一下代號對不對)</span>
+        <button id="shopeeRestoreBtn" class="btn btn-secondary btn-small"
+                style="display: none; margin-left: 12px;" onclick="restoreShopeeJobs()">復原</button>
+        <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; user-select: none; font-size: 13px;"
+               title="送禮的客人不想讓收禮的人看到價錢時勾起來,那張的總金額會印成「不印發票」">
+          <input type="checkbox" id="shopeeNoInvoiceAll" class="zoned-checkbox"
+                 onchange="toggleShopeeNoInvoiceAll(this.checked)">
+          全部不印發票
+        </label>
+      </div>
+      <div id="shopeePreview" class="problem-list"></div>
+
+    </div>
+
     <div class="footer">
       資料不會離開你的瀏覽器  ·  v9.0
     </div>
@@ -1672,6 +1804,10 @@
 <script src="problem-orders.js"></script>
 <script src="returns.js"></script>
 <script src="ui-utils.js"></script>
+<script src="shopee-code-font.js"></script>
+<script src="shopee-shortcode.js"></script>
+<script src="shopee-pack.js"></script>
+<script src="shopee-label.js"></script>
 <script src="app-init.js"></script>
 </body>
 </html>
