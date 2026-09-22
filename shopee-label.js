@@ -90,6 +90,42 @@ const shopeeNoInvoice = new Set();
 // 或是已經印過的單 —— 不想為了跳過一兩張就整批重來。
 const shopeeRemoved = new Set();
 
+// 手動改過的品項文字(job.uid → 每行一個品項)。自動縮寫是規則產生的,但總有規則想不到的
+// 情況(臨時換贈品、客人加註),讓人能直接改比一直加特例規則實際。
+// 金額不跟著文字走 —— 改字只是改紙上寫什麼,不該動到對帳的數字。
+const shopeeEdited = new Map();
+let shopeeEditingUid = null;
+
+function startShopeeEdit(uid) {
+  shopeeEditingUid = uid;
+  renderShopeePreview();
+}
+
+function cancelShopeeEdit() {
+  shopeeEditingUid = null;
+  renderShopeePreview();
+}
+
+function resetShopeeEdit(uid) {
+  shopeeEdited.delete(uid);
+  shopeeEditingUid = null;
+  renderShopeePreview();
+}
+
+function saveShopeeEdit(uid) {
+  const ta = document.getElementById("shopeeEditBox");
+  if (!ta) return;
+  const lines = ta.value.split("\n").map(x => x.trim()).filter(Boolean);
+  if (lines.length) shopeeEdited.set(uid, lines); else shopeeEdited.delete(uid);
+  shopeeEditingUid = null;
+  renderShopeePreview();
+  // 字型是切過的子集,打到不在裡面的字會印成 □ —— 當場講,不要等印出來才發現
+  const bad = unsupportedChars(lines.join(""));
+  if (bad.length) {
+    setShopeeStatus("⚠ 這些字印不出來,紙上會變成 □:" + bad.join(" "), "warn");
+  }
+}
+
 function removeShopeeJob(uid) {
   shopeeRemoved.add(uid);
   renderShopeePreview();
@@ -97,6 +133,8 @@ function removeShopeeJob(uid) {
 
 function restoreShopeeJobs() {
   shopeeRemoved.clear();
+  shopeeEdited.clear();
+  shopeeEditingUid = null;
   renderShopeePreview();
 }
 
@@ -147,17 +185,32 @@ async function ensureShopeeLibs() {
   if (!window.fontkit) await shopeeLoadScript(SHOPEE_FONTKIT_SRC);
 }
 
+// 字型本體(base64,約 2.4MB)用到才載。不放在 <head> 的原因是其他四個分頁根本用不到,
+// 沒道理每個人開網站都先拖 2.4MB。載一次就被瀏覽器快取。
+const SHOPEE_FONT_JS = "shopee-code-font.js";
+
 let shopeeFontBytes = null;
-function ensureShopeeFont() {
+async function ensureShopeeFont() {
   if (shopeeFontBytes) return shopeeFontBytes;
   if (typeof SHOPEE_CODE_FONT_B64 === "undefined") {
-    throw new Error("缺少 shopee-code-font.js(代號字型),請確認它有被載入");
+    await shopeeLoadScript(SHOPEE_FONT_JS);
+  }
+  if (typeof SHOPEE_CODE_FONT_B64 === "undefined") {
+    throw new Error("載入中文字型失敗(" + SHOPEE_FONT_JS + "),代號會印不出來");
   }
   const bin = atob(SHOPEE_CODE_FONT_B64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   shopeeFontBytes = bytes;
   return shopeeFontBytes;
+}
+
+// 一選好檔案就先偷偷開始載字型,等按下「產生」時通常已經好了。
+// 失敗不用管 —— ensureShopeeFont() 到時候會自己再試一次並且好好報錯。
+function preloadShopeeFont() {
+  if (typeof SHOPEE_CODE_FONT_B64 === "undefined") {
+    shopeeLoadScript(SHOPEE_FONT_JS).catch(() => {});
+  }
 }
 
 // 熱感應單上的蝦皮訂單編號固定 14 碼英數。pdf.js 回傳的文字是一段一段的,
@@ -221,6 +274,7 @@ function clearShopeeFiles() {
 async function onShopeePackFiles(files) {
   const list = Array.from(files || []);
   if (!list.length) return;
+  preloadShopeeFont();
   for (const file of list) {
     try {
       const buf = await file.arrayBuffer();
@@ -245,6 +299,7 @@ async function onShopeePackFiles(files) {
 async function onShopeePdfFiles(files) {
   const list = Array.from(files || []);
   if (!list.length) return;
+  preloadShopeeFont();
   shopeePdfLoading = true;
   renderShopeePreview();
   try {
@@ -364,6 +419,16 @@ function shopeeDetail(job) {
   return { lines, total, miss: false, unknown };
 }
 
+// 包一層:手動改過就用改過的,沒有才用規則算的。金額一律維持原本算出來的
+function shopeeDetailFor(job) {
+  const d = shopeeDetail(job);
+  const edited = shopeeEdited.get(job.uid);
+  if (edited && edited.length) {
+    return { ...d, lines: edited.map(sanitizeCode), edited: true };
+  }
+  return d;
+}
+
 function renderShopeePreview() {
   const box = document.getElementById("shopeePreview");
   const btn = document.getElementById("shopeeGenBtn");
@@ -388,7 +453,7 @@ function renderShopeePreview() {
   const jobs = shopeeBuildJobs();
   let miss = 0, unknown = 0, nolabel = 0;
   const rows = jobs.map((job, i) => {
-    const r = shopeeDetail(job);
+    const r = shopeeDetailFor(job);
     if (r.miss) miss++;
     if (r.unknown) unknown++;
     if (job.kind === "nolabel") nolabel++;
@@ -398,11 +463,34 @@ function renderShopeePreview() {
     const flag = r.miss ? "❗" : (r.unknown ? "⚠" : "");
     const key = shopeeJobKey(job);
     const hide = shopeeNoInvoice.has(key);
+    if (shopeeEditingUid === job.uid) {
+      return "<div class=\"" + cls + " editing\">"
+        + "<span class=\"shopee-pg\">" + tag + "</span>"
+        + "<span class=\"shopee-sn\">" + (job.orderSn || job.tracking || "(讀不到編號)") + "</span>"
+        + "<div class=\"shopee-edit\">"
+        +   "<textarea id=\"shopeeEditBox\" rows=\"" + Math.max(2, r.lines.length) + "\">"
+        +     escapeHtml(r.lines.join("\n")) + "</textarea>"
+        +   "<div class=\"shopee-edit-btns\">"
+        +     "<button class=\"btn btn-primary btn-small\" onclick=\"saveShopeeEdit('"
+        +       escapeHtml(job.uid) + "')\">儲存</button>"
+        +     "<button class=\"btn btn-secondary btn-small\" onclick=\"cancelShopeeEdit()\">取消</button>"
+        +     (shopeeEdited.has(job.uid)
+              ? "<button class=\"btn btn-secondary btn-small\" onclick=\"resetShopeeEdit('"
+                + escapeHtml(job.uid) + "')\" title=\"丟掉手改的,回到自動縮寫\">還原</button>"
+              : "")
+        +     "<span class=\"shopee-edit-hint\">一行一個品項</span>"
+        +   "</div>"
+        + "</div>"
+        + "</div>";
+    }
     return "<div class=\"" + cls + "\">"
       + "<span class=\"shopee-flag\">" + flag + "</span>"
       + "<span class=\"shopee-pg\">" + tag + "</span>"
       + "<span class=\"shopee-sn\">" + (job.orderSn || job.tracking || "(讀不到編號)") + "</span>"
-      + "<span class=\"shopee-code\">" + r.lines.join("　") + "</span>"
+      + "<span class=\"shopee-code" + (r.edited ? " edited" : "") + "\">"
+      +   (r.edited ? "✎ " : "") + escapeHtml(r.lines.join("　")) + "</span>"
+      + "<button class=\"shopee-edit-btn\" title=\"手動改這一張要印的文字\""
+      +   " onclick=\"startShopeeEdit('" + escapeHtml(job.uid) + "')\">編輯</button>"
       + "<label class=\"shopee-noinv\" title=\"勾了這張就不印金額,改印「不印發票」\">"
       +   "<input type=\"checkbox\" class=\"zoned-checkbox\"" + (hide ? " checked" : "")
       +   " onchange=\"toggleShopeeNoInvoice('" + escapeHtml(key) + "', this.checked); renderShopeePreview();\">"
@@ -417,6 +505,10 @@ function renderShopeePreview() {
       + "</div>";
   });
   box.innerHTML = rows.join("");
+  if (shopeeEditingUid) {
+    const ta = document.getElementById("shopeeEditBox");
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
   if (btn) btn.disabled = !jobs.length;
 
   const bits = [jobs.length + " 頁"];
@@ -426,6 +518,8 @@ function renderShopeePreview() {
   const hidden = jobs.filter(j => shopeeNoInvoice.has(shopeeJobKey(j))).length;
   if (hidden) bits.push(hidden + " 張不印發票");
   if (shopeeRemoved.size) bits.push("已拿掉 " + shopeeRemoved.size + " 頁");
+  const editedCount = jobs.filter(j => shopeeEdited.has(j.uid)).length;
+  if (editedCount) bits.push(editedCount + " 張手改過文字");
 
   const undo = document.getElementById("shopeeRestoreBtn");
   if (undo) {
@@ -483,7 +577,7 @@ async function generateShopeeLabels() {
     out.registerFontkit(window.fontkit);
     // 一定要 subset:false —— pdf-lib 對中文字型做 subset 會隨機掉字(「貓」「大」「右」
     // 印不出來,同一行的「黃」「金」卻正常)。字型已經離線切成只剩代號用字,整包嵌也才 33KB。
-    const font = await out.embedFont(ensureShopeeFont(), { subset: false });
+    const font = await out.embedFont(await ensureShopeeFont(), { subset: false });
 
     // 每份來源 PDF 只載入一次,頁面再各自 embedPage
     const srcDocs = [];
@@ -538,7 +632,7 @@ async function generateShopeeLabels() {
       }
 
       // ---- 上半部:明細 + 總金額 ----
-      const detail = shopeeDetail(job);
+      const detail = shopeeDetailFor(job);
       const fit = shopeeFitItems(font, detail.lines);
       if (!fit.fits) overflow++;
 

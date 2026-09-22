@@ -427,7 +427,7 @@
 
   /* 蝦皮出貨:逐頁預覽 */
   .shopee-row {
-    display: flex; align-items: baseline; gap: 12px;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
     padding: 9px 12px; border-bottom: 1px solid var(--border);
     font-size: 14px;
   }
@@ -449,6 +449,24 @@
     font-variant-numeric: tabular-nums;
   }
   .shopee-total.muted { color: var(--text-mute); text-decoration: line-through; }
+  .shopee-code.edited { color: var(--accent-2); }
+  .shopee-edit-btn {
+    flex: 0 0 auto; background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 9px; cursor: pointer;
+    color: var(--text-dim); font-size: 12px; font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .shopee-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+  /* 編輯中:輸入框自己占一整列,所以 .shopee-row 要允許換行 */
+  .shopee-edit { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; }
+  .shopee-edit textarea {
+    width: 100%; resize: vertical;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--accent); border-radius: 8px; padding: 9px 11px;
+    font-family: inherit; font-size: 14px; font-weight: 700; line-height: 1.8;
+  }
+  .shopee-edit-btns { display: flex; align-items: center; gap: 8px; }
+  .shopee-edit-hint { font-size: 12px; color: var(--text-mute); }
   .shopee-del {
     flex: 0 0 auto; margin-left: 4px;
     background: none; border: none; cursor: pointer;
@@ -1804,7 +1822,7 @@
 <script src="problem-orders.js"></script>
 <script src="returns.js"></script>
 <script src="ui-utils.js"></script>
-<script src="shopee-code-font.js"></script>
+<script src="shopee-code-chars.js"></script>
 <script src="shopee-shortcode.js"></script>
 <script src="shopee-pack.js"></script>
 <script src="shopee-label.js"></script>

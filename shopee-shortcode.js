@@ -16,7 +16,9 @@
 // ===================================================================
 
 // ===================================================================
-// 代號會用到的全部字元(唯一來源)。
+// 可以印出來的全部字元(唯一來源)。
+// 除了規則會產生的代號用字,還包含實際商品名稱/規格出現過的字,以及現場手寫備註
+// 常用的字 —— 因為預覽可以按「編輯」自己改文字,不在這個表裡的字會印成「□」。
 //
 // 為什麼要維護這個清單:pdf-lib 在前端對中文字型做 subset 會隨機掉字
 // (實測「貓」「大」「右」「粉」印不出來,同一行的「黃」「金」卻正常),
@@ -27,12 +29,35 @@
 //    1. 把新字加進這裡  2. 重跑 build-shopee-font.py  3. 兩個都 commit
 //    沒重建的話,新字在熱感應單上會印成「□」(不會靜靜消失,列印前就看得出來)。
 // ===================================================================
-const SHOPEE_CODE_CHARS = "】【票發印不皮蝦編訂號流物*額總合胖消波蟾蜍犬兔馬雙喵團圓貓組財富大中小對六黑黃粉綠白灰金福左右牡羊座牛子巨蟹獅處女天秤蠍射手摩羯水瓶魚掌木寶霜油玫瑰薰衣佛茶樹甜橙檸檬雕查無商品資料此單件共□0123456789xX+-./,()[]:; abcdefghijklmnopqrstuvwyzABCDEFGHIJKLMNOPQRSTUVWYZ?!";
+const SHOPEE_CODE_CHARS = "柑草葵竺精紛繽】【票發印不皮蝦編訂號流物*額總合胖消波蟾蜍犬兔馬雙喵團圓貓組財富大中小對六黑黃粉綠白灰金福左右牡羊座牛子巨蟹獅處女天秤蠍射手摩羯水瓶魚掌木寶霜油玫瑰薰衣佛茶樹甜橙檸檬雕查無商品資料此單件共□0123456789xX+-./,()[]:; abcdefghijklmnopqrstuvwyzABCDEFGHIJKLMNOPQRSTUVWYZ?!一上交人任住你健備優元公出分到刻加化原可名咬場塊士多奔套好字宅定客室家寄市帳幣底店康廚式心快怪惠惱意愛感戀所招換搞擇擋收文方日旺星有格樂標款泥淨清準炭為然煩片狗猫生療癒登盒研祝禪禮秋粽純結續者自色英萬製規請謝護貨賓賣購辦送速運選部配錢鍊長門開限陸隔雷項預顏首騰！，｜急補缺退改註贈另特別只剩等待已未少個袋條支顆張包裝箱破損重服確認留言注先後再同樣碼面取超付現明今期二三四七八九十的了和或與跟要沒是非否需拆貼紙帶封膠";
+
+// 每一列都會呼叫,每次重建 Set 太浪費,建一次就好
+let SC_CHAR_SET = null;
+function scCharSet() {
+  if (!SC_CHAR_SET) {
+    // 以字型「實際含有的字」為準(shopee-code-chars.js,由 build-shopee-font.py 產生)。
+    // SHOPEE_CODE_CHARS 只是規則自己會用到的字,現在字型切到 Big5 常用字,範圍大得多 ——
+    // 拿它來判斷會把一堆印得出來的字誤判成缺字。獨立跑測試時沒載到那支才退回來用。
+    const src = (typeof SHOPEE_FONT_CHARS !== "undefined") ? SHOPEE_FONT_CHARS : SHOPEE_CODE_CHARS;
+    SC_CHAR_SET = new Set(src.split(""));
+  }
+  return SC_CHAR_SET;
+}
 
 // 字型沒有的字一律換成 □ —— 缺字要在紙上看得見,不能默默印成空白
 function sanitizeCode(text) {
-  const ok = new Set(SHOPEE_CODE_CHARS.split(""));
+  const ok = scCharSet();
   return String(text ?? "").split("").map(c => (ok.has(c) ? c : "□")).join("");
+}
+
+// 印不出來的字有哪些(不重複)。手動編輯代號時要當場告訴人,不然只會在紙上看到 □
+function unsupportedChars(text) {
+  const ok = scCharSet();
+  const bad = [];
+  for (const c of String(text ?? "")) {
+    if (!ok.has(c) && !bad.includes(c)) bad.push(c);
+  }
+  return bad;
 }
 
 // 星座清單:獨立跑測試時 shipping-core.js 不一定載入,所以自己備一份
@@ -58,14 +83,31 @@ const SC_STYLE = { "金運": "金", "招福": "福" };
 // 是哪一隻),所以只拿它來判斷金運/招福(見 scStyle),不印進代號。
 
 // 精油名稱縮到兩個字,印在 4x6 上才不會擠掉其他欄位
+// 精油一律寫全名(使用者 2026-09-22 指定)。原本縮成兩個字是為了省寬度,
+// 但「玫瑰」「佛手」這種半截的名字在現場容易念錯拿錯,字級自己會縮,不差這幾個字。
 const SC_OILS = [
-  [/玫瑰天竺葵|玫瑰/, "玫瑰"],
-  [/薰衣草/,         "薰衣"],
-  [/佛手柑/,         "佛手"],
+  [/玫瑰天竺葵|玫瑰/, "玫瑰天竺葵"],
+  [/薰衣草/,         "薰衣草"],
+  [/佛手柑/,         "佛手柑"],
   [/茶樹/,           "茶樹"],
   [/甜橙/,           "甜橙"],
   [/檸檬/,           "檸檬"],
 ];
+
+// 依「主商品貨號」套用的特例。賣場標題三天兩頭改,貨號不會,所以能認貨號就別去比對標題。
+// 每一項都是可選的:item 換掉主體名稱、size 覆寫尺寸(""=不印)、style 固定款式、
+// dropAddons 拿掉多餘的加購字樣。
+const SC_SKU_RULES = {
+  // 【送禮首選】繽紛好運精油組 胖胖招財貓 (小)+精油 【交換禮物】
+  // 現場叫「繽紛精油組」(跟【大小貓組】一樣用【】框起來,一眼看出是組合);這個賣場只出金運,顏色由買家選,只有一種尺寸所以不印尺寸。
+  // 品名已經說了是精油組,再印一次「+油組」是廢話。
+  "niyan_RedGiftBag": { item: "【繽紛精油組】", size: "", style: "金", dropAddons: ["油組"] },
+};
+
+function scSkuRule(row) {
+  const sku = String(row["主商品貨號"] ?? "").trim();
+  return (sku && SC_SKU_RULES[sku]) || null;
+}
 
 // 主體:比對順序 = specific → generic,「胖胖貓」那條一定要放最後,
 // 不然消波塊/蟾蜍/招財犬這些非貓商品的標題裡若出現「招財」會被吃掉
@@ -167,7 +209,7 @@ function scZodiac(spec, name) {
 
 // 加購:一律只看清掉「不加購」之後剩下的文字。
 // 精油例外——品名寫「X 甜橙精油」而規格沒寫的賣場是有的,所以精油名兩邊都掃
-function scAddons(spec, name) {
+function scAddons(spec, name, drop) {
   const out = [];
   if (/木片底座|＋?底座|\+底座/.test(spec) || /\+底座/.test(name)) out.push("木");
   if (/元寶/.test(spec) || /元寶/.test(name)) out.push("寶");
@@ -175,7 +217,7 @@ function scAddons(spec, name) {
   if (/精油組/.test(name)) out.push("油組");
   const oil = SC_OILS.find(([re]) => re.test(spec) || re.test(name));
   if (oil) out.push(oil[1]);
-  return out;
+  return drop && drop.length ? out.filter(x => !drop.includes(x)) : out;
 }
 
 // 主回傳:{ code, parts, unknown } —— unknown=true 代表有欄位認不出來,UI 要標出來給人看
@@ -190,9 +232,11 @@ function buildShortCode(row) {
 
   if (/雷雕/.test(all)) seg.push("雕");
 
+  const rule = scSkuRule(row);
   const itemHit = SC_ITEMS.find(([re]) => re.test(name));
-  const item = itemHit ? itemHit[1] : "?";
-  if (!itemHit) unknown = true;
+  const item = (rule && rule.item) || (itemHit ? itemHit[1] : "?");
+  // 有貨號特例就不算認不出來 —— 那是我們自己指定的名字,不是猜的
+  if (!itemHit && !(rule && rule.item)) unknown = true;
 
   // 消波塊看的是幾公分,不是尺寸/顏色/款式
   if (item === "消波") {
@@ -211,7 +255,7 @@ function buildShortCode(row) {
     // 不是可選尺寸 —— 照 scSize 抓會變成「雙喵大」,反而看起來像有另一個小的版本
     seg.push(item);
   } else {
-    seg.push(item + scSize(name));
+    seg.push(item + (rule && rule.size !== undefined ? rule.size : scSize(name)));
   }
 
   // 一對雷雕會把兩隻的顏色分開寫成「金運: 招財黃, 招福: 健康綠」,兩隻都要印
@@ -221,7 +265,7 @@ function buildShortCode(row) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
   } else if (item !== "消波" && item !== "犬") {
     const color = scColor(spec) || scColor(name);
-    const style = scStyle(spec, name);
+    const style = (rule && rule.style) || scStyle(spec, name);
     // 組合商品的規格是買家挑的那一隻,要跟固定那隻區隔開,所以前面掛 +
     if (color || style) seg.push((item === SC_SET_LABEL ? "+" : "") + color + style);
   }
@@ -229,7 +273,7 @@ function buildShortCode(row) {
   const zodiac = scZodiac(spec, name);
   if (zodiac) seg.push(zodiac);
 
-  const addons = scAddons(spec, name);
+  const addons = scAddons(spec, name, rule && rule.dropAddons);
   if (addons.length) seg.push("+" + addons.join("+"));
 
   const qty = Number(row["數量"] ?? 1) || 1;
@@ -242,5 +286,5 @@ function buildShortCode(row) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { buildShortCode, sanitizeCode, SHOPEE_CODE_CHARS };
+  module.exports = { buildShortCode, sanitizeCode, unsupportedChars, SHOPEE_CODE_CHARS };
 }

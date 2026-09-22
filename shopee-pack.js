@@ -23,6 +23,8 @@ function spParseSegment(seg) {
     "數量": Number(item["數量"] || 1) || 1,
     "價格": item["價格"] || "",
     "商品選項貨號": item["商品選項貨號"] || "",
+    // 賣場標題常改,貨號不會 —— 特例規則(SC_SKU_RULES)認的是這個
+    "主商品貨號": item["主商品貨號"] || "",
   };
 }
 
@@ -139,6 +141,7 @@ function parseItemListPage(items) {
       // 這一欄是「總計」= 整列的小計,不是單價,所以不要再乘數量
       "小計": Number.isFinite(sub) ? sub : null,
       "商品選項貨號": (cell["商品選項貨號"] || "").trim(),
+      "主商品貨號": (cell["主商品貨號"] || "").trim(),
     });
   });
   return { orderSn, items: out };
