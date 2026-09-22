@@ -194,6 +194,27 @@ if (totalCount === 0) {
 }
 
 
+// 上傳 Line禮物件數時,順便把「分區列印」算出來的撿貨分組一起送到包貨系統,
+// 包貨那邊點字卡就看得到今天要撿哪些品項各幾件,不用再開這邊的分區列印分頁對。
+// 用的是跟畫面上完全同一套分組邏輯(buildPickGroups),含門檻設定,所以不會兩邊對不起來。
+function buildPickingSummary() {
+  if (!loadedRows || typeof buildPickGroups !== "function") return null;
+  try {
+    const exportRows = getZonedExportRows(loadedRows);
+    const { splitBySpec, threshold } = getZonedOptions();
+    const { ownGroups, mergedGroups } = buildPickGroups(exportRows, splitBySpec, threshold);
+    const list = ownGroups.map(g => ({ "品項": g.label, "件數": g.qty }));
+    // 沒超過門檻的那些併成一張單,對撿貨的人來說是一個整體,給個總數就好
+    const mergedQty = mergedGroups.reduce((sum, g) => sum + g.qty, 0);
+    if (mergedQty > 0) list.push({ "品項": "其他合併", "件數": mergedQty });
+    return list.length ? list : null;
+  } catch (e) {
+    // 撿貨明細只是附帶資訊,算不出來也不該擋住件數上傳
+    console.warn("撿貨分組計算失敗,這次不送明細:", e);
+    return null;
+  }
+}
+
   function uploadLineRegular() {
   if (!lastStats) return;
   const url = getGsUrl();
@@ -211,7 +232,8 @@ if (totalCount === 0) {
     body: JSON.stringify({
       action: "uploadLineRegular",
       date: today,
-      count: count
+      count: count,
+      picking: buildPickingSummary()
     })
   })
     .then(r => r.json())

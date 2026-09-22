@@ -141,6 +141,8 @@ async function handleUploadLineRegular(env, body) {
 
   const r = await upsertPlatform(env.DB, {
     日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: count,
+    // 分區列印算出來的撿貨分組,一起帶過去給包貨系統點字卡看。舊版前端不會送這個欄位
+    撿貨明細: Array.isArray(body.picking) ? body.picking : null,
   });
   return json({ ok: true, updated: !!r.updated, total: r.total || 0 });
 }
@@ -228,12 +230,16 @@ async function upsertPlatform(DB, p) {
     'SELECT * FROM platform_orders WHERE "日期"=? AND "平台"=? LIMIT 1'
   ).bind(date, platform).first();
 
+  // 撿貨分組明細(分區列印算出來的),給包貨系統點字卡時看。沒帶就整欄不動
+  const picking = Array.isArray(p['撿貨明細']) ? p['撿貨明細'] : null;
+
   if (!existing) {
     const id = newId('L'), n = now();
     const detail = logi ? [{ 物流: logi, 件數: qty }] : [];
     await DB.prepare(
-      'INSERT INTO platform_orders (id,"日期","平台","明細","總件數","已完成","完成日期","備註","建立時間","更新時間","來源平台","完成物流") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
-    ).bind(id, date, platform, JSON.stringify(detail), qty, '', '', '', n, n, '', '').run();
+      'INSERT INTO platform_orders (id,"日期","平台","明細","總件數","已完成","完成日期","備註","建立時間","更新時間","來源平台","完成物流","撿貨明細") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).bind(id, date, platform, JSON.stringify(detail), qty, '', '', '', n, n, '', '',
+           picking ? JSON.stringify(picking) : null).run();
     return { updated: false, total: qty, id };
   }
 
@@ -245,7 +251,25 @@ async function upsertPlatform(DB, p) {
   });
   if (!found) newDetail.push(logi ? { 物流: logi, 件數: qty } : { 件數: qty });
   const total = newDetail.reduce((s, d) => s + (Number(d['件數']) || 0), 0);
-  await DB.prepare('UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=? WHERE id=?')
-    .bind(JSON.stringify(newDetail), total, now(), existing.id).run();
+
+  // 撿貨明細跟件數一樣是累加的 —— 同一天上傳兩批,包貨那邊要看到兩批加起來的量。
+  // 這次沒帶明細(算不出來)就整欄不動,不要把已經有的清掉。
+  let pickingSql = '';
+  const binds = [JSON.stringify(newDetail), total, now()];
+  if (picking) {
+    const merged = new Map();
+    const prev = jparse(existing['撿貨明細']);
+    (Array.isArray(prev) ? prev : []).concat(picking).forEach(d => {
+      const k = String(d['品項'] || '').trim();
+      if (!k) return;
+      merged.set(k, (merged.get(k) || 0) + (Number(d['件數']) || 0));
+    });
+    pickingSql = ',"撿貨明細"=?';
+    binds.push(JSON.stringify([...merged].map(([品項, 件數]) => ({ 品項, 件數 }))));
+  }
+  binds.push(existing.id);
+
+  await DB.prepare(`UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=?${pickingSql} WHERE id=?`)
+    .bind(...binds).run();
   return { updated: true, total, id: existing.id };
 }
