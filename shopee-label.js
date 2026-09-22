@@ -42,10 +42,10 @@ const SHOPEE_ITEMS = {
   size: 12, lineRatio: 19.6 / 12, minSize: 5,
 };
 
-// 總金額列
+// 金額列(只印數字,不印「總金額」三個字)。labelX 留著是因為「不印發票」那四個字
+// 比數字長,靠右排版一樣是用 valueRight 對齊,不需要左邊的起點
 const SHOPEE_TOTAL = {
-  top: 150, labelX: 26.9, labelSize: 12.5,
-  valueRight: 243.6, valueSize: 14.2,
+  top: 150, valueRight: 243.6, valueSize: 14.2,
 };
 
 // 中間的印刷區/分割線:紙上本來就有東西,這一段什麼都不能印。
@@ -651,16 +651,9 @@ async function generateShopeeLabels() {
         });
       });
 
-      // 勾了不印發票就連「總金額」這幾個字都不印 —— 只留「不印發票」四個字。
-      // 留著標題的話,紙上會變成「總金額:不印發票」,反而更像是在講金額的事
+      // 「總金額」三個字不印,只留數字(使用者 2026-09-22 指定) —— 那個位置只會出現金額,
+      // 標題是廢話。勾了不印發票的就換成「不印發票」四個字,不是留白
       const noInvoice = shopeeNoInvoice.has(shopeeJobKey(job));
-      if (!noInvoice) {
-        page.drawText(sanitizeCode("總金額"), {
-          x: SHOPEE_TOTAL.labelX,
-          y: fromTop(SHOPEE_TOTAL.top + SHOPEE_TOTAL.labelSize),
-          size: SHOPEE_TOTAL.labelSize, font, color: PDFLib.rgb(0, 0, 0),
-        });
-      }
       const amount = sanitizeCode(noInvoice ? "不印發票" : String(detail.total || 0));
       page.drawText(amount, {
         x: SHOPEE_TOTAL.valueRight - font.widthOfTextAtSize(amount, SHOPEE_TOTAL.valueSize),
