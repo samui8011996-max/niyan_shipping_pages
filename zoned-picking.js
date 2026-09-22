@@ -314,7 +314,9 @@ function sortZonedGroups(list) {
 // 這些「粗分組」不管數量多少,一律獨立出單,不會因為沒超過門檻被併入「其他合併」——
 // key 就是 pickGroupKey(row, false) 的輸出,之後有類似需求(某個品項一律要獨立列印撿貨)就加進這個清單。
 const FORCE_INDEPENDENT_GROUP_KEYS = new Set([
-  "PANGPANG|SINGLE|小|金運|招財黃",  // 胖胖貓(小)招財黃金運 —— 量少的時候也要自己一張
+  "PANGPANG|SINGLE|小|金運|招財黃",  // 胖胖貓(小 金運 招財黃)
+  "PANGPANG|SINGLE|小|金運",         // 胖胖貓(小 金運)其他顏色 —— 拆掉招財黃之後剩的那些
+                                     // 也要一直看得到,不能因為件數變少就被併進其他合併
   "PANGPANG|SINGLE|小|招福",  // 胖胖貓(小)招福
   "322415648|小",             // 精油組(小)(322415648 精油貓禮盒版 + 322282246 精油貓一般版,別名合併後的 key)
   "LASER",                    // 雷雕(不分辦公室/喵客製...等商品,見 isLaserItem)
