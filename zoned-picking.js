@@ -381,7 +381,9 @@ function getZonedOptions() {
   // 不需要一個全域開關),固定不細分,只保留門檻可調
   const splitBySpec = false;
   const thresholdRaw = parseInt(document.getElementById("zonedThreshold")?.value, 10);
-  const threshold = Number.isFinite(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : 5;
+  // 預設 3(使用者 2026-09-22 指定,原本是 5)。輸入框讀不到值時才會用到這個 fallback,
+  // 要跟 index.html 的 value="3" 保持一致
+  const threshold = Number.isFinite(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : 3;
   return { splitBySpec, threshold };
 }
 
