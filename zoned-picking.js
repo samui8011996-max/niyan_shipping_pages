@@ -69,6 +69,18 @@ function sizeGroupSuffix(row) {
 
 // 金運/招福是不同的公仔款式,實體長得不一樣,撿貨不能混拿,借用既有的 styleOrder 判斷
 // (0=金運、1=招福、2=看不出來),一律給明確的分組後綴,不留模糊地帶
+// 是不是「招財黃」這個顏色。用原始欄位比對,不走 rowHaystack —— 那支會先套
+// REPLACE_PATTERNS 把「招財黃」換成「黃」,之後規則一改這裡就會跟著壞掉。
+// 寫法有好幾種:「顏色-款式: 招財黃-金運」「規格: 招財黃【金運】」「顏色: 招財黃」
+// 「…招財黃 金運」,還有 LINE 那邊直接寫成一個詞的「黃金運」。
+// 一套六色是六隻一組,裡面雖然有黃的,但不算「單一顏色招財黃」,要排除。
+function isGoldYellowCat(row) {
+  const hs = [row["商品名稱"], row["規格設定"], row["客製刻印選項"]]
+    .map(x => String(x ?? "")).join(" ");
+  if (/一套六色|六色任選/.test(hs)) return false;
+  return /招財黃|黃金運/.test(hs);
+}
+
 function styleGroupSuffix(row) {
   const s = styleOrder(row);
   return s === 0 ? "金運" : s === 1 ? "招福" : "其他公仔";
@@ -94,6 +106,11 @@ function groupSuffixParts(row, splitBySpec) {
   return parts;
 }
 
+// key 和標籤共用同一個判斷,不然會分在同一組卻標不同名字
+function isPangpangSmallGoldYellow(pair, size, style, row) {
+  return pair === "SINGLE" && size === "小" && style === "金運" && isGoldYellowCat(row);
+}
+
 function pickGroupKey(row, splitBySpec) {
   // 雷雕最優先判斷:不管商品、尺寸,一律歸同一類
   if (isLaserItem(row)) return "LASER";
@@ -107,7 +124,14 @@ function pickGroupKey(row, splitBySpec) {
   // 一對(兩隻一組)另外獨立分開,不跟單隻的同尺寸/款式混在一起
   if (isPangpangCat(row)) {
     const pair = isPangpangPair(row) ? "PAIR" : "SINGLE";
-    return `PANGPANG|${pair}|${sizeGroupSuffix(row) || "無尺寸"}|${styleGroupSuffix(row)}`;
+    const size = sizeGroupSuffix(row) || "無尺寸";
+    const style = styleGroupSuffix(row);
+    // 招財黃的小金運貓量最大、撿貨時本來就單獨抓,使用者指定自成一類;
+    // 其他顏色的小金運維持併在一起(胖胖貓一向只分尺寸+款式,不分顏色)
+    if (isPangpangSmallGoldYellow(pair, size, style, row)) {
+      return `PANGPANG|SINGLE|小|金運|招財黃`;
+    }
+    return `PANGPANG|${pair}|${size}|${style}`;
   }
 
   const code = canonicalCode(row["商品編號"]);
@@ -290,7 +314,7 @@ function sortZonedGroups(list) {
 // 這些「粗分組」不管數量多少,一律獨立出單,不會因為沒超過門檻被併入「其他合併」——
 // key 就是 pickGroupKey(row, false) 的輸出,之後有類似需求(某個品項一律要獨立列印撿貨)就加進這個清單。
 const FORCE_INDEPENDENT_GROUP_KEYS = new Set([
-  "PANGPANG|SINGLE|小|金運",  // 胖胖貓(小)黃金運 —— 量少的時候也要自己一張,不要併進其他合併
+  "PANGPANG|SINGLE|小|金運|招財黃",  // 胖胖貓(小)招財黃金運 —— 量少的時候也要自己一張
   "PANGPANG|SINGLE|小|招福",  // 胖胖貓(小)招福
   "322415648|小",             // 精油組(小)(322415648 精油貓禮盒版 + 322282246 精油貓一般版,別名合併後的 key)
   "LASER",                    // 雷雕(不分辦公室/喵客製...等商品,見 isLaserItem)
@@ -321,8 +345,12 @@ function buildPickGroups(exportRows, splitBySpec, threshold) {
     if (isLaserItem(sample)) {
       label = "雷雕客製刻印(不分商品/尺寸)";
     } else if (isPangpangCat(sample)) {
-      const namePrefix = isPangpangPair(sample) ? "胖胖貓一對" : "胖胖貓";
-      label = `${namePrefix}(${sizeGroupSuffix(sample) || "無尺寸"} ${styleGroupSuffix(sample)})`;
+      const pair = isPangpangPair(sample) ? "PAIR" : "SINGLE";
+      const namePrefix = pair === "PAIR" ? "胖胖貓一對" : "胖胖貓";
+      const size = sizeGroupSuffix(sample) || "無尺寸";
+      const style = styleGroupSuffix(sample);
+      const yellow = isPangpangSmallGoldYellow(pair, size, style, sample);
+      label = `${namePrefix}(${size} ${style}${yellow ? " 招財黃" : ""})`;
     } else if (canonicalCode(sample["商品編號"]) === PRODUCT_CODES.OIL_CAT_BOX) {
       label = `精油組(${sizeGroupSuffix(sample) || "無尺寸"})`;
     } else {
