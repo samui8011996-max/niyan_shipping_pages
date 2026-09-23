@@ -173,14 +173,18 @@ if (totalCount === 0) {
   })
     .then(r => r.json())
 .then(data => {
+      console.log("[一鍵上傳回應]", data);   // 出問題時 F12 主控台看得到後端原始回報
       // 包貨字卡跟試算表是兩套系統,分開回報:試算表掛了不代表字卡沒進去(反之亦然)
       const packing = describeOffshoreSync(data);
       if (data.ok) {
         const breakdown = Object.entries(data.results || {})
           .map(([c, r]) => (r.ok ? `${c} ${r.count}` : `${c} 試算表失敗(${r.error || "未知錯誤"})`))
           .join(" · ");
-        setStatus("status", "success", `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${packing}`);
-        uploadLineRegular();
+        const summary = `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${packing}`;
+        setStatus("status", "success", summary);
+        // 把這段當前綴傳下去 —— 不然 Line禮物 那行馬上就把它蓋掉,
+        // 離島字卡到底有沒有進去、試算表哪一類失敗,全都看不到
+        uploadLineRegular(summary + " · ");
       } else {
         // 試算表整包失敗也要繼續送 Line禮物件數 —— 那張卡根本不經過試算表,
         // 以前一起卡住,包貨看板就整天缺一塊

@@ -112,7 +112,13 @@ async function callGas(env, body) {
 // 現在改成兩邊各做各的，試算表失敗不影響字卡，前端會分開回報兩個結果。
 async function handleAppend(env, body) {
   const offshoreRows = (body.targets || {})[OFFSHORE_PLATFORM];
-  const gas = await callGas(env, body);
+  // Apps Script 連不上/逾時會 throw,不能讓它把下面的字卡同步一起拖下水
+  let gas;
+  try {
+    gas = await callGas(env, body);
+  } catch (err) {
+    gas = { ok: false, error: `試算表轉送失敗:${err.message || String(err)}` };
+  }
 
   let packingSync = null;
   if (Array.isArray(offshoreRows) && offshoreRows.length > 0) {
