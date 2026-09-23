@@ -199,7 +199,15 @@ async function callGas(env, body) {
     }
 
     try {
-      return JSON.parse(text);
+      const out = JSON.parse(text);
+      // Google 的轉址偶爾會彈回 /exec 本身,於是跑的是 doGet,回來的是「運作中」那句版本訊息。
+      // 它一樣是 ok:true 的 JSON,前端會當成上傳成功 —— 但根本沒寫任何東西。
+      // 2026-09-23 實測 4 次就中 1 次。認出來當作這次失敗,能重試就重試。
+      const isDoGet = out && typeof out.message === 'string' && out.message.indexOf('運作中') >= 0;
+      if (!isDoGet) return out;
+      last = { ok: false, error: `Apps Script 轉址彈回首頁沒真的執行(試了 ${i} 次)` };
+      if (!canRetryAfterRun) break;
+      continue;
     } catch (_) {
       // Apps Script 掛掉/沒授權/轉址 404 時會回 HTML，直接 JSON.parse 會炸在 "Unexpected token '<'"
       const redirected = /googleusercontent\.com/.test(res.url || '');
