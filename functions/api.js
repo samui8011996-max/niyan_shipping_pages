@@ -189,7 +189,30 @@ async function syncOffshoreToCard(env, rows, items) {
     日期: date, 平台: OFFSHORE_PLATFORM, 物流: OFFSHORE_LOGI, 件數: qty,
     撿貨明細: picking.length ? picking : null,
   });
-  return { ...r, added: qty, duplicated: skipped };
+
+  // 寫完立刻讀回來,並回報這個資料庫的指紋(總列數)。
+  // 2026-09-23 遇到「回報寫入成功、但包貨系統跟 D1 查詢都看不到那一列」的狀況,
+  // 這段是用來分辨:到底是根本沒寫進去、還是寫進了另一個 D1。
+  let verify = null;
+  try {
+    const back = await DB.prepare(
+      'SELECT id,"總件數" FROM platform_orders WHERE "日期"=? AND "平台"=? LIMIT 1'
+    ).bind(date, OFFSHORE_PLATFORM).first();
+    const fp = await DB.prepare(
+      'SELECT (SELECT COUNT(*) FROM platform_orders) AS pf, (SELECT COUNT(*) FROM shipping_offshore_synced) AS dedup'
+    ).first();
+    verify = {
+      found: !!back,
+      qty: back ? back['總件數'] : 0,
+      id: back ? back.id : null,
+      pf: fp ? fp.pf : null,
+      dedup: fp ? fp.dedup : null,
+    };
+  } catch (err) {
+    verify = { error: err.message || String(err) };
+  }
+
+  return { ...r, added: qty, duplicated: skipped, verify };
 }
 
 /* ---------- 一般訂單筆數 → 包貨「Line禮物」字卡 ---------- */

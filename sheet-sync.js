@@ -289,7 +289,12 @@ function describeOffshoreSync(data) {
   if (!ps.ok) return ` · ✗ 包貨離島字卡沒進去:${ps.error || "未知錯誤"}`;
   if (ps.skipped) return ` · 包貨離島字卡:這 ${ps.duplicated || 0} 張今天已經同步過,沒重複加`;
   const dup = ps.duplicated ? `,另 ${ps.duplicated} 張今天已同步過` : "";
-  return ` · ✓ 包貨離島字卡 +${ps.added || 0} 件(今日共 ${ps.total || 0})${dup}`;
+  // 寫完馬上讀回來的驗證結果(後端帶回來的),用來確認真的有寫進包貨系統那個資料庫
+  const v = ps.verify;
+  const verify = !v ? ""
+    : v.error ? ` [驗證失敗:${v.error}]`
+    : ` [驗證 讀回=${v.found ? "有 " + v.qty + " 件" : "沒有"} · 平台單 ${v.pf} 列 · 去重 ${v.dedup} 列]`;
+  return ` · ✓ 包貨離島字卡 +${ps.added || 0} 件(今日共 ${ps.total || 0})${dup}${verify}`;
 }
 
   function uploadLineRegular(prefix) {
