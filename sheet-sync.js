@@ -164,7 +164,12 @@ if (totalCount === 0) {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "append", targets }),
+    body: JSON.stringify({
+      action: "append",
+      targets,
+      // 離島那批的撿貨分組,一起送去包貨系統的「離島•郵局」字卡(沒有離島就是 null)
+      offshorePicking: buildOffshorePickingSummary(offshoreRows),
+    }),
   })
     .then(r => r.json())
 .then(data => {
@@ -211,6 +216,24 @@ function buildPickingSummary() {
   } catch (e) {
     // 撿貨明細只是附帶資訊,算不出來也不該擋住件數上傳
     console.warn("撿貨分組計算失敗,這次不送明細:", e);
+    return null;
+  }
+}
+
+// 離島那批的撿貨分組(給包貨系統「離島•郵局」字卡點開來看)。
+// 跟 Line禮物 不同:離島一天通常只有一兩筆,套門檻會全部被併成「其他合併」一行,
+// 撿貨的人等於看不到要撿什麼 —— 所以門檻固定傳 0,每組都自成一列(qty > 0 就獨立)。
+// 這裡收的是原始訂單列(loadedRows 篩出來的),不是已經轉成試算表欄位的那份。
+function buildOffshorePickingSummary(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  if (typeof buildPickGroups !== "function") return null;
+  try {
+    const { ownGroups } = buildPickGroups(rows, false, 0);
+    const list = ownGroups.map(g => ({ "品項": g.label, "件數": g.qty }));
+    return list.length ? list : null;
+  } catch (e) {
+    // 撿貨明細只是附帶資訊,算不出來也不該擋住離島件數上傳
+    console.warn("離島撿貨分組計算失敗,這次不送明細:", e);
     return null;
   }
 }

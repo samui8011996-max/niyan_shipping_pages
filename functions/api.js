@@ -123,6 +123,9 @@ async function handleAppend(env, body) {
     try {
       const synced = await upsertPlatform(env.DB, {
         日期: todayTw(), 平台: OFFSHORE_PLATFORM, 物流: OFFSHORE_LOGI, 件數: qty,
+        // 離島這幾件的撿貨分組(前端算好送過來的),讓包貨那邊點「離島•郵局」字卡
+        // 也看得到郵局這批要撿什麼 —— 以前只有 Line禮物 字卡有明細,離島卡點開是空的。
+        撿貨明細: Array.isArray(body.offshorePicking) ? body.offshorePicking : null,
       });
       gasResult.packingSync = { ok: true, ...synced };
     } catch (err) {
