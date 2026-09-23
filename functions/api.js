@@ -103,36 +103,87 @@ async function callGas(env, body) {
 }
 
 /* ---------- 分類訂單：寫試算表 + 離島字卡 ---------- */
+// 這裡是兩件互相獨立的事：
+//   1. 把分類訂單轉送給 Apps Script 寫 Google 試算表（同事看的那幾張表）
+//   2. 把離島那批的件數填進包貨系統的「離島•郵局」平台字卡（D1）
+// 以前第 2 件事綁在第 1 件成功之後才做，結果只要試算表那邊出一點狀況
+// （權限、配額、被搬動的工作表…），Apps Script 回 results["離島•郵局"].ok=false，
+// 包貨的離島字卡就整天空白沒人知道 —— 但那批貨明明已經出了。
+// 現在改成兩邊各做各的，試算表失敗不影響字卡，前端會分開回報兩個結果。
 async function handleAppend(env, body) {
-  const gas = await callGas(env, body);
-  if (!gas || !gas.ok) return json(gas || { ok: false, error: '未知錯誤' });
-
-  // 離島那批寫進試算表成功後，順手把件數累加進包貨系統的「離島•郵局」平台字卡。
-  // 舊版 Apps Script（v5）自己也會同步（回傳裡帶 packingSync），為了不讓同一批件數
-  // 被灌兩次，它同步成功時這裡就不重複加。
-  // ⚠ 只認「同步成功」(packingSync.ok)，不能只看有沒有 packingSync 這個欄位：
-  // v5 的 PACKING_API_URL 寫死在 Apps Script 裡，包貨系統搬到 Cloudflare 後那個舊網址
-  // 已經失效，v5 會回 packingSync.ok=false；舊的判斷式把「失敗」也當成「已經同步過」而跳過，
-  // 結果 Apps Script 和 Cloudflare 兩邊都沒寫，離島件數整個掉了。
-  // （Line禮物字卡不經過 Apps Script，所以那張卡一直正常，只有離島•郵局壞掉。）
   const offshoreRows = (body.targets || {})[OFFSHORE_PLATFORM];
-  const gasResult = (gas.results || {})[OFFSHORE_PLATFORM];
-  const gasSyncedOk = !!(gasResult && gasResult.packingSync && gasResult.packingSync.ok);
-  if (Array.isArray(offshoreRows) && offshoreRows.length > 0 && gasResult && gasResult.ok && !gasSyncedOk) {
-    const qty = offshoreRows.reduce((s, r) => s + (parseInt(r.qty, 10) || 1), 0);
-    try {
-      const synced = await upsertPlatform(env.DB, {
-        日期: todayTw(), 平台: OFFSHORE_PLATFORM, 物流: OFFSHORE_LOGI, 件數: qty,
-        // 離島這幾件的撿貨分組(前端算好送過來的),讓包貨那邊點「離島•郵局」字卡
-        // 也看得到郵局這批要撿什麼 —— 以前只有 Line禮物 字卡有明細,離島卡點開是空的。
-        撿貨明細: Array.isArray(body.offshorePicking) ? body.offshorePicking : null,
-      });
-      gasResult.packingSync = { ok: true, ...synced };
-    } catch (err) {
-      gasResult.packingSync = { ok: false, error: err.message || String(err) };
+  const gas = await callGas(env, body);
+
+  let packingSync = null;
+  if (Array.isArray(offshoreRows) && offshoreRows.length > 0) {
+    // 舊版 Apps Script（v5）自己也會同步（回傳帶 packingSync），它成功時就不要重複加
+    const gasResult = (gas && gas.results || {})[OFFSHORE_PLATFORM];
+    const gasSyncedOk = !!(gasResult && gasResult.packingSync && gasResult.packingSync.ok);
+    if (!gasSyncedOk) {
+      try {
+        packingSync = { ok: true, ...(await syncOffshoreToCard(env, offshoreRows, body.offshoreItems)) };
+      } catch (err) {
+        packingSync = { ok: false, error: err.message || String(err) };
+      }
     }
   }
-  return json(gas);
+
+  const out = (gas && typeof gas === 'object') ? gas : { ok: false, error: '未知錯誤' };
+  if (packingSync) {
+    // 試算表整包失敗時 results 可能根本沒有這個分類，還是要讓前端看得到字卡的結果
+    out.results = out.results || {};
+    out.results[OFFSHORE_PLATFORM] = { ...(out.results[OFFSHORE_PLATFORM] || {}), packingSync };
+    out.packingSync = packingSync;
+  }
+  return json(out);
+}
+
+// 離島件數 → 包貨「離島•郵局」字卡。
+// 同一天同一張訂單只算一次：重新下載出貨表、補上幾張新單後再按一次一鍵上傳是日常操作，
+// 舊的寫法是整批累加，按第二次就會變成雙倍（3 件按兩次 = 6 件）。所以先把訂單編號寫進
+// shipping_offshore_synced，只有真的第一次出現的那幾張才加進字卡。
+async function syncOffshoreToCard(env, rows, items) {
+  const DB = requireDb(env);
+  const date = todayTw();
+  const byOrder = new Map();
+  (Array.isArray(items) ? items : []).forEach(it => {
+    const id = String(it['訂單編號'] || '').trim();
+    if (id) byOrder.set(id, it);
+  });
+
+  const fresh = [];
+  let skipped = 0;
+  for (const r of rows) {
+    const orderId = String(r.orderId || '').trim();
+    const qty = parseInt(r.qty, 10) || 1;
+    if (!orderId) { fresh.push({ orderId, qty }); continue; }   // 沒訂單編號就無從去重，照算
+    const res = await DB.prepare(
+      'INSERT OR IGNORE INTO shipping_offshore_synced ("日期","訂單編號","件數","建立時間") VALUES (?,?,?,?)'
+    ).bind(date, orderId, qty, now()).run();
+    if (res.meta && res.meta.changes) fresh.push({ orderId, qty });
+    else skipped++;
+  }
+
+  const qty = fresh.reduce((s, r) => s + r.qty, 0);
+  if (qty <= 0) return { skipped: true, duplicated: skipped, updated: false, total: 0 };
+
+  // 明細只算這次真的加進去的那幾張單，跟件數用同一批，重複上傳不會只長明細不長件數
+  const picking = [];
+  const merged = new Map();
+  fresh.forEach(f => {
+    const it = byOrder.get(f.orderId);
+    if (!it) return;
+    const k = String(it['品項'] || '').trim();
+    if (!k) return;
+    merged.set(k, (merged.get(k) || 0) + (Number(it['件數']) || f.qty));
+  });
+  merged.forEach((件數, 品項) => picking.push({ 品項, 件數 }));
+
+  const r = await upsertPlatform(DB, {
+    日期: date, 平台: OFFSHORE_PLATFORM, 物流: OFFSHORE_LOGI, 件數: qty,
+    撿貨明細: picking.length ? picking : null,
+  });
+  return { ...r, added: qty, duplicated: skipped };
 }
 
 /* ---------- 一般訂單筆數 → 包貨「Line禮物」字卡 ---------- */

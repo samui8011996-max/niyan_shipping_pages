@@ -167,27 +167,26 @@ if (totalCount === 0) {
     body: JSON.stringify({
       action: "append",
       targets,
-      // 離島那批的撿貨分組,一起送去包貨系統的「離島•郵局」字卡(沒有離島就是 null)
-      offshorePicking: buildOffshorePickingSummary(offshoreRows),
+      // 離島那批逐筆的品項(含訂單編號,後端要拿來去重),一起送去包貨「離島•郵局」字卡
+      offshoreItems: buildOffshoreItems(offshoreRows),
     }),
   })
     .then(r => r.json())
 .then(data => {
+      // 包貨字卡跟試算表是兩套系統,分開回報:試算表掛了不代表字卡沒進去(反之亦然)
+      const packing = describeOffshoreSync(data);
       if (data.ok) {
         const breakdown = Object.entries(data.results || {})
-          .map(([c, r]) => {
-            if (!r.ok) return `${c} 失敗(${r.error})`;
-            let s = `${c} ${r.count}`;
-            if (r.packingSync) {
-              s += r.packingSync.ok ? "(已同步包貨郵局)" : `(包貨同步失敗:${r.packingSync.error || "未知錯誤"})`;
-            }
-            return s;
-          })
+          .map(([c, r]) => (r.ok ? `${c} ${r.count}` : `${c} 試算表失敗(${r.error || "未知錯誤"})`))
           .join(" · ");
-        setStatus("status", "success", `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}`);
-        uploadLineRegular();  // ← 加這行
+        setStatus("status", "success", `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${packing}`);
+        uploadLineRegular();
       } else {
-        setStatus("status", "error", `✗ 上傳失敗:${data.error || "未知錯誤"}`);
+        // 試算表整包失敗也要繼續送 Line禮物件數 —— 那張卡根本不經過試算表,
+        // 以前一起卡住,包貨看板就整天缺一塊
+        const msg = `✗ 試算表上傳失敗:${data.error || "未知錯誤"}${packing}`;
+        setStatus("status", "error", msg);
+        uploadLineRegular(msg + " · ");
       }
     })
     .catch(err => {
@@ -199,46 +198,98 @@ if (totalCount === 0) {
 }
 
 
-// 上傳 Line禮物件數時,順便把「分區列印」算出來的撿貨分組一起送到包貨系統,
-// 包貨那邊點字卡就看得到今天要撿哪些品項各幾件,不用再開這邊的分區列印分頁對。
-// 用的是跟畫面上完全同一套分組邏輯(buildPickGroups),含門檻設定,所以不會兩邊對不起來。
+// 字卡明細:照「品項 + 款式」統計,一個款式一行。
+// 以前送的是分區列印的分組結果(有合併門檻),字卡上會出現「其他合併 10」「雷雕客製刻印
+// (不分商品/尺寸) 7」這種看不出要撿什麼的行 —— 那套是為了「少印幾張出貨單」而合併,
+// 不是為了看統計。這裡改成純統計:不套門檻、不合併,每個品項款式各自一行。
+//
+// 款式後綴沿用分區列印那套判斷(星座 / 尺寸 / 金運招福 / 招財黃 / 一對),不直接拿
+// 「規格設定」全文當 key —— 那裡面還有加購、緞帶顏色這種跟撿貨無關的選項,
+// 一起比對會炸成幾十行看不完。
+// 統計用的品項名:cleanProductName 之後再把【行銷標語】整段拿掉。
+// 同一個實體商品常常開好幾個賣場標題(【雷雕】/【生日送禮首選】/【辦公室語錄】…),
+// 統計卡上應該併成同一行;要不要雷雕是撿貨真的在乎的差異,改用後綴標,不靠標題。
+function pickStatName(row) {
+  // 星座貓每個星座都是獨立的賣場標題(「處女座星座貓+元寶」「星座貓 處女座 天秤座」…),
+  // 星座已經用後綴標了,名稱一律收斂成「星座貓」,同一個星座才不會被標題拆成好幾行
+  if (isZodiacCat(row)) return "星座貓";
+  const s = cleanProductName(row["商品名稱"])
+    .replace(/[【\[][^】\]]*[】\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return s || cleanProductName(row["商品名稱"]) || "未命名商品";
+}
+
+function pickStatLabel(row) {
+  const name = pickStatName(row);
+  const parts = [];
+  const zodiac = zodiacGroupSuffix(row);
+  if (zodiac) parts.push(zodiac);
+  const size = sizeGroupSuffix(row);
+  if (size) parts.push(size);
+  // 名稱本身就寫了「一對」就不用再標一次
+  if (isPangpangPair(row) && !name.includes("一對")) parts.push("一對");
+  // styleOrder: 0=金運 1=招福 2=看不出來 —— 看不出來的品項(例如禮盒、植物盆)就不要硬加後綴
+  if (typeof styleOrder === "function" && styleOrder(row) !== 2) parts.push(styleGroupSuffix(row));
+  if (isGoldYellowCat(row)) parts.push("招財黃");
+  if (isLaserItem(row)) parts.push("雷雕");
+  return parts.length ? `${name}(${parts.join(" ")})` : name;
+}
+
+// 把訂單列統計成 [{品項, 件數}],依品項名排序(同一個商品的不同款式會排在一起)
+function tallyByItemStyle(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const label = pickStatLabel(r);
+    map.set(label, (map.get(label) || 0) + (parseInt(r["數量"], 10) || 1));
+  });
+  return [...map]
+    .map(([品項, 件數]) => ({ "品項": 品項, "件數": 件數 }))
+    .sort((a, b) => a["品項"].localeCompare(b["品項"], "zh-Hant"));
+}
+
+// 上傳 Line禮物件數時一起送過去的品項統計(跟件數同一批訂單:扣掉黑熊/盆景/離島)
 function buildPickingSummary() {
-  if (!loadedRows || typeof buildPickGroups !== "function") return null;
+  if (!loadedRows) return null;
   try {
-    const exportRows = getZonedExportRows(loadedRows);
-    const { splitBySpec, threshold } = getZonedOptions();
-    const { ownGroups, mergedGroups } = buildPickGroups(exportRows, splitBySpec, threshold);
-    const list = ownGroups.map(g => ({ "品項": g.label, "件數": g.qty }));
-    // 沒超過門檻的那些併成一張單,對撿貨的人來說是一個整體,給個總數就好
-    const mergedQty = mergedGroups.reduce((sum, g) => sum + g.qty, 0);
-    if (mergedQty > 0) list.push({ "品項": "其他合併", "件數": mergedQty });
+    const list = tallyByItemStyle(getZonedExportRows(loadedRows));
     return list.length ? list : null;
   } catch (e) {
-    // 撿貨明細只是附帶資訊,算不出來也不該擋住件數上傳
-    console.warn("撿貨分組計算失敗,這次不送明細:", e);
+    // 明細只是附帶資訊,算不出來也不該擋住件數上傳
+    console.warn("品項統計計算失敗,這次不送明細:", e);
     return null;
   }
 }
 
-// 離島那批的撿貨分組(給包貨系統「離島•郵局」字卡點開來看)。
-// 跟 Line禮物 不同:離島一天通常只有一兩筆,套門檻會全部被併成「其他合併」一行,
-// 撿貨的人等於看不到要撿什麼 —— 所以門檻固定傳 0,每組都自成一列(qty > 0 就獨立)。
-// 這裡收的是原始訂單列(loadedRows 篩出來的),不是已經轉成試算表欄位的那份。
-function buildOffshorePickingSummary(rows) {
+// 離島那批:逐筆送「訂單編號 + 品項 + 件數」,不先加總。
+// 後端要靠訂單編號去重(同一天同一張單重複上傳只算一次),所以明細也得跟著訂單編號走,
+// 不然重複上傳時件數沒加、明細卻又加一次,兩邊會對不起來。
+function buildOffshoreItems(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
-  if (typeof buildPickGroups !== "function") return null;
   try {
-    const { ownGroups } = buildPickGroups(rows, false, 0);
-    const list = ownGroups.map(g => ({ "品項": g.label, "件數": g.qty }));
-    return list.length ? list : null;
+    return rows.map(r => ({
+      "訂單編號": String(r["訂單編號"] ?? "").trim(),
+      "品項": pickStatLabel(r),
+      "件數": parseInt(r["數量"], 10) || 1,
+    }));
   } catch (e) {
-    // 撿貨明細只是附帶資訊,算不出來也不該擋住離島件數上傳
-    console.warn("離島撿貨分組計算失敗,這次不送明細:", e);
+    console.warn("離島品項統計計算失敗,這次不送明細:", e);
     return null;
   }
 }
 
-  function uploadLineRegular() {
+// 把後端回報的「離島字卡同步結果」翻成一句人看得懂的話
+function describeOffshoreSync(data) {
+  const ps = data && data.packingSync;
+  if (!ps) return "";
+  if (!ps.ok) return ` · ✗ 包貨離島字卡沒進去:${ps.error || "未知錯誤"}`;
+  if (ps.skipped) return ` · 包貨離島字卡:這 ${ps.duplicated || 0} 張今天已經同步過,沒重複加`;
+  const dup = ps.duplicated ? `,另 ${ps.duplicated} 張今天已同步過` : "";
+  return ` · ✓ 包貨離島字卡 +${ps.added || 0} 件(今日共 ${ps.total || 0})${dup}`;
+}
+
+  function uploadLineRegular(prefix) {
+  const pre = prefix || "";
   if (!lastStats) return;
   const url = getGsUrl();
   if (!url) return;
@@ -247,7 +298,7 @@ function buildOffshorePickingSummary(rows) {
   const today = todayStr("-");
   const btn = document.getElementById("uploadBtn");
   if (btn) { btn.disabled = true; }
-  setStatus("status", "loading", "上傳中(Line禮物)…");
+  setStatus("status", "loading", `${pre}上傳中(Line禮物)…`);
 
   fetch(url, {
     method: "POST",
@@ -263,14 +314,14 @@ function buildOffshorePickingSummary(rows) {
     .then(data => {
       if (data.ok) {
         const msg = data.updated
-          ? `✓ 已上傳，Line禮物 今日累計 ${data.total} 筆`
-          : `✓ 已上傳，Line禮物 今日 ${data.total} 筆`;
+          ? `${pre}✓ 已上傳，Line禮物 今日累計 ${data.total} 筆`
+          : `${pre}✓ 已上傳，Line禮物 今日 ${data.total} 筆`;
         setStatus("status", "success", msg);
       } else {
-        setStatus("status", "error", `✗ Line禮物上傳失敗：${data.error || "未知錯誤"}`);
+        setStatus("status", "error", `${pre}✗ Line禮物上傳失敗：${data.error || "未知錯誤"}`);
       }
     })
-    .catch(err => setStatus("status", "error", `✗ Line禮物上傳失敗：${err.message}`))
+    .catch(err => setStatus("status", "error", `${pre}✗ Line禮物上傳失敗：${err.message}`))
     .finally(() => {
       if (btn) { btn.disabled = false; }
     });
