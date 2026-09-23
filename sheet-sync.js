@@ -308,19 +308,21 @@ function buildOffshoreItems(rows) {
   }
 }
 
-// 把後端回報的「離島字卡同步結果」翻成一句人看得懂的話
+// 把後端回報的「離島字卡同步結果」翻成一句人看得懂的話。
+// 正常就一句話帶過;寫入沒生效(讀不回來)才把驗證細節攤出來 —— 平常沒人想看那串數字,
+// 但真的出事時那串是唯一線索,所以留著不刪,只是平常不顯示(F12 主控台一樣看得到完整回報)。
 function describeOffshoreSync(data) {
   const ps = data && data.packingSync;
   if (!ps) return "";
-  if (!ps.ok) return ` · ✗ 包貨離島字卡沒進去:${ps.error || "未知錯誤"}`;
-  if (ps.skipped) return ` · 包貨離島字卡:這 ${ps.duplicated || 0} 張今天已經同步過,沒重複加`;
-  const dup = ps.duplicated ? `,另 ${ps.duplicated} 張今天已同步過` : "";
-  // 寫完馬上讀回來的驗證結果(後端帶回來的),用來確認真的有寫進包貨系統那個資料庫
+  if (!ps.ok) return ` · ✗ 離島字卡沒進去:${ps.error || "未知錯誤"}`;
+
   const v = ps.verify;
-  const verify = !v ? ""
-    : v.error ? ` [驗證失敗:${v.error}]`
-    : ` [驗證 讀回=${v.found ? "有 " + v.qty + " 件" : "沒有"} · 平台單 ${v.pf} 列 · 去重 ${v.dedup} 列]`;
-  return ` · ✓ 包貨離島字卡 +${ps.added || 0} 件(今日共 ${ps.total || 0})${dup}${verify}`;
+  if (v && (v.error || v.found === false)) {
+    return ` · ⚠ 離島字卡可能沒寫進去[${v.error || `讀回=沒有 · 平台單 ${v.pf} 列`}]`;
+  }
+  if (ps.skipped) return ` · 離島字卡:今天已同步過`;
+  const dup = ps.duplicated ? `,另 ${ps.duplicated} 張已同步過` : "";
+  return ` · 離島字卡 +${ps.added || 0}(今日 ${ps.total || 0})${dup}`;
 }
 
   function uploadLineRegular(prefix) {
@@ -350,12 +352,10 @@ function describeOffshoreSync(data) {
     .then(r => r.json())
     .then(data => {
       if (data.ok) {
-        const dup = data.duplicated ? `(另 ${data.duplicated} 筆今天上傳過,沒重複加)` : "";
+        const dup = data.duplicated ? `,另 ${data.duplicated} 筆已上傳過` : "";
         const msg = data.skipped
-          ? `${pre}✓ Line禮物 今日 ${data.total} 筆(這批都上傳過了,沒重複加)`
-          : data.updated
-            ? `${pre}✓ 已上傳，Line禮物 今日累計 ${data.total} 筆${dup}`
-            : `${pre}✓ 已上傳，Line禮物 今日 ${data.total} 筆${dup}`;
+          ? `${pre}Line禮物 ${data.total} 筆(今天都上傳過了)`
+          : `${pre}Line禮物 ${data.total} 筆${dup}`;
         setStatus("status", "success", msg);
       } else {
         setStatus("status", "error", `${pre}✗ Line禮物上傳失敗：${data.error || "未知錯誤"}`);
