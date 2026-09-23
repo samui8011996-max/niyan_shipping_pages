@@ -21,3 +21,19 @@ CREATE TABLE IF NOT EXISTS shipping_offshore_synced (
   "建立時間" TEXT,
   PRIMARY KEY ("日期", "訂單編號")
 );
+
+-- 已同步進包貨字卡的列(離島•郵局 / Line禮物 共用)。
+-- 鍵值:離島用「訂單編號」(一張單一件);Line禮物用「商品訂單編號」(同一張訂單可能有好幾個
+-- 品項列,每列各算一筆,跟字卡件數的定義一致)。沒有它的話,重新下載出貨表補幾張新單再按
+-- 一次上傳,整批都會被重複累加(56 筆按兩次 = 112)。
+-- 程式會 CREATE TABLE IF NOT EXISTS 就地建表,不必另外跑 migration。
+-- 上面的 shipping_offshore_synced 是它的前身,2026-09-23 當天的離島紀錄還在那裡,
+-- 所以離島去重時會多查它一次,不搬家。
+CREATE TABLE IF NOT EXISTS shipping_card_synced (
+  "日期" TEXT NOT NULL,
+  "平台" TEXT NOT NULL,
+  "鍵值" TEXT NOT NULL,
+  "數量" INTEGER NOT NULL DEFAULT 1,
+  "建立時間" TEXT,
+  PRIMARY KEY ("日期", "平台", "鍵值")
+);

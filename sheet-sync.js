@@ -265,6 +265,32 @@ function buildPickingSummary() {
   }
 }
 
+// Line禮物 那批:逐列送「鍵值 + 品項 + 數量」,後端靠鍵值去重。
+// 鍵值用「商品訂單編號」—— 同一張訂單可能有好幾個品項列,每列各算一筆,
+// 跟字卡件數的定義(筆數)一致。補了幾張新單再按一次上傳,只會多那幾筆。
+function buildRegularItems() {
+  if (!loadedRows) return null;
+  try {
+    const seen = new Map();
+    return getZonedExportRows(loadedRows).map(r => {
+      let key = String(r["商品訂單編號"] ?? "").trim();
+      if (!key) {
+        // 舊格式的出貨表沒有「商品訂單編號」欄:用訂單編號+商品編號+第幾個相同組合湊一個。
+        // 不能用列號 —— 排序或檔案一變,同一列就會被當成新的一筆重複加。
+        const base = `${String(r["訂單編號"] ?? "").trim()}#${String(r["商品編號"] ?? "").trim()}`;
+        const n = (seen.get(base) || 0) + 1;
+        seen.set(base, n);
+        key = `${base}#${n}`;
+      }
+      return { "鍵值": key, "品項": pickStatLabel(r), "數量": parseInt(r["數量"], 10) || 1 };
+    });
+  } catch (e) {
+    // 算不出來就退回舊行為(整批累加),不擋住上傳
+    console.warn("Line禮物逐列明細計算失敗,這次用整批累加:", e);
+    return null;
+  }
+}
+
 // 離島那批:逐筆送「訂單編號 + 品項 + 件數」,不先加總。
 // 後端要靠訂單編號去重(同一天同一張單重複上傳只算一次),所以明細也得跟著訂單編號走,
 // 不然重複上傳時件數沒加、明細卻又加一次,兩邊會對不起來。
@@ -316,15 +342,20 @@ function describeOffshoreSync(data) {
       action: "uploadLineRegular",
       date: today,
       count: count,
-      picking: buildPickingSummary()
+      picking: buildPickingSummary(),
+      // 逐列明細(含鍵值),後端拿來去重;舊版後端會忽略這個欄位
+      items: buildRegularItems()
     })
   })
     .then(r => r.json())
     .then(data => {
       if (data.ok) {
-        const msg = data.updated
-          ? `${pre}✓ 已上傳，Line禮物 今日累計 ${data.total} 筆`
-          : `${pre}✓ 已上傳，Line禮物 今日 ${data.total} 筆`;
+        const dup = data.duplicated ? `(另 ${data.duplicated} 筆今天上傳過,沒重複加)` : "";
+        const msg = data.skipped
+          ? `${pre}✓ Line禮物 今日 ${data.total} 筆(這批都上傳過了,沒重複加)`
+          : data.updated
+            ? `${pre}✓ 已上傳，Line禮物 今日累計 ${data.total} 筆${dup}`
+            : `${pre}✓ 已上傳，Line禮物 今日 ${data.total} 筆${dup}`;
         setStatus("status", "success", msg);
       } else {
         setStatus("status", "error", `${pre}✗ Line禮物上傳失敗：${data.error || "未知錯誤"}`);

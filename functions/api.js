@@ -14,7 +14,7 @@
  *   （Apps Script 重新部署拿到新的 /exec 網址時，改環境變數即可，不用動程式碼）
  */
 
-const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbwidq0nCtNOnMGlMDRXwb_oeRKl6N2TvaQ7McfS0eGOguff5c7Q_xAHQsPqIyj1lE8V/exec';
+const DEFAULT_GS_URL = 'https://script.google.com/macros/s/AKfycbzPB6LIU4BLk-c_B4eVEILuIYpFD_5jWPDUv34CBO3k3E8y_zYwsELHHL7797dWXkfs/exec';
 
 // 出貨小幫手上傳後要填進包貨系統的兩張平台字卡
 const LINE_REGULAR_PLATFORM = 'Line禮物';
@@ -86,6 +86,74 @@ function requireDb(env) {
 function jparse(v) {
   if (typeof v === 'string' && v) { try { return JSON.parse(v); } catch (_) { return []; } }
   return Array.isArray(v) ? v : [];
+}
+
+/* ---------- 已同步列的去重表 ----------
+ * 一張表管所有「已經算進包貨字卡」的列：日期 + 平台 + 這一列的唯一鍵。
+ * 鍵值：離島用「訂單編號」（一張單就是一件）；Line禮物用「商品訂單編號」
+ * （同一張訂單可能有好幾個品項列，每列各算一筆，跟字卡的筆數定義一致）。
+ * 沒有它的話，重新下載出貨表補幾張新單再按一次上傳，整批都會被重複累加。
+ * 用 CREATE TABLE IF NOT EXISTS 就地建表，不必另外跑 migration。
+ */
+let _tablesReady = false;
+async function ensureSyncTables(DB) {
+  if (_tablesReady) return;
+  await DB.prepare(
+    'CREATE TABLE IF NOT EXISTS shipping_card_synced (' +
+    '"日期" TEXT NOT NULL, "平台" TEXT NOT NULL, "鍵值" TEXT NOT NULL, ' +
+    '"數量" INTEGER NOT NULL DEFAULT 1, "建立時間" TEXT, ' +
+    'PRIMARY KEY ("日期","平台","鍵值"))'
+  ).run();
+  _tablesReady = true;
+}
+
+// rows: [{ key, qty, item }] → 回報哪幾列是今天第一次出現（真的要加進字卡的）
+async function claimFreshRows(DB, date, platform, rows) {
+  await ensureSyncTables(DB);
+  const fresh = [];
+  let duplicated = 0;
+  for (const r of rows) {
+    if (!r.key) { fresh.push(r); continue; }     // 沒有唯一鍵就無從去重，照算
+    // 離島 2026-09-23 當天是寫在舊的 shipping_offshore_synced，沿用著不搬家，
+    // 只在這裡多查一次，免得當天那幾張單被重複加一次
+    if (platform === OFFSHORE_PLATFORM) {
+      const legacy = await DB.prepare(
+        'SELECT 1 FROM shipping_offshore_synced WHERE "日期"=? AND "訂單編號"=?'
+      ).bind(date, r.key).first().catch(() => null);
+      if (legacy) { duplicated++; continue; }
+    }
+    const res = await DB.prepare(
+      'INSERT OR IGNORE INTO shipping_card_synced ("日期","平台","鍵值","數量","建立時間") VALUES (?,?,?,?,?)'
+    ).bind(date, platform, r.key, r.qty || 1, now()).run();
+    if (res.meta && res.meta.changes) fresh.push(r); else duplicated++;
+  }
+  return { fresh, duplicated };
+}
+
+async function countClaims(DB, date, platform) {
+  await ensureSyncTables(DB);
+  const r = await DB.prepare(
+    'SELECT COUNT(*) AS n FROM shipping_card_synced WHERE "日期"=? AND "平台"=?'
+  ).bind(date, platform).first();
+  return (r && r.n) || 0;
+}
+
+async function getCardRow(DB, date, platform) {
+  return await DB.prepare(
+    'SELECT * FROM platform_orders WHERE "日期"=? AND "平台"=? LIMIT 1'
+  ).bind(date, platform).first();
+}
+
+// [{item:{品項,數量}}] → [{品項,件數}]，同品項加總
+function tallyItems(rows) {
+  const merged = new Map();
+  rows.forEach(r => {
+    const it = r.item || {};
+    const k = String(it['品項'] || '').trim();
+    if (!k) return;
+    merged.set(k, (merged.get(k) || 0) + (Number(it['數量']) || Number(r.qty) || 1));
+  });
+  return [...merged].map(([品項, 件數]) => ({ 品項, 件數 }));
 }
 
 /* ---------- 轉送 Apps Script（只負責寫 Google 試算表）---------- */
@@ -203,33 +271,22 @@ async function syncOffshoreToCard(env, rows, items) {
     if (id) byOrder.set(id, it);
   });
 
-  const fresh = [];
-  let skipped = 0;
-  for (const r of rows) {
-    const orderId = String(r.orderId || '').trim();
-    const qty = parseInt(r.qty, 10) || 1;
-    if (!orderId) { fresh.push({ orderId, qty }); continue; }   // 沒訂單編號就無從去重，照算
-    const res = await DB.prepare(
-      'INSERT OR IGNORE INTO shipping_offshore_synced ("日期","訂單編號","件數","建立時間") VALUES (?,?,?,?)'
-    ).bind(date, orderId, qty, now()).run();
-    if (res.meta && res.meta.changes) fresh.push({ orderId, qty });
-    else skipped++;
+  const claimed = await claimFreshRows(DB, date, OFFSHORE_PLATFORM, rows.map(r => {
+    const key = String(r.orderId || '').trim();
+    return { key, qty: parseInt(r.qty, 10) || 1, item: byOrder.get(key) };
+  }));
+  const fresh = claimed.fresh;
+  const skipped = claimed.duplicated;
+
+  // 離島一張單就是一件,件數照數量加總
+  const qty = fresh.reduce((s, r) => s + r.qty, 0);
+  if (qty <= 0) {
+    const row = await getCardRow(DB, date, OFFSHORE_PLATFORM);
+    return { skipped: true, duplicated: skipped, updated: false, total: (row && row['總件數']) || 0 };
   }
 
-  const qty = fresh.reduce((s, r) => s + r.qty, 0);
-  if (qty <= 0) return { skipped: true, duplicated: skipped, updated: false, total: 0 };
-
-  // 明細只算這次真的加進去的那幾張單，跟件數用同一批，重複上傳不會只長明細不長件數
-  const picking = [];
-  const merged = new Map();
-  fresh.forEach(f => {
-    const it = byOrder.get(f.orderId);
-    if (!it) return;
-    const k = String(it['品項'] || '').trim();
-    if (!k) return;
-    merged.set(k, (merged.get(k) || 0) + (Number(it['件數']) || f.qty));
-  });
-  merged.forEach((件數, 品項) => picking.push({ 品項, 件數 }));
+  // 明細只算這次真的加進去的那幾張單,跟件數用同一批,重複上傳不會只長明細不長件數
+  const picking = tallyItems(fresh);
 
   const r = await upsertPlatform(DB, {
     日期: date, 平台: OFFSHORE_PLATFORM, 物流: OFFSHORE_LOGI, 件數: qty,
@@ -241,11 +298,9 @@ async function syncOffshoreToCard(env, rows, items) {
   // 這段是用來分辨:到底是根本沒寫進去、還是寫進了另一個 D1。
   let verify = null;
   try {
-    const back = await DB.prepare(
-      'SELECT id,"總件數" FROM platform_orders WHERE "日期"=? AND "平台"=? LIMIT 1'
-    ).bind(date, OFFSHORE_PLATFORM).first();
+    const back = await getCardRow(DB, date, OFFSHORE_PLATFORM);
     const fp = await DB.prepare(
-      'SELECT (SELECT COUNT(*) FROM platform_orders) AS pf, (SELECT COUNT(*) FROM shipping_offshore_synced) AS dedup'
+      'SELECT (SELECT COUNT(*) FROM platform_orders) AS pf, (SELECT COUNT(*) FROM shipping_card_synced) AS dedup'
     ).first();
     verify = {
       found: !!back,
@@ -266,14 +321,50 @@ async function handleUploadLineRegular(env, body) {
   const date = String(body.date || '').trim();
   const count = parseInt(body.count, 10) || 0;
   if (!date) return json({ ok: false, error: '缺少日期' });
-  if (count <= 0) return json({ ok: true, updated: false, total: 0, skipped: true });
 
-  const r = await upsertPlatform(env.DB, {
-    日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: count,
-    // 分區列印算出來的撿貨分組,一起帶過去給包貨系統點字卡看。舊版前端不會送這個欄位
-    撿貨明細: Array.isArray(body.picking) ? body.picking : null,
-  });
-  return json({ ok: true, updated: !!r.updated, total: r.total || 0 });
+  const items = Array.isArray(body.items) ? body.items : null;
+
+  // 舊版前端沒送逐列明細 → 維持原本「整批累加」的行為
+  if (!items || items.length === 0) {
+    if (count <= 0) return json({ ok: true, updated: false, total: 0, skipped: true });
+    const r = await upsertPlatform(requireDb(env), {
+      日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: count,
+      撿貨明細: Array.isArray(body.picking) ? body.picking : null,
+    });
+    return json({ ok: true, updated: !!r.updated, total: r.total || 0 });
+  }
+
+  // 逐列去重:鍵值用「商品訂單編號」,同一天同一列只算一次,
+  // 所以補了幾張新單之後再按一次上傳,字卡只會多那幾筆,不會整批變兩倍
+  const DB = requireDb(env);
+  const hadClaims = (await countClaims(DB, date, LINE_REGULAR_PLATFORM)) > 0;
+  const { fresh, duplicated } = await claimFreshRows(DB, date, LINE_REGULAR_PLATFORM, items.map(it => ({
+    key: String(it['鍵值'] || '').trim(),
+    qty: Number(it['數量']) || 1,
+    item: it,
+  })));
+
+  // 字卡的件數一向是「筆數」(一列算一筆),撿貨明細才是照數量加總
+  const qty = fresh.length;
+  const existing = await getCardRow(DB, date, LINE_REGULAR_PLATFORM);
+
+  // 轉換期:去重上線前這張卡就已經有數字了(同一份出貨表算出來的),
+  // 第一次逐列上傳不累加,直接用這次算出來的覆蓋,不然會變兩倍
+  const mode = (!hadClaims && existing) ? 'set' : 'add';
+
+  if (qty <= 0) {
+    return json({
+      ok: true, updated: false, skipped: true, duplicated,
+      total: (existing && existing['總件數']) || 0,
+    });
+  }
+
+  const r = await upsertPlatform(DB, {
+    日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: qty,
+    撿貨明細: tallyItems(fresh),
+  }, mode);
+
+  return json({ ok: true, updated: !!r.updated, total: r.total || 0, added: qty, duplicated, mode });
 }
 
 /* ---------- 問題訂單（D1 shipping_problems）---------- */
@@ -347,7 +438,7 @@ async function handleRemoveProblem(env, body) {
  * 同一天同平台已有紀錄就把件數「累加」進對應物流，沒有才新增一筆，
  * 不整筆覆蓋（包貨系統當天可能已經手動送出同平台的表單）。
  */
-async function upsertPlatform(DB, p) {
+async function upsertPlatform(DB, p, mode) {
   const date = String(p['日期'] || '').trim();
   const platform = String(p['平台'] || '').trim();
   const logi = String(p['物流'] || '').trim();
@@ -372,10 +463,17 @@ async function upsertPlatform(DB, p) {
     return { updated: false, total: qty, id };
   }
 
+  // mode 'set':把這個物流的件數直接設成 qty(不累加)、撿貨明細整欄換掉。
+  // 只有「去重上線前就已經有字卡、這是第一次逐列上傳」那一次會用到 ——
+  // 那張卡本來就是同一份出貨表算出來的,再累加一次會變兩倍。
+  const setMode = mode === 'set';
   const detail = jparse(existing['明細']);
   let found = false;
   const newDetail = detail.map(d => {
-    if (logi && d['物流'] === logi) { found = true; return { ...d, 件數: (Number(d['件數']) || 0) + qty }; }
+    if (logi && d['物流'] === logi) {
+      found = true;
+      return { ...d, 件數: setMode ? qty : (Number(d['件數']) || 0) + qty };
+    }
     return d;
   });
   if (!found) newDetail.push(logi ? { 物流: logi, 件數: qty } : { 件數: qty });
@@ -386,15 +484,21 @@ async function upsertPlatform(DB, p) {
   let pickingSql = '';
   const binds = [JSON.stringify(newDetail), total, now()];
   if (picking) {
-    const merged = new Map();
-    const prev = jparse(existing['撿貨明細']);
-    (Array.isArray(prev) ? prev : []).concat(picking).forEach(d => {
-      const k = String(d['品項'] || '').trim();
-      if (!k) return;
-      merged.set(k, (merged.get(k) || 0) + (Number(d['件數']) || 0));
-    });
+    let list;
+    if (setMode) {
+      list = picking;                       // 整欄換掉
+    } else {
+      const merged = new Map();
+      const prev = jparse(existing['撿貨明細']);
+      (Array.isArray(prev) ? prev : []).concat(picking).forEach(d => {
+        const k = String(d['品項'] || '').trim();
+        if (!k) return;
+        merged.set(k, (merged.get(k) || 0) + (Number(d['件數']) || 0));
+      });
+      list = [...merged].map(([品項, 件數]) => ({ 品項, 件數 }));
+    }
     pickingSql = ',"撿貨明細"=?';
-    binds.push(JSON.stringify([...merged].map(([品項, 件數]) => ({ 品項, 件數 }))));
+    binds.push(JSON.stringify(list));
   }
   binds.push(existing.id);
 
