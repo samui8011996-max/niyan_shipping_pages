@@ -130,6 +130,24 @@ async function claimFreshRows(DB, date, platform, rows) {
   return { fresh, duplicated };
 }
 
+// 卡片被刪掉(或今天根本還沒有)→ 之前記的「已同步」就過期了,整組清掉重來。
+// 2026-09-23 踩到:包貨那邊把當天的卡片刪掉重傳是日常操作,但去重紀錄還在,
+// 56 筆全被當成重複,卡片再也加不回來,看起來就像「完全不會上傳了」。
+// 去重的目的只是「同一張卡不要被同一批訂單灌兩次」,卡片不在了就沒有東西要保護。
+async function resetClaimsIfCardMissing(DB, date, platform) {
+  const row = await getCardRow(DB, date, platform);
+  if (row) return false;
+  await ensureSyncTables(DB);
+  await DB.prepare('DELETE FROM shipping_card_synced WHERE "日期"=? AND "平台"=?')
+    .bind(date, platform).run();
+  if (platform === OFFSHORE_PLATFORM) {
+    // 舊表(2026-09-23 當天的離島紀錄還在裡面)也要一起清,不然離島一樣加不回來
+    await DB.prepare('DELETE FROM shipping_offshore_synced WHERE "日期"=?')
+      .bind(date).run().catch(() => {});
+  }
+  return true;
+}
+
 async function countClaims(DB, date, platform) {
   await ensureSyncTables(DB);
   const r = await DB.prepare(
@@ -279,6 +297,7 @@ async function syncOffshoreToCard(env, rows, items) {
     if (id) byOrder.set(id, it);
   });
 
+  await resetClaimsIfCardMissing(DB, date, OFFSHORE_PLATFORM);
   const claimed = await claimFreshRows(DB, date, OFFSHORE_PLATFORM, rows.map(r => {
     const key = String(r.orderId || '').trim();
     return { key, qty: parseInt(r.qty, 10) || 1, item: byOrder.get(key) };
@@ -345,6 +364,7 @@ async function handleUploadLineRegular(env, body) {
   // 逐列去重:鍵值用「商品訂單編號」,同一天同一列只算一次,
   // 所以補了幾張新單之後再按一次上傳,字卡只會多那幾筆,不會整批變兩倍
   const DB = requireDb(env);
+  await resetClaimsIfCardMissing(DB, date, LINE_REGULAR_PLATFORM);
   const hadClaims = (await countClaims(DB, date, LINE_REGULAR_PLATFORM)) > 0;
   const { fresh, duplicated } = await claimFreshRows(DB, date, LINE_REGULAR_PLATFORM, items.map(it => ({
     key: String(it['鍵值'] || '').trim(),
