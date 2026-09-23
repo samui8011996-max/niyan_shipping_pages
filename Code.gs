@@ -1,5 +1,5 @@
 /**
- * 出貨幫手 - 多試算表接收端 v6
+ * 出貨幫手 - 多試算表接收端 v7
  *
  * v6(搬家到 Cloudflare Pages 後):這支 Apps Script 只剩「寫 Google 試算表」一個職責。
  *   前端不再直接打這支,而是打同站的 /api(Cloudflare Pages Function),
@@ -101,11 +101,55 @@ const RETURN_BLOCKS = {
 // =============================================================
 // 入口
 // =============================================================
+// ===== 可安全重試(requestId 去重) =====
+// Apps Script 的 /exec POST 會先回 302,轉到 googleusercontent 的一次性網址才拿得到內容,
+// 那一段 Google 偶發 404(2026-09-23 實測連打三次:一次 200、兩次 404)。
+// 麻煩的是 404 發生在腳本「已經執行完、列已經寫進試算表」之後 —— 呼叫端看到失敗就重試的話,
+// 同一批訂單會被寫兩次。所以呼叫端每次上傳帶一個 requestId,重試時沿用同一個;
+// 這裡把跑過的 requestId 連同回應存進 Script Cache(6 小時),重複進來就直接回上次的結果,
+// 不再寫第二次。CacheService 存不下(>100KB)就當沒存過,頂多退回舊行為,不會擋住正常上傳。
+const REQ_CACHE_PREFIX = "req:";
+const REQ_CACHE_SEC = 21600;   // 6 小時
+
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     const action = body.action || "append";
+    const reqId = String(body.requestId || "").trim();
 
+    // 只有會寫入的動作需要去重;讀取類的重跑沒有副作用
+    if (reqId) {
+      const cached = readRequestCache(reqId);
+      if (cached) {
+        return ContentService.createTextOutput(cached)
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    const out = doPostInner(action, body);
+    if (reqId) writeRequestCache(reqId, out.getContent());
+    return out;
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err.toString() });
+  }
+}
+
+function readRequestCache(reqId) {
+  try {
+    return CacheService.getScriptCache().get(REQ_CACHE_PREFIX + reqId);
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeRequestCache(reqId, content) {
+  try {
+    CacheService.getScriptCache().put(REQ_CACHE_PREFIX + reqId, content, REQ_CACHE_SEC);
+  } catch (err) { /* 存不下就算了,不影響這次的回應 */ }
+}
+
+function doPostInner(action, body) {
+  try {
     switch (action) {
       case "append":            return handleAppend(body);
       case "addProblem":        return handleAddProblem(body);
@@ -123,7 +167,7 @@ function doPost(e) {
 }
 
 function doGet() {
-  return jsonResponse({ ok: true, message: "出貨幫手接收端運作中 v6(只負責寫試算表)" });
+  return jsonResponse({ ok: true, message: "出貨幫手接收端運作中 v7(只負責寫試算表,requestId 可安全重試)" });
 }
 
 

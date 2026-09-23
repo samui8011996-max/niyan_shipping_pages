@@ -89,21 +89,63 @@ function jparse(v) {
 }
 
 /* ---------- 轉送 Apps Script（只負責寫 Google 試算表）---------- */
+// Apps Script 的 /exec POST 會先回 302，轉到 script.googleusercontent.com 的一次性網址
+// 才拿得到內容。2026-09-23 實測：同一個網址連打三次，一次 200、兩次那段轉址 404。
+// 重點是 404 發生在「腳本已經跑完、列已經寫進試算表」之後 —— 所以不能無腦重試，
+// 會把同一批訂單寫兩次。規則：
+//   1. 還沒轉址就失敗(res.url 還在 script.google.com) → 腳本沒跑到，重試絕對安全
+//   2. 已經轉址才失敗 → 只有 Apps Script 部署成 v7 以上(支援 requestId 去重)才敢重試
+// v7 的 doGet 訊息裡有 requestId 這個字，拿它當特徵，探一次就記在 isolate 裡。
+let _gasIdempotent = null;
+async function gasSupportsRequestId(env) {
+  if (_gasIdempotent !== null) return _gasIdempotent;
+  try {
+    const res = await fetch((env && env.GS_URL) || DEFAULT_GS_URL, { method: 'GET' });
+    _gasIdempotent = /requestId/.test(await res.text());
+  } catch (_) {
+    _gasIdempotent = false;
+  }
+  return _gasIdempotent;
+}
+
 async function callGas(env, body) {
   const url = (env && env.GS_URL) || DEFAULT_GS_URL;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch (_) {
-    // Apps Script 掛掉/沒授權時會回 HTML 錯誤頁，直接 JSON.parse 會炸在
-    // "Unexpected token '<'"，這裡轉成看得懂的訊息
-    return { ok: false, error: `Apps Script 回傳非 JSON（HTTP ${res.status}），請確認網址與部署權限` };
+  // 重試時沿用同一個 requestId，v7 才認得出「這批我跑過了」，直接回上次的結果不重寫
+  const payload = JSON.stringify({ ...body, requestId: body.requestId || newId('R') });
+  const canRetryAfterRun = await gasSupportsRequestId(env);
+  let last = null;
+
+  for (let i = 1; i <= 3; i++) {
+    let res, text;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: payload,
+      });
+      text = await res.text();
+    } catch (err) {
+      // 連不上：腳本一定沒跑到，直接重試
+      last = { ok: false, error: `連不到 Apps Script：${err.message || String(err)}（試了 ${i} 次）` };
+      continue;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      // Apps Script 掛掉/沒授權/轉址 404 時會回 HTML，直接 JSON.parse 會炸在 "Unexpected token '<'"
+      const redirected = /googleusercontent\.com/.test(res.url || '');
+      last = {
+        ok: false,
+        error: `Apps Script 回傳非 JSON（HTTP ${res.status}，試了 ${i} 次）` +
+               (redirected && !canRetryAfterRun
+                 ? '。腳本可能已經寫進試算表了，請先確認試算表再決定要不要重送'
+                 : '，請確認網址與部署權限'),
+      };
+      if (redirected && !canRetryAfterRun) break;   // 已經寫進去了又不能去重，不敢再送
+    }
   }
+  return last;
 }
 
 /* ---------- 分類訂單：寫試算表 + 離島字卡 ---------- */
