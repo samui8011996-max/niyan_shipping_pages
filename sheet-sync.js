@@ -1,7 +1,7 @@
 // ===================================================================
 // 試算表網址(全部寫死,不再開放設定/不再存 localStorage)
 // 這些只是給統計字卡「點擊 → 開啟試算表」用的,實際寫入是後端 Apps Script 在做。
-// 問題訂單 2026-09-17 起改存 D1,所以這裡已經沒有它了。
+// 問題訂單 2026-09-17 起、包裹退貨 2026-09-23 起改存 D1,所以這裡已經沒有它們了。
 // ===================================================================
 const SHEET_URLS = {
   "雷雕":       "https://docs.google.com/spreadsheets/d/1yWvDnbI9w1ukexlaZWNAOyPHUS7JKMgGIDPV83wlSQ8/edit",
@@ -10,7 +10,6 @@ const SHEET_URLS = {
   "注意品項":   "https://docs.google.com/spreadsheets/d/1dPGbWNIcslooHOkYtwIPc-moh88z1UR0aA1gTwZ-prU/edit",
   "盆景公仔組": "https://docs.google.com/spreadsheets/d/1hhx_HqK9m9XUxKQlGXcRYdY20Qpfg_zN9vTJW1U44Ts/edit",
   "離島•郵局":  OFFSHORE_SHEET_URL,
-  "包裹退貨":   "https://docs.google.com/spreadsheets/d/1bMPA6GQ-tVaju85BFm9ETHOuG6hfGjPQfsDLtTWcEnk/edit",
 };
 
 function getSheetUrl(category) {
@@ -22,8 +21,9 @@ function openSheet(category) {
   if (url) window.open(url, "_blank");
 }
 
-function openReturnsSheet() {
-  openSheet("包裹退貨");
+// 點「包裹退貨總數」字卡 → 捲到下面的清單(以前是開試算表,現在資料在 D1)
+function scrollToReturnList() {
+  document.getElementById("returnList")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // 點「未結案退貨」字卡 → 切到未結案篩選籤,並捲動到清單

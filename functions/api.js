@@ -6,8 +6,9 @@
  *   1. 「包貨字卡」同步（Line禮物 / 離島•郵局 的平台件數）→ 這裡直接寫 D1 niyan-db，
  *      不再繞 Apps Script 的 UrlFetchApp，省掉一趟跨專案往返。
  *   2. 「問題訂單」→ 也直接讀寫 D1（shipping_problems），2026-09-17 起不再用試算表。
- *   3. 「寫廠商試算表」（雷雕/黑熊/永生花/注意品項/盆景公仔組/離島包裹/包裹退貨）
- *      → 原封不動轉送給現有的 Apps Script，同事看的試算表完全不受影響。
+ *   3. 「包裹退貨」→ 也直接讀寫 D1（shipping_returns），2026-09-23 起不再用試算表。
+ *   4. 「寫廠商試算表」（雷雕/黑熊/永生花/注意品項/盆景公仔組/離島包裹）
+ *      → 原封不動轉送給現有的 Apps Script，同事看的那幾張表完全不受影響。
  *
  * D1 綁定名稱：DB（wrangler.toml 的 [[d1_databases]]，Pages Git 部署會自動綁）
  * Apps Script 網址：可用 Cloudflare Pages 環境變數 GS_URL 覆寫，沒設就用下面的預設值
@@ -56,7 +57,11 @@ export async function onRequestPost(context) {
       case 'addProblem':        return await handleAddProblem(env, body);
       case 'getProblems':       return await handleGetProblems(env);
       case 'removeProblem':     return await handleRemoveProblem(env, body);
-      // 包裹退貨：還是試算表的事，原樣轉送
+      // 包裹退貨：純 D1，不碰試算表
+      case 'addReturn':         return await handleAddReturn(env, body);
+      case 'getReturns':        return await handleGetReturns(env);
+      case 'removeReturn':      return await handleRemoveReturn(env, body);
+      // 其餘（分類訂單 → 廠商試算表）原樣轉送
       default:                  return json(await callGas(env, body));
     }
   } catch (err) {
@@ -459,6 +464,140 @@ async function handleRemoveProblem(env, body) {
     }
   }
   return json({ ok: false, error: '找不到對應的問題訂單' });
+}
+
+/* ---------- 包裹退貨（D1 shipping_returns）---------- */
+// 2026-09-23 從 Google 試算表搬過來。舊試算表是「同一張工作表橫向並排三個平台區塊」，
+// 刪一筆要把底下整塊往上搬（不能 deleteRow，會錯開旁邊平台），列號還會跟著變動。
+// 搬到 D1 之後一筆就是一列，平台只是一個欄位，那些位移邏輯全部不需要了。
+// 前端原本認的 rowIndex 改成 D1 的 id。
+const RETURN_PLATFORMS = ['line禮物', '蝦皮', 'mo'];
+// 蝦皮、mo 沒有電聯欄位，那四欄留空即可（欄位本身共用一張表）
+const RETURN_FIELDS = [
+  ['date', '日期'],
+  ['orderId', '訂單編號'],
+  ['trackingNo', '託運單號'],
+  ['reason', '原因'],
+  ['result', '結果'],
+  ['contact1', '第一次電聯'],
+  ['contact2', '第二次電聯'],
+  ['contact3', '第三次電聯'],
+  ['contact4', '第四次電聯'],
+];
+
+let _returnsReady = false;
+async function ensureReturnsTable(DB) {
+  if (_returnsReady) return;
+  await DB.prepare(
+    'CREATE TABLE IF NOT EXISTS shipping_returns (' +
+    'id INTEGER PRIMARY KEY AUTOINCREMENT, "平台" TEXT NOT NULL, "日期" TEXT, ' +
+    '"訂單編號" TEXT, "託運單號" TEXT, "原因" TEXT, "結果" TEXT, ' +
+    '"第一次電聯" TEXT, "第二次電聯" TEXT, "第三次電聯" TEXT, "第四次電聯" TEXT, ' +
+    '"建立時間" TEXT)'
+  ).run();
+  // 同平台同訂單編號只會有一筆（重送是更新）。舊試算表的蝦皮/mo 有幾列沒填訂單編號，
+  // 所以是「訂單編號不是空的才唯一」的部分索引，不然那幾列會互相擋住匯不進來。
+  await DB.prepare(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_shipping_returns_key ' +
+    `ON shipping_returns("平台","訂單編號") WHERE "訂單編號" <> ''`
+  ).run();
+  _returnsReady = true;
+}
+
+function returnValues(record) {
+  return RETURN_FIELDS.map(([k]) => String(record[k] ?? '').trim());
+}
+
+// 同平台同訂單編號已經有一筆就更新那筆，不新增重複列（沿用舊試算表版 handleAddReturn 的行為）。
+// 前端在「編輯」時會把那一筆的 id 一起送回來，改訂單編號才不會變成多出一筆新的。
+async function handleAddReturn(env, body) {
+  const platform = String(body.platform || '').trim();
+  if (!RETURN_PLATFORMS.includes(platform)) return json({ ok: false, error: '未知平台: ' + platform });
+
+  const record = body.record || {};
+  const orderId = String(record.orderId || '').trim();
+  if (!orderId) return json({ ok: false, error: '缺少訂單編號' });
+
+  const DB = requireDb(env);
+  await ensureReturnsTable(DB);
+
+  const values = returnValues({ ...record, orderId });
+  const setSql = RETURN_FIELDS.map(([, col]) => `"${col}"=?`).join(',');
+
+  // 編輯既有那一筆
+  const editId = parseInt(body.id, 10);
+  if (Number.isFinite(editId) && editId > 0) {
+    const row = await DB.prepare('SELECT id FROM shipping_returns WHERE id=? AND "平台"=?')
+      .bind(editId, platform).first();
+    if (row) {
+      await DB.prepare(`UPDATE shipping_returns SET ${setSql} WHERE id=?`).bind(...values, editId).run();
+      return json({ ok: true, updated: true, id: editId });
+    }
+  }
+
+  const existing = await DB.prepare(
+    'SELECT id FROM shipping_returns WHERE "平台"=? AND "訂單編號"=? LIMIT 1'
+  ).bind(platform, orderId).first();
+  if (existing) {
+    await DB.prepare(`UPDATE shipping_returns SET ${setSql} WHERE id=?`).bind(...values, existing.id).run();
+    return json({ ok: true, updated: true, id: existing.id });
+  }
+
+  const cols = RETURN_FIELDS.map(([, col]) => `"${col}"`).join(',');
+  const marks = RETURN_FIELDS.map(() => '?').join(',');
+  const r = await DB.prepare(
+    `INSERT INTO shipping_returns ("平台",${cols},"建立時間") VALUES (?,${marks},?)`
+  ).bind(platform, ...values, now()).run();
+  return json({ ok: true, updated: false, id: (r.meta && r.meta.last_row_id) || null });
+}
+
+async function handleGetReturns(env) {
+  const DB = requireDb(env);
+  await ensureReturnsTable(DB);
+  const cols = RETURN_FIELDS.map(([, col]) => `"${col}"`).join(',');
+  const rs = await DB.prepare(`SELECT id,"平台",${cols} FROM shipping_returns ORDER BY id`).all();
+
+  const returns = {};
+  RETURN_PLATFORMS.forEach(p => { returns[p] = []; });
+  (rs.results || []).forEach(row => {
+    const platform = String(row['平台'] || '').trim();
+    if (!returns[platform]) returns[platform] = [];
+    const rec = { id: row.id };
+    RETURN_FIELDS.forEach(([k, col]) => { rec[k] = String(row[col] || ''); });
+    returns[platform].push(rec);
+  });
+  return json({ ok: true, returns });
+}
+
+// id 與訂單編號雙重確認後才刪，避免清單過期時刪錯一筆
+// （舊試算表那幾列沒有訂單編號，所以訂單編號是空的就只認 id）
+async function handleRemoveReturn(env, body) {
+  const platform = String(body.platform || '').trim();
+  const DB = requireDb(env);
+  await ensureReturnsTable(DB);
+
+  const id = parseInt(body.id, 10);
+  const orderId = String(body.orderId || '').trim();
+
+  if (Number.isFinite(id) && id > 0) {
+    const row = await DB.prepare('SELECT "訂單編號","平台" FROM shipping_returns WHERE id=?').bind(id).first();
+    const okPlatform = !platform || String(row && row['平台']) === platform;
+    const okOrder = !orderId || String((row && row['訂單編號']) || '') === orderId;
+    if (row && okPlatform && okOrder) {
+      await DB.prepare('DELETE FROM shipping_returns WHERE id=?').bind(id).run();
+      return json({ ok: true, deletedId: id });
+    }
+  }
+  if (orderId && platform) {
+    const row = await DB.prepare(
+      'SELECT id FROM shipping_returns WHERE "平台"=? AND "訂單編號"=? LIMIT 1'
+    ).bind(platform, orderId).first();
+    if (row) {
+      await DB.prepare('DELETE FROM shipping_returns WHERE id=?').bind(row.id).run();
+      return json({ ok: true, deletedId: row.id });
+    }
+  }
+  return json({ ok: false, error: '找不到對應的退貨紀錄' });
 }
 
 /* ---------- 包貨系統 platform_orders 的 upsert ----------

@@ -1502,7 +1502,7 @@
 
       <!-- 統計字卡:總數 + 未結案 -->
       <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 14px;">
-        <div class="stat-card pink clickable" onclick="openReturnsSheet()" title="點我開啟包裹退貨試算表">
+        <div class="stat-card pink clickable" onclick="scrollToReturnList()" title="點我捲到退貨清單">
           <div class="stat-label">包裹退貨總數</div>
           <div><span id="stat-return-total" class="stat-number">—</span><span class="stat-unit">筆</span></div>
           <div class="stat-sub">點我 → 開啟試算表</div>
@@ -1590,7 +1590,7 @@
         </div>
       </section>
 
-      <div id="returnStatus" class="status">填寫後送出 → 自動上傳到 Google 試算表…</div>
+      <div id="returnStatus" class="status">填寫後送出 → 直接存進資料庫…</div>
 
       <div class="stats-header">
         <span class="stats-title" id="returnListTitle">line禮物 退貨清單</span>

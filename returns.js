@@ -1,9 +1,14 @@
 // ===================================================================
 // 包裹退貨(Tab 4)
 // ===================================================================
-// 格式參考「包裹退貨.xlsx」:line禮物/蝦皮/mo 三個平台各自獨立(蝦皮、mo 沒有電聯欄位)
+// line禮物/蝦皮/mo 三個平台各自獨立(蝦皮、mo 沒有電聯欄位)
+// 2026-09-23 起資料存在 D1 的 shipping_returns,不再寫 Google 試算表;
+// 每筆的識別碼是 D1 的 id(以前是試算表列號 rowIndex)。
 const RETURN_PLATFORMS = ["line禮物", "蝦皮", "mo"];
-let returnListCache = { "line禮物": [], "蝦皮": [], "mo": [] };   // { rowIndex, date, orderId, trackingNo, reason, result, contact1~4 }
+let returnListCache = { "line禮物": [], "蝦皮": [], "mo": [] };   // { id, date, orderId, trackingNo, reason, result, contact1~4 }
+// 正在編輯哪一筆(按「✏️ 編輯」時記下 id)。帶著它送出才是更新那一筆,
+// 不然改了訂單編號會被當成新的一筆
+let returnEditingId = null;
 
 // 結果欄位固定四種狀態:未結案 是還在處理中,已退貨/結案/移除 算終結狀態
 const RETURN_RESULT_OPTIONS = ["未結案", "已退貨", "結案", "移除"];
@@ -50,6 +55,7 @@ function onReturnFilterChange() {
 
 function onReturnPlatformChange() {
   const platform = currentReturnPlatform();
+  returnEditingId = null;     // 換平台等於放棄剛剛那筆的編輯
   document.getElementById("returnContactFields").style.display = (platform === "line禮物") ? "" : "none";
   document.getElementById("returnListTitle").textContent = `${platform} 退貨清單`;
   renderReturnList();
@@ -92,7 +98,7 @@ function submitReturn() {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "addReturn", platform, record }),
+    body: JSON.stringify({ action: "addReturn", platform, record, id: returnEditingId }),
   })
     .then(r => r.json())
     .then(data => {
@@ -125,6 +131,7 @@ function prefillReturnContactDate(el) {
 }
 
 function clearReturnForm() {
+  returnEditingId = null;
   document.getElementById("returnDate").value = todayStr("-");
   document.getElementById("returnOrderId").value = "";
   document.getElementById("returnTrackingNo").value = "";
@@ -217,8 +224,8 @@ function renderReturnList() {
 
   hint.textContent = `共 ${list.length} 筆 · ${filterLabel} ${filtered.length} 筆`;
 
-  // 由新到舊排序(rowIndex 越大代表越新加)
-  const sorted = filtered.slice().sort((a, b) => b.rowIndex - a.rowIndex);
+  // 由新到舊排序(id 越大代表越新加)
+  const sorted = filtered.slice().sort((a, b) => b.id - a.id);
 
   container.innerHTML = sorted.map(r => {
     const safeId = escapeHtml(r.orderId || "");
@@ -240,7 +247,7 @@ function renderReturnList() {
     }
 
     return `
-      <div class="problem-item" data-row="${r.rowIndex}" data-id="${safeId}">
+      <div class="problem-item" data-rid="${r.id}" data-id="${safeId}">
         <div class="problem-item-main">
           <div class="problem-item-row1">
             <span class="pi-id">${safeId}</span>
@@ -252,18 +259,19 @@ function renderReturnList() {
           ${contactLines.join("")}
         </div>
         <div class="problem-item-btns">
-          <button class="pi-edit" onclick="editReturn(${r.rowIndex})">✏️ 編輯</button>
-          <button class="pi-resolve" onclick="removeReturn(${r.rowIndex}, '${safeId.replace(/'/g, "\\'")}', this)">🗑 刪除</button>
+          <button class="pi-edit" onclick="editReturn(${r.id})">✏️ 編輯</button>
+          <button class="pi-resolve" onclick="removeReturn(${r.id}, '${safeId.replace(/'/g, "\\'")}', this)">🗑 刪除</button>
         </div>
       </div>
     `;
   }).join("");
 }
 
-function editReturn(rowIndex) {
+function editReturn(id) {
   const platform = currentReturnPlatform();
-  const record = (returnListCache[platform] || []).find(r => r.rowIndex === rowIndex);
+  const record = (returnListCache[platform] || []).find(r => r.id === id);
   if (!record) return;
+  returnEditingId = id;
 
   document.getElementById("returnDate").value = record.date || "";
   document.getElementById("returnOrderId").value = record.orderId || "";
@@ -287,18 +295,19 @@ function editReturn(rowIndex) {
     document.getElementById("returnContact4").value = record.contact4 || "";
   }
 
-  setStatus("returnStatus", "warn", `✎ 編輯中:${record.orderId}(修改後點「送出退貨紀錄」會覆蓋更新這一列)`);
+  const editing = record.orderId || "(沒有訂單編號的那筆)";
+  setStatus("returnStatus", "warn", `✎ 編輯中:${editing}(修改後點「送出退貨紀錄」會覆蓋更新這一筆)`);
   document.querySelector(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function removeReturn(rowIndex, orderId, btn) {
+function removeReturn(id, orderId, btn) {
   const url = getGsUrl();
   if (!url) {
     setStatus("returnStatus", "warn", "⚠ 尚未設定 Apps Script 網址");
     return;
   }
   const platform = currentReturnPlatform();
-  if (!confirm(`確定要刪除 ${platform} 的退貨紀錄 ${orderId} ?(會從試算表移除)`)) return;
+  if (!confirm(`確定要刪除 ${platform} 的退貨紀錄 ${orderId || "(沒有訂單編號的那筆)"} ?`)) return;
 
   if (btn) {
     btn.disabled = true;
@@ -309,7 +318,7 @@ function removeReturn(rowIndex, orderId, btn) {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "removeReturn", platform, rowIndex, orderId }),
+    body: JSON.stringify({ action: "removeReturn", platform, id, orderId }),
   })
     .then(r => r.json())
     .then(data => {

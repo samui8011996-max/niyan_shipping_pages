@@ -37,3 +37,26 @@ CREATE TABLE IF NOT EXISTS shipping_card_synced (
   "建立時間" TEXT,
   PRIMARY KEY ("日期", "平台", "鍵值")
 );
+
+-- 包裹退貨:2026-09-23 從 Google 試算表搬過來,舊試算表不再使用。
+-- 舊表是「同一張工作表橫向並排三個平台區塊(line禮物 A、蝦皮 J、mo P)」,刪一筆要把
+-- 底下整塊往上搬才不會錯開旁邊平台;搬到 D1 後一筆就是一列,平台只是一個欄位。
+-- 蝦皮/mo 沒有電聯欄位,那四欄留空(三個平台共用同一張表)。
+CREATE TABLE IF NOT EXISTS shipping_returns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "平台" TEXT NOT NULL,
+  "日期" TEXT,
+  "訂單編號" TEXT,
+  "託運單號" TEXT,
+  "原因" TEXT,
+  "結果" TEXT,
+  "第一次電聯" TEXT,
+  "第二次電聯" TEXT,
+  "第三次電聯" TEXT,
+  "第四次電聯" TEXT,
+  "建立時間" TEXT
+);
+-- 同平台同訂單編號只會有一筆(重送是更新)。舊試算表的蝦皮/mo 有幾列根本沒填訂單編號,
+-- 所以做成「訂單編號不是空的才唯一」的部分索引,不然那幾列會互相擋住匯不進來。
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shipping_returns_key
+  ON shipping_returns("平台","訂單編號") WHERE "訂單編號" <> '';

@@ -18,9 +18,9 @@
  *   body.action === "addProblem"        → 【已停用】問題訂單 2026-09-17 起改存 D1,前端不再呼叫
  *   body.action === "getProblems"       → 【已停用】同上
  *   body.action === "removeProblem"     → 【已停用】同上
- *   body.action === "addReturn"         → 新增/更新包裹退貨紀錄(依平台 + 訂單編號 upsert)
- *   body.action === "getReturns"        → 讀所有包裹退貨紀錄(依平台分組)
- *   body.action === "removeReturn"      → 移除包裹退貨紀錄(rowIndex + orderId 雙重確認)
+ *   body.action === "addReturn"         → 【已停用】包裹退貨 2026-09-23 起改存 D1,前端不再呼叫
+ *   body.action === "getReturns"        → 【已停用】同上
+ *   body.action === "removeReturn"      → 【已停用】同上
  */
 
 // ===== 分類對應的廠商試算表設定 =====
@@ -71,10 +71,12 @@ const PROBLEM_SHEET_ID = "1lbEXKYvUzFljxdZmBdg1K0GzOahbnBH39bbANMZ34d4";
 const PROBLEMS_SHEET = "問題訂單";
 const PROBLEMS_HEADERS = ["加入時間", "訂單編號", "問題類別", "備註"];
 
-// ===== 包裹退貨 =====
-// 格式參考「包裹退貨.xlsx」:同一張工作表裡橫向並排三個平台區塊(不是分頁簽),
-// 各平台筆數不同,絕對不能用 sheet.deleteRow()/getLastRow() 整列處理,
-// 否則會把旁邊其他平台的資料錯位或誤刪。
+// ===== 包裹退貨【已停用】=====
+// 2026-09-23 起改存 Cloudflare D1(shipping_returns),舊試算表的 26 筆已經整批匯進去,
+// 前端不會再送 addReturn/getReturns/removeReturn 過來。下面這些留著只是為了舊試算表
+// 還能被手動開啟查看,可以放心無視。
+// (舊格式:同一張工作表裡橫向並排三個平台區塊,不是分頁簽,所以絕對不能用
+//  sheet.deleteRow()/getLastRow() 整列處理,否則會把旁邊其他平台的資料錯位或誤刪。)
 const RETURNS_SHEET_ID = "1bMPA6GQ-tVaju85BFm9ETHOuG6hfGjPQfsDLtTWcEnk";
 const RETURNS_SHEET_NAME = "工作表1";
 const RETURNS_HEADER_ROW = 1;
@@ -335,7 +337,8 @@ function handleRemoveProblem(body) {
 
 
 // =============================================================
-// 3. 包裹退貨
+// 3. 包裹退貨【已停用】
+// 2026-09-23 起改存 Cloudflare D1(shipping_returns),前端不再呼叫這一段。
 // =============================================================
 function getReturnsSheet() {
   const ss = SpreadsheetApp.openById(RETURNS_SHEET_ID);

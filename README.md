@@ -24,7 +24,7 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
 | 前端 + Pages Function | 這個 repo,推 `main` 自動部署 |
 | D1 資料庫 `niyan-db` | `wrangler.toml` 的 `[[d1_databases]]`,Pages Git 部署會自動綁,不用去後台設定 |
 | Apps Script `/exec` 網址 | Cloudflare Pages 專案的環境變數 `GS_URL`(沒設就用 `functions/api.js` 裡的預設值) |
-| 各試算表「點字卡開啟」的網址 | 寫死在 `sheet-sync.js` 的 `SHEET_URLS`,不再開放設定 |
+| 各試算表「點字卡開啟」的網址 | 寫死在 `sheet-sync.js` 的 `SHEET_URLS`,不再開放設定(問題訂單、包裹退貨已經搬到 D1,不在裡面) |
 | 深色/淺色偏好 | 瀏覽器 `localStorage`(`niyan_theme`,⚙ 設定裡切換) |
 | Logo | 內嵌在 `index.html` 的 SVG(從 `LOGO.png` 描出來的向量版),漸層吃 `--logo-1`/`--logo-2` 兩個變數。扳手是 `fill-rule="evenodd"` 的鏤空,所以深淺兩種模式都不用換圖。`LOGO.png` 留著當原始素材,頁面已經沒在用了 |
 | 試算表 ID | `Code.gs` 裡的 `SHEETS` |
@@ -38,7 +38,7 @@ LINE 禮物訂單分類、廠商試算表自動上傳、物流對單、問題訂
 | `uploadLineRegular` | Cloudflare(D1) | 一般訂單筆數累加進包貨系統當天「Line禮物(黑貓)」平台字卡 |
 | `append` | Apps Script + Cloudflare | 分類訂單寫進廠商試算表;離島那批再累加進「離島•郵局(郵局)」字卡 |
 | `addProblem` / `getProblems` / `removeProblem` | Cloudflare(D1) | 問題訂單(`shipping_problems`),2026-09-17 起不再用試算表 |
-| `addReturn` / `getReturns` / `removeReturn` | Apps Script | 包裹退貨試算表 |
+| `addReturn` / `getReturns` / `removeReturn` | Cloudflare(D1) | 包裹退貨(`shipping_returns`),2026-09-23 起不再用試算表 |
 
 包貨字卡一律是**累加**不是覆蓋(同一天同平台已有紀錄就把件數加上去),
 所以同一天上傳多次不會把包貨系統手動送出的數字蓋掉。
@@ -137,8 +137,12 @@ npx wrangler pages dev . --binding GS_URL=<測試用網址>
 問題訂單已經不在試算表了,改存 D1 的 `shipping_problems`(欄位見 `schema.sql`)。
 「訂單編號」是 UNIQUE —— 同一張單重送是更新那筆,不會產生第二筆。
 
-包裹退貨:同一張工作表裡橫向並排三個平台區塊(line禮物 A 欄起、蝦皮 J 欄起、mo P 欄起),
-**不能用整列刪除**,會把旁邊平台的資料錯位。
+包裹退貨也不在試算表了,2026-09-23 起改存 D1 的 `shipping_returns`(欄位見 `schema.sql`)。
+舊試算表是「同一張工作表橫向並排三個平台區塊(line禮物 A 欄起、蝦皮 J 欄起、mo P 欄起)」,
+刪一筆要把底下整塊往上搬才不會錯開旁邊平台;搬到 D1 之後一筆就是一列,平台只是一個欄位,
+那些位移邏輯都不需要了。三個平台共用同一張表,蝦皮/mo 的電聯四欄留空。
+「平台 + 訂單編號」是 UNIQUE —— 同一張單重送是更新那筆。舊試算表的蝦皮/mo 有幾列
+根本沒填訂單編號,所以做成「訂單編號不是空的才唯一」的部分索引,編輯/刪除那幾列靠 id。
 
 ---
 
