@@ -3,6 +3,35 @@
 // 這個檔案要在主程式的 <script> 之前用 <script src="keyword-rules.js"> 載入
 // ===================================================================
 
+// 「當月壽星」行銷標題用的星座
+// 星座貓的賣場標題會掛上當月壽星的星座來吸引下單(例如
+// 「【12星座貓客製雷雕】…星座開運胖胖貓x客製生日紀念日 處女座 天秤座」),每個月換,
+// 跨月的月份還會一次掛兩個。但客人實際挑哪一隻是看規格設定的「星座: 金牛座(4/20~5/20)」,
+// 跟標題上掛的那兩個完全無關 —— 標題的星座若留在備註裡,出貨的人會一次看到
+// 「處女座 天秤座 金牛座」三個星座,不知道要拿哪隻。
+// 所以:規格設定/客製刻印欄裡「有」星座時,商品名稱上的星座一律拿掉(不管掛幾個、哪個月);
+// 舊的「一個星座開一個賣場」(星座只寫在標題、規格裡沒有)則照舊留著,不然會變成沒人知道要拿哪隻。
+// 變數名不能叫 ZODIAC_SIGNS —— shipping-core.js 已經有一個同名的 const,
+// 兩支都是 <script> 共用全域,撞名會讓 shipping-core.js 整支載不起來。
+const ZODIAC_NAMES = [
+  "牡羊座", "金牛座", "雙子座", "巨蟹座", "獅子座", "處女座",
+  "天秤座", "天蠍座", "射手座", "摩羯座", "水瓶座", "雙魚座",
+];
+
+// 連【OO座送禮】【OO座生日快樂】這種包在方括號裡的一起吃掉,
+// 不然只挖掉星座會留下孤零零的「【送禮】」。
+const PROMO_ZODIAC_REGEX = new RegExp(
+  "\\s*【?(?:" + ZODIAC_NAMES.join("|") + ")(?:送禮|生日快樂)?】?", "g");
+
+function hasZodiacName(text) {
+  const s = String(text ?? "");
+  return ZODIAC_NAMES.some(z => s.includes(z));
+}
+
+function stripPromoZodiac(name) {
+  return String(name ?? "").replace(PROMO_ZODIAC_REGEX, "");
+}
+
 // 空白字元可能是全形/半形/多個空白,逐字比對容易對不到 → 用正規表示式忽略空白處理
 const REMOVE_REGEX_PATTERNS = [
   /【\s*送禮首選】/g,
@@ -106,11 +135,15 @@ const REPLACE_PATTERNS = [
 ];
 
 function buildNote(row) {
+  // 規格/刻印欄已經寫了客人挑的星座,標題上那些就只是當月的行銷字樣,拿掉(見 stripPromoZodiac)
+  const pickedZodiac = hasZodiacName(row["規格設定"]) || hasZodiacName(row["客製刻印選項"]);
   const parts = [];
   for (const col of ["商品名稱", "規格設定", "客製刻印選項"]) {
     const v = row[col];
     if (v != null) {
-      const s = String(v).trim();
+      let s = String(v);
+      if (col === "商品名稱" && pickedZodiac) s = stripPromoZodiac(s);
+      s = s.trim();
       if (s && s !== "-") parts.push(s);
     }
   }
@@ -138,7 +171,10 @@ function cleanFreeText(text) {
 // 例如「【泥研製所||辦公室小物】胖胖招財招福貓 (小)」和「【辦公室小物】胖胖招財招福貓 (小)」
 // 經過 REMOVE_PATTERNS 清理後會變成同字串,就能合併
 function cleanProductName(name) {
-  let s = String(name ?? "");
+  // 分組/排序用的名稱不留星座:星座是撿貨真正在乎的差異,但它由 zodiacGroupSuffix 依
+  // extractZodiac(看規格設定)另外貼在後面。留在名稱裡反而會讓同一款商品因為標題每月換星座、
+  // 或「一星座一賣場」的舊標題,被拆成好幾個不同的組。
+  let s = stripPromoZodiac(name);
   for (const [find, repl] of REPLACE_PATTERNS) s = s.split(find).join(repl);
   for (const pat of REMOVE_PATTERNS) s = s.split(pat).join("");
   for (const re of REMOVE_REGEX_PATTERNS) s = s.replace(re, "");

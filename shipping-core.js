@@ -111,10 +111,26 @@ function isZodiacCat(row) {
   return cleanProductName(row["商品名稱"]).includes("星座貓");
 }
 
+// 文字裡「最先出現」的星座(不是星座清單裡排最前面的那個 —— 照清單順序找的話,
+// 「…處女座 天秤座 星座: 天蠍座」會回傳處女座,因為處女座在清單裡排比較前面)
+function firstZodiacIn(text) {
+  const s = String(text ?? "");
+  let best = -1, bestPos = Infinity;
+  ZODIAC_SIGNS.forEach((z, i) => {
+    const pos = s.indexOf(z);
+    if (pos !== -1 && pos < bestPos) { bestPos = pos; best = i; }
+  });
+  return best;
+}
+
+// 客人挑的星座優先看規格設定/客製刻印(「星座: 金牛座(4/20~5/20)」),商品名稱最後才看 ——
+// 新的賣場標題會掛「當月壽星」的星座(跨月還會一次掛兩個),那跟客人挑的無關,
+// 先讀標題會讓整個賣場的訂單都被分到同一個星座、撿錯貨。
+// 舊的「一個星座一個賣場」規格裡沒星座,才退回標題,行為跟以前一樣。
 function extractZodiac(row) {
-  const hs = [row["商品名稱"] ?? "", row["規格設定"] ?? "", row["客製刻印選項"] ?? ""].map(String).join(" ");
-  const sign = ZODIAC_SIGNS.find(z => hs.includes(z));
-  return sign ? ZODIAC_SIGNS.indexOf(sign) : -1;
+  const fromSpec = firstZodiacIn([row["規格設定"] ?? "", row["客製刻印選項"] ?? ""].map(String).join(" "));
+  if (fromSpec !== -1) return fromSpec;
+  return firstZodiacIn(row["商品名稱"] ?? "");
 }
 
 function matchKeys(hs, keys) {
