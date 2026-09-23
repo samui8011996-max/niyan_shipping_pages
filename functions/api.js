@@ -48,6 +48,10 @@ export async function onRequestPost(context) {
       case 'uploadLineRegular': return await handleUploadLineRegular(env, body);
       // 分類訂單 → 廠商試算表（Apps Script），離島那批順便填包貨「離島•郵局(郵局)」字卡
       case 'append':            return await handleAppend(env, body);
+      // 只補「離島•郵局」字卡，完全不碰試算表：
+      // 試算表已經寫好、但字卡沒進去時用這個重送，不會在試算表留下重複列。
+      // body.rows = [{orderId, qty}]，body.items = [{訂單編號,品項,件數}]（可省略）
+      case 'syncOffshoreCard':  return json({ ok: true, ...(await syncOffshoreToCard(env, body.rows || [], body.items)) });
       // 問題訂單：純 D1，不碰試算表
       case 'addProblem':        return await handleAddProblem(env, body);
       case 'getProblems':       return await handleGetProblems(env);
