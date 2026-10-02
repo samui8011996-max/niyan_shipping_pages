@@ -77,10 +77,29 @@ function parsePackingList(rows) {
 const PACK_COLS = ["#", "主商品貨號", "商品名稱", "商品選項貨號", "商品規格名稱", "數量", "總計"];
 
 // items = [{ str, x, top, w }](x/top 是頁面左上角為原點)
-function parseItemListPage(items) {
-  const txt = items.map(i => String(i.str || "")).join("");
-  if (!txt.includes("商品列表")) return null;
+// 蝦皮這份 PDF 有兩種排版:早期版本一頁只有一張表(一筆訂單);
+// 2026-09-28 起改成一頁塞兩筆訂單的表(直向排,中間空一大段)。
+// 兩種都要吃,所以先切段:找出頁面裡每一個「商品列表」標題的 y 位置當分段點,
+// 每一段各自跑一次表格解析,而不是假設整頁只有一張表 —— 之前那版只抓頁面裡
+// 第一個「訂單編號」,第二筆訂單的商品會被吃掉或跟第一筆的表格混在一起。
+function parseItemListBlocks(items) {
+  const titleTops = items
+    .filter(it => String(it.str || "").trim() === "商品列表")
+    .map(it => it.top)
+    .sort((a, b) => a - b);
+  if (!titleTops.length) return [];
 
+  return titleTops
+    .map((top, i) => {
+      const next = i + 1 < titleTops.length ? titleTops[i + 1] : Infinity;
+      const blockItems = items.filter(it => it.top >= top && it.top < next);
+      return parseOneItemListBlock(blockItems);
+    })
+    .filter(Boolean);
+}
+
+function parseOneItemListBlock(items) {
+  const txt = items.map(i => String(i.str || "")).join("");
   const snM = txt.replace(/\s+/g, "").match(/訂單編號[^:：]*[:：]([A-Z0-9]{14})/);
   const orderSn = snM ? snM[1] : "";
 
@@ -113,7 +132,7 @@ function parseItemListPage(items) {
     .filter(it => it.top > headTop + 3 && String(it.str || "").trim())
     .filter(it => !/^買家備註/.test(String(it.str).trim()))
     .sort((a, b) => a.top - b.top || a.x - b.x);
-  // 「買家備註」以下不是商品了
+  // 「買家備註」以下不是商品了(這個區段內,不會跨到下一筆訂單去)
   const endAt = items.filter(it => /^買家備註/.test(String(it.str || "").trim()))
     .reduce((m, it) => Math.min(m, it.top), Infinity);
 
@@ -148,5 +167,5 @@ function parseItemListPage(items) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parsePackingList, parseProductInfo, parseItemListPage };
+  module.exports = { parsePackingList, parseProductInfo, parseItemListBlocks };
 }

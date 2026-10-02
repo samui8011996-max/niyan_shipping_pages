@@ -329,8 +329,10 @@ async function onShopeePdfFiles(files) {
             top: vp.height - it.transform[5],
             w: it.width,
           }));
-          const parsed = parseItemListPage(flat);
-          if (parsed && parsed.orderSn) {
+          // 一個實體頁面可能塞了不只一筆訂單的表(2026-09-28 起蝦皮的新排版是
+          // 一頁兩筆,直向排、中間空一大段),所以這裡吃的是「這一頁切出來的每一段」
+          for (const parsed of parseItemListBlocks(flat)) {
+            if (!parsed.orderSn) continue;
             const prev = items.get(parsed.orderSn) || [];
             // 商品多的時候列表會跨頁,同一張單要接起來而不是覆蓋
             items.set(parsed.orderSn, prev.concat(parsed.items));
