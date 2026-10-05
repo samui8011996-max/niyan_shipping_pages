@@ -228,7 +228,7 @@ function scStyle(spec, name) {
 // 那一隻本來就是買家選的,由 spec 決定。
 function scSetParts(name) {
   const inner = name.match(/[(（]([^)）]*[、,,][^)）]*)[)）]/);
-  const out = { lead: "", wood: false };
+  const out = { lead: "", wood: false, buyerSize: "" };
   if (!inner) return out;
   const pieces = inner[1].split(/[、,,]/).map(x => x.trim()).filter(Boolean);
   out.wood = pieces.some(x => /木片|原木/.test(x));
@@ -240,6 +240,12 @@ function scSetParts(name) {
   const color = scColor(first);
   const style = /金運/.test(first) ? "金" : (/招福/.test(first) ? "福" : "");
   out.lead = size + color + style;
+  // 買家選的那隻尺寸只有品名第二項看得到(例如「小胖胖金運招福貓」),規格欄(spec)
+  // 只有顏色/款式沒有尺寸 —— 不補這個的話,代號會只剩顏色款式,看不出要出哪個尺寸
+  const second = pieces[1] || "";
+  if (/大/.test(second)) out.buyerSize = "大";
+  else if (/中/.test(second)) out.buyerSize = "中";
+  else if (/小/.test(second)) out.buyerSize = "小";
   return out;
 }
 
@@ -288,6 +294,7 @@ function buildShortCode(row) {
 
   const seg = [];
   let unknown = false;
+  let setParts = null;   // 只有【大小貓組】這類組合商品會用到,先宣告讓後面的區塊也拿得到
 
   if (/雷雕/.test(all)) seg.push("雕");
 
@@ -305,10 +312,11 @@ function buildShortCode(row) {
     const dog = all.match(/([財富])狗狗/);
     seg.push((dog ? dog[1] : "") + "犬");
   } else if (item === SC_SET_LABEL) {
-    const set = scSetParts(name);
-    seg.push(SC_SET_LABEL + set.lead);
-    if (set.wood) seg.push("+木");
-    if (!set.lead) unknown = true;   // 括號裡讀不出固定那隻 → 要人工看
+    setParts = scSetParts(name);
+    seg.push(SC_SET_LABEL + setParts.lead);
+    if (!setParts.lead) unknown = true;   // 括號裡讀不出固定那隻 → 要人工看
+    // 買家選的那隻(含尺寸)跟木片附件要接在顏色/款式後面印,這裡先不動 seg,
+    // 留到下面共用的顏色/款式區塊、以及最後的木片區塊再補上,順序才會對
   } else if (item === "雙喵" || item === "團圓") {
     // 雙喵/團圓本來就是固定的「大+小」一組,品名裡的「(大金運+小招福)」是內容物說明,
     // 不是可選尺寸 —— 照 scSize 抓會變成「雙喵大」,反而看起來像有另一個小的版本
@@ -334,9 +342,17 @@ function buildShortCode(row) {
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
     const style = (rule && rule.style) || scStyle(spec, name);
-    // 組合商品的規格是買家挑的那一隻,要跟固定那隻區隔開,所以前面掛 +
-    if (color || style) seg.push((item === SC_SET_LABEL ? "+" : "") + color + style);
+    // 組合商品的規格是買家挑的那一隻,要跟固定那隻區隔開,所以前面掛 +,
+    // 尺寸(通常是「小」)只有品名的第二項看得到,規格欄沒有,要從 setParts 補回來
+    if (color || style) {
+      const prefix = item === SC_SET_LABEL ? "+" + (setParts ? setParts.buyerSize : "") : "";
+      seg.push(prefix + color + style);
+    }
   }
+
+  // 組合商品附的木片要排在「買家挑的那隻」後面才對得上使用者要的順序
+  // (【大小貓組】大黃金+小灰福+木片),所以沒有跟 lead 放在同一個分支裡
+  if (item === SC_SET_LABEL && setParts && setParts.wood) seg.push("+木片");
 
   // 老虎只靠左右手分辨是哪一隻,沒有金運/招福這套款式系統,所以額外加這段
   if (item === "老虎") {

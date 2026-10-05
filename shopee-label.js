@@ -231,6 +231,41 @@ function extractShopeeTracking(text) {
   return hei ? hei[1] : "";
 }
 
+// 一個實體頁面可能塞了不只一張標籤(2026-10-05 起蝦皮的另一種排版:兩張 A6 標籤
+// 直向疊在同一張 A4 畫布上,中間沒有分頁也沒有任何分隔標記)。
+//
+// 用「蝦皮訂單編號」這行出現的 y 位置當每張標籤的錨點 —— 抓到幾個錨點就是幾張標籤。
+// 只有一個錨點時(絕大多數情況)行為跟以前完全一樣。每張標籤的物流單號要在「自己的
+// 錨點到下一個錨點之間」這段範圍內找,不然兩張標籤的號碼會混在一起變成都套用第一張的。
+//
+// items 是 { str, x, top }( top 從頁面上緣算起,跟 parseItemListBlocks 用的座標系一致)
+function extractShopeeLabelSlots(items) {
+  const lineMap = new Map();
+  for (const it of items) {
+    const k = Math.round(it.top);
+    const arr = lineMap.get(k) || [];
+    arr.push(it);
+    lineMap.set(k, arr);
+  }
+  const lines = [...lineMap.entries()]
+    .map(([top, arr]) => ({ top, text: arr.sort((a, b) => a.x - b.x).map(c => c.str).join("") }))
+    .sort((a, b) => a.top - b.top);
+
+  const anchors = [];
+  for (const ln of lines) {
+    const flat = ln.text.replace(/\s+/g, "");
+    const m = flat.match(/蝦皮訂單編號[:：]?([A-Z0-9]{14})/);
+    if (m) anchors.push({ orderSn: m[1], top: ln.top });
+  }
+  if (!anchors.length) return [];
+
+  return anchors.map((a, i) => {
+    const bandEnd = i + 1 < anchors.length ? anchors[i + 1].top : Infinity;
+    const bandText = lines.filter(ln => ln.top >= a.top && ln.top < bandEnd).map(ln => ln.text).join(" ");
+    return { orderSn: a.orderSn, tracking: extractShopeeTracking(bandText), top: a.top };
+  });
+}
+
 // 找這張標籤是哪筆訂單的商品。
 // 「寄貨單+裝箱單」版的 PDF 自己就帶商品列表,優先用它 —— 同事不用再去下載 xlsx。
 // 只有 A6 熱感應單那種(PDF 裡沒有商品)才回頭查裝箱單。
@@ -309,26 +344,33 @@ async function onShopeePdfFiles(files) {
       const bytes = new Uint8Array(buf.slice(0));
       const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
       const pages = [];
-      const items = new Map();   // 訂單編號 → 商品陣列(「寄貨單+裝箱單」版才有)
+      const items = new Map();       // 訂單編號 → 商品陣列(商品列表優先用這份,有價格)
+      const pickItems = new Map();   // 訂單編號 → 商品陣列(撿貨單,沒有價格,只在 items 沒有時才補)
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const tc = await page.getTextContent();
         const vp = page.getViewport({ scale: 1 });
         const text = tc.items.map(it => it.str).join(" ");
+        // pdf.js 的 transform 是 [a,b,c,d,x,y],y 從頁面底部算,換成從上面算才好比對
+        const flat = tc.items.map(it => ({
+          str: it.str,
+          x: it.transform[4],
+          top: vp.height - it.transform[5],
+          w: it.width,
+        }));
 
         // 蝦皮有好幾種下載格式,頁數和順序都不一樣,所以看內容認頁別,不要照位置猜:
-        //   撿貨單   → 用不到,跳過
-        //   商品列表 → 這筆訂單的商品(「寄貨單+裝箱單」版,不用再下載 xlsx)
-        //   其他有訂單編號的 → 託運標籤
-        if (/撿貨單/.test(text)) continue;
+        //   撿貨單   → 這筆訂單的商品(沒有價格,只在商品列表/裝箱單都沒有時當備胎)
+        //   商品列表 → 這筆訂單的商品(「寄貨單+裝箱單」版,不用再下載 xlsx,有價格)
+        //   其他有訂單編號的 → 託運標籤(一頁可能不只一張,見 extractShopeeLabelSlots)
+        if (/撿貨單/.test(text)) {
+          for (const [sn, its] of parsePickListPage(flat)) {
+            const prev = pickItems.get(sn) || [];
+            pickItems.set(sn, prev.concat(its));
+          }
+          continue;
+        }
         if (/商品列表/.test(text)) {
-          // pdf.js 的 transform 是 [a,b,c,d,x,y],y 從頁面底部算,換成從上面算才好比對
-          const flat = tc.items.map(it => ({
-            str: it.str,
-            x: it.transform[4],
-            top: vp.height - it.transform[5],
-            w: it.width,
-          }));
           // 一個實體頁面可能塞了不只一筆訂單的表(2026-09-28 起蝦皮的新排版是
           // 一頁兩筆,直向排、中間空一大段),所以這裡吃的是「這一頁切出來的每一段」
           for (const parsed of parseItemListBlocks(flat)) {
@@ -339,13 +381,22 @@ async function onShopeePdfFiles(files) {
           }
           continue;
         }
-        const orderSn = extractShopeeOrderSn(text);
-        if (!orderSn && !/蝦皮訂單編號|寄件編號/.test(text)) continue;
-        pages.push({
-          index: i - 1,
-          orderSn,
-          tracking: extractShopeeTracking(text),
-        });
+        if (!/蝦皮訂單編號|寄件編號/.test(text)) continue;
+        // 一個實體頁面可能塞了不只一張標籤(直向疊好幾張,中間沒有分頁),
+        // 用每一張「蝦皮訂單編號」的位置當錨點切開,抓到幾個錨點就是幾張標籤
+        const slots = extractShopeeLabelSlots(flat);
+        if (!slots.length) {
+          // 抓不到錨點的保底:整頁當一張標籤處理,維持舊行為
+          pages.push({ index: i - 1, slot: 0, shiftTop: 0, orderSn: extractShopeeOrderSn(text), tracking: extractShopeeTracking(text) });
+        } else {
+          slots.forEach((s, k) => {
+            pages.push({ index: i - 1, slot: k, shiftTop: s.top - slots[0].top, orderSn: s.orderSn, tracking: s.tracking });
+          });
+        }
+      }
+      // 撿貨單沒有價格,只在商品列表/裝箱單都沒抓到這筆訂單時才當備胎用
+      for (const [sn, its] of pickItems) {
+        if (!items.has(sn)) items.set(sn, its);
       }
       shopeePdfs = shopeePdfs.filter(x => x.name !== file.name);
       shopeePdfs.push({ name: file.name, bytes, pages, items });
@@ -373,12 +424,15 @@ function shopeeBuildJobs() {
       const order = shopeeFindOrder(p);
       if (order) usedOrders.add(order.orderSn);
       jobs.push({
-        // uid 認的是「哪一份 PDF 的第幾頁」而不是訂單編號 —— 同一張訂單重複下載過兩次時,
-        // 用訂單編號會一次砍掉兩頁。檔案只會累加不會抽走,所以索引是穩定的
-        uid: "L" + pdfIdx + "#" + p.index,
+        // uid 認的是「哪一份 PDF 的第幾頁、第幾張標籤」而不是訂單編號 —— 同一張訂單
+        // 重複下載過兩次時,用訂單編號會一次砍掉兩頁。檔案只會累加不會抽走,索引是穩定的。
+        // 一定要帶 slot:一頁可能塞兩張標籤(見 extractShopeeLabelSlots),用同一個 index
+        // 的話兩張標籤的 uid 會撞在一起,其中一張會被誤判成「已經 ✕ 掉」而印不出來。
+        uid: "L" + pdfIdx + "#" + p.index + "." + (p.slot || 0),
         kind: "label",
         pdfIdx,
         pageIndex: p.index,
+        shiftTop: p.shiftTop || 0,
         orderSn: p.orderSn || (order && order.orderSn) || "",
         tracking: p.tracking || (order && order.tracking) || "",
         order,
@@ -599,12 +653,17 @@ async function generateShopeeLabels() {
         const srcPage = srcDocs[job.pdfIdx].getPages()[job.pageIndex];
         if (srcPage) {
           const sw = srcPage.getWidth(), sh = srcPage.getHeight();
-          // 裁掉標籤以外的空白(boundingBox 用來源頁的左下角座標系,所以 top/bottom 要翻)
+          // 裁掉標籤以外的空白(boundingBox 用來源頁的左下角座標系,所以 top/bottom 要翻)。
+          // shiftTop:一頁塞了不只一張標籤時,第 2+ 張要往下位移對應的距離才裁得到自己
+          // (見 extractShopeeLabelSlots),第一張 shiftTop=0,行為跟以前完全一樣
+          const shift = job.shiftTop || 0;
+          const cropTop = Math.min(SHOPEE_SRC_LABEL.top + shift, sh);
+          const cropBottom = Math.min(SHOPEE_SRC_LABEL.bottom + shift, sh);
           const crop = {
             left:   SHOPEE_SRC_LABEL.left,
             right:  Math.min(SHOPEE_SRC_LABEL.right, sw),
-            bottom: sh - Math.min(SHOPEE_SRC_LABEL.bottom, sh),
-            top:    sh - SHOPEE_SRC_LABEL.top,
+            bottom: sh - cropBottom,
+            top:    sh - cropTop,
           };
           const embedded = await out.embedPage(srcPage, crop);
           const scale = SHOPEE_LABEL_BOX.w / (crop.right - crop.left);

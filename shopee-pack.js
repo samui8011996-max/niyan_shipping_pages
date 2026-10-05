@@ -114,18 +114,20 @@ function parseOneItemListBlock(items) {
   if (heads["商品名稱"] === undefined || heads["數量"] === undefined) return null;
   const headTop = heads["商品名稱"].top;
 
-  // 欄界 = 相鄰兩欄的中線。「#」那欄常常跟表頭不同一行,抓不到就用商品名稱左邊當界
+  // 欄界:「這個字屬於哪一欄」看它落在哪個表頭的起點右邊、且是最靠右的那個表頭
+  // (不是算相鄰兩欄表頭的中線!)。原本用中線的寫法會在「商品名稱」欄位換行、
+  // 內容往右延伸超過表頭文字本身的寬度時出包 —— 例如「(大」兩個字的 x 座標已經
+  // 超過「商品名稱」跟「商品選項貨號」兩個表頭中點,被誤判成下一欄,品名裡的括號
+  // 整個消失,貓組規則就比對不到。改成「表頭起點」判斷後,只要字還沒到下一欄表頭
+  // 真正開始的 x 位置,就還算在前一欄,不會被內容換行騙走。
   const present = PACK_COLS.filter(c => heads[c]).sort((a, b) => heads[a].x0 - heads[b].x0);
-  const bounds = present.map((name, i) => {
-    const prev = i === 0 ? null : heads[present[i - 1]];
-    const next = i === present.length - 1 ? null : heads[present[i + 1]];
-    return {
-      name,
-      from: prev ? (prev.x1 + heads[name].x0) / 2 : -Infinity,
-      to: next ? (heads[name].x1 + next.x0) / 2 : Infinity,
-    };
-  });
-  const colOf = x => (bounds.find(b => x >= b.from && x < b.to) || {}).name || "";
+  const colOf = x => {
+    let name = "";
+    for (const c of present) {
+      if (heads[c].x0 <= x + 0.5) name = c; else break;   // present 已經由小到大排序
+    }
+    return name;
+  };
 
   // --- 表身 ---
   const body = items
@@ -166,6 +168,81 @@ function parseOneItemListBlock(items) {
   return { orderSn, items: out };
 }
 
+// ===================================================================
+// 「撿貨單」頁面(使用者 2026-10-05 要求:以前整頁跳過不用,現在也要能抓品項)。
+//
+// 跟「商品列表」是不同的表格:整張撿貨單只有一個表格標題(不是每筆訂單各自一段),
+// 訂單編號是表格最後一欄(每一「列」自己帶,不是頁面開頭寫一次「訂單編號(單):」),
+// 多了一欄「商品圖片」(純圖片,沒有文字,但欄位邊界算法需要知道它存在,不然緊鄰的
+// 「商品名稱」欄會被誤判成從「主商品貨號」欄就開始)。沒有金額欄,算不出總金額。
+//
+// 回傳 Map(訂單編號 → 商品陣列)。
+// ===================================================================
+
+const PICK_LIST_COLS = ["#", "主商品貨號", "商品圖片", "商品名稱", "商品選項貨號", "商品規格名稱", "數量", "訂單編號"];
+
+function parsePickListPage(items) {
+  const heads = {};
+  for (const it of items) {
+    const s = String(it.str || "").trim();
+    if (PICK_LIST_COLS.includes(s) && heads[s] === undefined) {
+      heads[s] = { x0: it.x, top: it.top };
+    }
+  }
+  if (heads["商品名稱"] === undefined || heads["訂單編號"] === undefined) return new Map();
+  const headTop = heads["商品名稱"].top;
+
+  // 跟 parseOneItemListBlock 同一套「表頭起點」欄界判斷,理由見那邊的註解
+  const present = PICK_LIST_COLS.filter(c => heads[c]).sort((a, b) => heads[a].x0 - heads[b].x0);
+  const colOf = x => {
+    let name = "";
+    for (const c of present) {
+      if (heads[c].x0 <= x + 0.5) name = c; else break;
+    }
+    return name;
+  };
+
+  const body = items
+    .filter(it => it.top > headTop + 3 && String(it.str || "").trim())
+    .sort((a, b) => a.top - b.top || a.x - b.x);
+
+  const starts = body
+    .filter(it => colOf(it.x) === "#" && /^\d+$/.test(String(it.str).trim()))
+    .map(it => it.top);
+  if (!starts.length) return new Map();
+
+  const result = new Map();
+  let lastOrderSn = "";   // 同一張單好幾個品項時,訂單編號可能只印在第一列,後面留空要沿用
+  starts.forEach((top, i) => {
+    const until = i + 1 < starts.length ? starts[i + 1] - 3 : Infinity;
+    const cell = {};
+    body.filter(it => it.top >= top - 3 && it.top < until).forEach(it => {
+      const c = colOf(it.x);
+      if (!c || c === "#" || c === "商品圖片") return;
+      cell[c] = (cell[c] || "") + String(it.str);
+    });
+
+    const snRaw = (cell["訂單編號"] || "").replace(/\s+/g, "").match(/[A-Z0-9]{14}/);
+    const orderSn = snRaw ? snRaw[0] : lastOrderSn;
+    if (!orderSn) return;
+    lastOrderSn = orderSn;
+
+    const qty = Number(String(cell["數量"] || "").replace(/[^0-9.]/g, "")) || 1;
+    const item = {
+      "商品名稱": (cell["商品名稱"] || "").trim(),
+      "規格設定": (cell["商品規格名稱"] || "").trim(),
+      "數量": qty,
+      "小計": null,   // 撿貨單沒有金額欄,算不出這筆的小計
+      "商品選項貨號": (cell["商品選項貨號"] || "").trim(),
+      "主商品貨號": (cell["主商品貨號"] || "").trim(),
+    };
+    const prev = result.get(orderSn) || [];
+    prev.push(item);
+    result.set(orderSn, prev);
+  });
+  return result;
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { parsePackingList, parseProductInfo, parseItemListBlocks };
+  module.exports = { parsePackingList, parseProductInfo, parseItemListBlocks, parsePickListPage };
 }
