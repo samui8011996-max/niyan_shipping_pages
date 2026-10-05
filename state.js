@@ -7,6 +7,7 @@ let bcDetailData = null;
 let lastStats = null;              // 最近一次算出來的統計
 let lastUnmatchedOrders = [];      // 目前配對後找不到託運單號的訂單清單 [{orderId}]
 let unmatchedDeleteSet = new Set(); // 使用者勾選「匯出時直接刪除」的訂單編號
+let unmatchedManualMap = new Map(); // 未配對訂單手動填的物流 orderId -> {tracking, carrier}
 let zonedGroupsCache = [];         // 分區列印:目前預覽列表對應的「獨立出單」品項分組,index 給「下載列印」按鈕用
 let zonedMergedRowsCache = [];     // 分區列印:目前「其他合併」的攤平訂單列表,給合併區塊的下載按鈕用
 let zonedExpandedLabels = new Set(); // 分區列印:目前展開規格明細的品項標籤,重新渲染清單時保持展開狀態

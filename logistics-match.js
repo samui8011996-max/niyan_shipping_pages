@@ -1,10 +1,27 @@
 // ===================================================================
 // Tab 2: 物流單號回填 (保留原邏輯)
 // ===================================================================
+// 未配對訂單手動填號時的「貨運業者代碼」下拉選單(LINE 後台規定的代碼)
+const CARRIER_CODES = [
+  { code: "T_CAT", name: "黑貓宅急便" },
+  { code: "IPOST", name: "中華郵政" },
+  { code: "HCT", name: "新竹物流" },
+  { code: "KERRY_EXPRESS", name: "嘉里大榮" },
+  { code: "ECAN", name: "宅配通" },
+  { code: "SF_EXPRESS", name: "順豐速運" },
+  { code: "GLOBAL_EXPRESS", name: "全球快遞" },
+  { code: "FEDEX", name: "FedEx" },
+  { code: "DHL", name: "DHL" },
+  { code: "MAPLE", name: "便利帶" },
+  { code: "ROUNDDAY", name: "全日物流" },
+  { code: "DELIVERY_EXPRESS", name: "其他配送" },
+];
+
 async function handleLineTemplate(file) {
   setStatus("logisticsStatus", "loading", "讀取 LINE 模板中…");
   lastUnmatchedOrders = [];
   unmatchedDeleteSet.clear();
+  unmatchedManualMap.clear();
   renderUnmatchedSection();
   try {
     const data = await file.arrayBuffer();
@@ -48,6 +65,7 @@ async function handleBcDetail(file) {
   setStatus("logisticsStatus", "loading", "讀取黑貓明細中…");
   lastUnmatchedOrders = [];
   unmatchedDeleteSet.clear();
+  unmatchedManualMap.clear();
   renderUnmatchedSection();
   try {
     const data = await file.arrayBuffer();
@@ -102,9 +120,10 @@ function checkBothLoaded() {
     // 重新載入檔案時,把勾選記錄限縮到還存在的未配對訂單(避免殘留舊的勾選狀態)
     const stillUnmatchedIds = new Set(unmatchedOrders.map(o => o.orderId));
     unmatchedDeleteSet = new Set([...unmatchedDeleteSet].filter(id => stillUnmatchedIds.has(id)));
+    unmatchedManualMap = new Map([...unmatchedManualMap].filter(([id]) => stillUnmatchedIds.has(id)));
     renderUnmatchedSection();
 
-    if (matched > 0) {
+    if (matched > 0 || unmatched > 0) {
       document.getElementById("logisticsRunBtn").disabled = false;
       const msg = unmatched > 0
         ? `✓ 兩個檔案都已載入,配對成功 ${matched} 筆,${unmatched} 筆未配對`
@@ -129,14 +148,16 @@ function renderUnmatchedSection() {
   }
 
   section.style.display = "";
-  hint.textContent = unmatchedDeleteSet.size > 0
-    ? `共 ${lastUnmatchedOrders.length} 筆 · 已勾選 ${unmatchedDeleteSet.size} 筆待刪除`
-    : `共 ${lastUnmatchedOrders.length} 筆`;
+  updateUnmatchedHint();
 
   list.innerHTML = lastUnmatchedOrders.map(o => {
     const safeId = escapeHtml(o.orderId);
     const checked = unmatchedDeleteSet.has(o.orderId) ? "checked" : "";
     const product = cleanFreeText(o.product);
+    const manual = unmatchedManualMap.get(o.orderId) || { tracking: "", carrier: CARRIER_CODES[0].code };
+    const options = CARRIER_CODES.map(c =>
+      `<option value="${c.code}" ${c.code === manual.carrier ? "selected" : ""}>${c.name} ${c.code}</option>`
+    ).join("");
     return `
       <div class="problem-item">
         <div class="problem-item-main">
@@ -144,6 +165,12 @@ function renderUnmatchedSection() {
             <span class="pi-id">${safeId}</span>
           </div>
           ${product ? `<div class="pi-note">${escapeHtml(product)}</div>` : ""}
+        </div>
+        <div class="pi-manual-track" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <input type="text" class="form-input" placeholder="物流單號" style="width:170px; padding:7px 10px;"
+            data-order-id="${safeId}" value="${escapeHtml(manual.tracking)}" oninput="onUnmatchedManualChange(this)">
+          <select class="form-input" style="width:auto; padding:7px 10px; font-family:inherit;"
+            data-order-id="${safeId}" onchange="onUnmatchedManualChange(this)">${options}</select>
         </div>
         <label class="pi-delete-check">
           <input type="checkbox" data-order-id="${safeId}" ${checked} onchange="onUnmatchedCheckChange(this)">
@@ -154,15 +181,29 @@ function renderUnmatchedSection() {
   }).join("");
 }
 
+function updateUnmatchedHint() {
+  const parts = [`共 ${lastUnmatchedOrders.length} 筆`];
+  if (unmatchedManualMap.size > 0) parts.push(`已手動填號 ${unmatchedManualMap.size} 筆`);
+  if (unmatchedDeleteSet.size > 0) parts.push(`已勾選 ${unmatchedDeleteSet.size} 筆待刪除`);
+  document.getElementById("unmatchedHint").textContent = parts.join(" · ");
+}
+
 function onUnmatchedCheckChange(el) {
   const orderId = el.dataset.orderId;
   if (el.checked) unmatchedDeleteSet.add(orderId);
   else unmatchedDeleteSet.delete(orderId);
+  updateUnmatchedHint();
+}
 
-  const hint = document.getElementById("unmatchedHint");
-  hint.textContent = unmatchedDeleteSet.size > 0
-    ? `共 ${lastUnmatchedOrders.length} 筆 · 已勾選 ${unmatchedDeleteSet.size} 筆待刪除`
-    : `共 ${lastUnmatchedOrders.length} 筆`;
+// 手動填號/選代碼:不重新渲染清單,避免打字打到一半失去焦點
+function onUnmatchedManualChange(el) {
+  const orderId = el.dataset.orderId;
+  const row = el.closest(".pi-manual-track");
+  const tracking = row.querySelector("input").value.trim();
+  const carrier = row.querySelector("select").value;
+  if (tracking) unmatchedManualMap.set(orderId, { tracking, carrier });
+  else unmatchedManualMap.delete(orderId);
+  updateUnmatchedHint();
 }
 
 function toggleAllUnmatched(checked) {
@@ -189,8 +230,10 @@ function generateLogistics() {
       const matched = [];
       const unmatched = [];
       let deletedCount = 0;
+      let manualCount = 0;
       orders.forEach(o => {
         const track = bcDetailData.get(o.orderId);
+        const manual = track ? null : unmatchedManualMap.get(o.orderId);
         if (!track && unmatchedDeleteSet.has(o.orderId)) {
           // 使用者勾選「匯出時刪除」的未配對訂單,直接跳過、不寫進檔案
           deletedCount++;
@@ -204,6 +247,12 @@ function generateLogistics() {
           rowData[carrierCol] = "T_CAT";
           rowData[trackingCol] = String(track);
           matched.push(rowData);
+        } else if (manual) {
+          // 未配對但使用者手動填了物流單號 + 代碼
+          rowData[carrierCol] = manual.carrier;
+          rowData[trackingCol] = manual.tracking;
+          matched.push(rowData);
+          manualCount++;
         } else {
           rowData[carrierCol] = "";
           rowData[trackingCol] = "";
@@ -234,7 +283,7 @@ function generateLogistics() {
       const filename = `LINE物流單號_${today}.xlsx`;
       XLSX.writeFile(wb, filename, { cellStyles: true, bookType: "xlsx" });
 
-      let msg = `✓ 已下載:${filename}  (填入 ${matched.length} 筆)`;
+      let msg = `✓ 已下載:${filename}  (填入 ${matched.length} 筆${manualCount > 0 ? `,其中 ${manualCount} 筆手動填號` : ""})`;
       if (unmatched.length > 0) msg += `,另有 ${unmatched.length} 筆未對應(已紅色反白排在最下面)`;
       if (deletedCount > 0) msg += `,已刪除 ${deletedCount} 筆勾選的未配對訂單`;
       setStatus("logisticsStatus", "success", msg);
