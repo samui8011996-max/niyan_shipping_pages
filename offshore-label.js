@@ -134,7 +134,7 @@ async function generateOffshorePdf() {
   if (!loadedRows) return;
   const rows = loadedRows.filter(r => r["_離島"]);
   if (rows.length === 0) {
-    setStatus("status", "warn", "⚠ 目前沒有離島•郵局的訂單");
+    setStatus("status", "warn", "目前沒有離島•郵局的訂單");
     return;
   }
   if (!window.jspdf || !window.jspdf.jsPDF) {

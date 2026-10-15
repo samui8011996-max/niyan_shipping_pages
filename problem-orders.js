@@ -95,7 +95,7 @@ function renderProblemList() {
 
   if (list.length === 0) {
     hint.textContent = "目前沒有問題訂單";
-    container.innerHTML = `<div class="problem-empty">目前沒有問題訂單 🎉</div>`;
+    container.innerHTML = `<div class="problem-empty">目前沒有問題訂單</div>`;
     return;
   }
 
@@ -123,7 +123,7 @@ function renderProblemList() {
           ${noteHtml}
         </div>
         <button class="pi-resolve" onclick="resolveProblem(${p.id}, '${safeId.replace(/'/g, "\\'")}', this)">
-          🗑 刪除
+          刪除
         </button>
       </div>
     `;
@@ -152,12 +152,12 @@ function resolveProblem(id, orderId, btn) {
         loadProblems();
       } else {
         setStatus("problemStatus", "error", `✗ 移除失敗:${data.error || "未知錯誤"}`);
-        if (btn) { btn.disabled = false; btn.textContent = "🗑 刪除"; }
+        if (btn) { btn.disabled = false; btn.textContent = "刪除"; }
       }
     })
     .catch(err => {
       setStatus("problemStatus", "error", `✗ 移除失敗:${err.message}`);
-      if (btn) { btn.disabled = false; btn.textContent = "🗑 刪除"; }
+      if (btn) { btn.disabled = false; btn.textContent = "刪除"; }
     });
 }
 

@@ -367,7 +367,7 @@ function renderStats(s) {
         <div class="vendor-block ${b.cls}">
           <div class="vendor-block-header">
             <span class="vendor-block-title">【${b.title}】</span>
-            <button class="vendor-block-copy" data-copy="${dataCopy}" onclick="copyVendorBlock(this)">📋 複製</button>
+            <button class="vendor-block-copy" data-copy="${dataCopy}" onclick="copyVendorBlock(this)">複製</button>
           </div>
           <div class="vendor-block-body">${bodyHtml}</div>
         </div>
@@ -494,7 +494,7 @@ function generateOutput() {
 
       if (exportRows.length === 0) {
         setStatus("status", "warn",
-          `⚠ 全部 ${loadedRows.length} 筆都屬於黑熊/盆景公仔組/離島•郵局,已不下載本地表(請用一鍵上傳)`);
+          `全部 ${loadedRows.length} 筆都屬於黑熊/盆景公仔組/離島•郵局,已不下載本地表(請用一鍵上傳)`);
         return;
       }
 
@@ -506,7 +506,7 @@ function generateOutput() {
         ? `✓ 已下載黑貓出貨表_${today}.xlsx  (${exportRows.length} 筆)`
         : `✓ 已下載 ${fileCount} 個檔案  (共 ${exportRows.length} 筆)`;
       if (excludedCount > 0) msg += `  · 另 ${excludedCount} 筆(黑熊/盆景/離島)請用上傳`;
-      if (problemHitInExport > 0) msg += `  · 🟧 ${problemHitInExport} 筆問題訂單已橘色反白`;
+      if (problemHitInExport > 0) msg += `  · ${problemHitInExport} 筆問題訂單已橘色反白`;
       setStatus("status", "success", msg);
     } catch (e) {
       setStatus("status", "error", `✗ 匯出失敗:${e.message}`);

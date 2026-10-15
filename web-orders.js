@@ -146,7 +146,7 @@ function renderWebPreview() {
 
   box.innerHTML = webOrders.map(o => {
     const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
-    const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");
+    const flag = o.blocked ? "擋" : (o.unknown ? "?" : "");
     const pay = o.payMethod + (o.cod ? "" : "(" + o.payStatus + ")");
     const codes = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單、不印出貨單"
                             : o.items.map(i => i.code).join("　");
@@ -164,8 +164,8 @@ function renderWebPreview() {
     return;
   }
   const bits = [webOrders.length + " 筆訂單", "黑貓 " + bcat.length + " 筆", "出貨單 " + ok.length + " 張"];
-  if (blocked.length) bits.push("⛔ " + blocked.length + " 筆未付款/已取消已擋下");
-  if (unknown.length) bits.push("⚠ " + unknown.length + " 筆有貨號認不出來(照品名印,請看一下)");
+  if (blocked.length) bits.push(blocked.length + " 筆未付款/已取消已擋下");
+  if (unknown.length) bits.push(unknown.length + " 筆有貨號認不出來(照品名印,請看一下)");
   setStatus("webStatus", (blocked.length || unknown.length) ? "warn" : "success", bits.join("、"));
 }
 
@@ -303,11 +303,11 @@ async function generateWebLabels() {
     const skipped = webOrders.length - jobs.length;
     setStatus("webStatus", overflow ? "warn" : "success",
       "✓ 已產生 " + name + "(" + jobs.length + " 張)"
-      + (skipped ? "、⛔ " + skipped + " 筆未付款/已取消沒有印" : "")
-      + (overflow ? "、⚠ " + overflow + " 張品項太多印不完,請檢查" : ""));
+      + (skipped ? "、" + skipped + " 筆未付款/已取消沒有印" : "")
+      + (overflow ? "、" + overflow + " 張品項太多印不完,請檢查" : ""));
   } catch (e) {
     setStatus("webStatus", "error", "✗ 產生失敗:" + e.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "🖨  產生出貨單 PDF"; }
+    if (btn) { btn.disabled = false; btn.textContent = "產生出貨單 PDF"; }
   }
 }

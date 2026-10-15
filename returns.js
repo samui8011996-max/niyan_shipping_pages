@@ -13,10 +13,10 @@ let returnEditingId = null;
 // 結果欄位固定四種狀態:未結案 是還在處理中,已退貨/結案/移除 算終結狀態
 const RETURN_RESULT_OPTIONS = ["未結案", "已退貨", "結案", "移除"];
 const RETURN_RESULT_BADGES = {
-  "未結案": { cls: "pi-open",     icon: "⏳" },
-  "已退貨": { cls: "pi-returned", icon: "📦" },
-  "結案":   { cls: "pi-result",   icon: "✅" },
-  "移除":   { cls: "pi-removed",  icon: "🗑" },
+  "未結案": { cls: "pi-open",     icon: "" },
+  "已退貨": { cls: "pi-returned", icon: "" },
+  "結案":   { cls: "pi-result",   icon: "" },
+  "移除":   { cls: "pi-removed",  icon: "" },
 };
 const RETURN_CLOSED_RESULTS = new Set(["結案", "已退貨", "移除"]);
 
@@ -37,9 +37,9 @@ function isReturnReturned(record) {
 
 function returnResultBadgeHtml(result) {
   const v = String(result || "").trim();
-  if (!v) return `<span class="pi-open">⏳ 未結案</span>`;
+  if (!v) return `<span class="pi-open">未結案</span>`;
   const b = RETURN_RESULT_BADGES[v];
-  if (b) return `<span class="${b.cls}">${b.icon} ${escapeHtml(v)}</span>`;
+  if (b) return `<span class="${b.cls}">${escapeHtml(v)}</span>`;
   // 舊資料裡的自由文字結果(例如「蝦皮退款結案」),沒有對應到固定選項就照原文顯示
   return `<span class="pi-result">${escapeHtml(v)}</span>`;
 }
@@ -64,7 +64,7 @@ function onReturnPlatformChange() {
 function submitReturn() {
   const url = getGsUrl();
   if (!url) {
-    setStatus("returnStatus", "warn", "⚠ 尚未設定 Apps Script 網址,請先點右上「⚙ 設定」");
+    setStatus("returnStatus", "warn", "尚未設定 Apps Script 網址,請先點右上「設定」");
     openSettings();
     return;
   }
@@ -149,7 +149,7 @@ function loadReturns() {
   if (!url) {
     document.getElementById("returnListHint").textContent = "尚未設定 Apps Script 網址";
     document.getElementById("returnList").innerHTML =
-      `<div class="problem-empty">請先點右上「⚙ 設定」設定網址。</div>`;
+      `<div class="problem-empty">請先點右上「設定」設定網址。</div>`;
     return;
   }
 
@@ -213,12 +213,12 @@ function renderReturnList() {
 
   if (list.length === 0) {
     hint.textContent = `${platform} 目前沒有退貨紀錄`;
-    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有退貨紀錄 🎉</div>`;
+    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有退貨紀錄</div>`;
     return;
   }
   if (filtered.length === 0) {
     hint.textContent = `${platform} 沒有${filterLabel}的紀錄`;
-    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有${filterLabel}的退貨紀錄 🎉</div>`;
+    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有${filterLabel}的退貨紀錄</div>`;
     return;
   }
 
@@ -259,8 +259,8 @@ function renderReturnList() {
           ${contactLines.join("")}
         </div>
         <div class="problem-item-btns">
-          <button class="pi-edit" onclick="editReturn(${r.id})">✏️ 編輯</button>
-          <button class="pi-resolve" onclick="removeReturn(${r.id}, '${safeId.replace(/'/g, "\\'")}', this)">🗑 刪除</button>
+          <button class="pi-edit" onclick="editReturn(${r.id})">編輯</button>
+          <button class="pi-resolve" onclick="removeReturn(${r.id}, '${safeId.replace(/'/g, "\\'")}', this)">刪除</button>
         </div>
       </div>
     `;
@@ -303,7 +303,7 @@ function editReturn(id) {
 function removeReturn(id, orderId, btn) {
   const url = getGsUrl();
   if (!url) {
-    setStatus("returnStatus", "warn", "⚠ 尚未設定 Apps Script 網址");
+    setStatus("returnStatus", "warn", "尚未設定 Apps Script 網址");
     return;
   }
   const platform = currentReturnPlatform();
@@ -327,12 +327,12 @@ function removeReturn(id, orderId, btn) {
         loadReturns();
       } else {
         setStatus("returnStatus", "error", `✗ 移除失敗:${data.error || "未知錯誤"}`);
-        if (btn) { btn.disabled = false; btn.textContent = "🗑 刪除"; }
+        if (btn) { btn.disabled = false; btn.textContent = "刪除"; }
       }
     })
     .catch(err => {
       setStatus("returnStatus", "error", `✗ 移除失敗:${err.message}`);
-      if (btn) { btn.disabled = false; btn.textContent = "🗑 刪除"; }
+      if (btn) { btn.disabled = false; btn.textContent = "刪除"; }
     });
 }
 

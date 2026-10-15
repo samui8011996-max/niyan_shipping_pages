@@ -93,7 +93,7 @@ function uploadAllToSheet() {
   if (!loadedRows) return;
   const url = getGsUrl();
   if (!url) {
-    setStatus("status", "warn", "⚠ 尚未設定 Apps Script 網址,請先點「⚙ 設定」");
+    setStatus("status", "warn", "尚未設定 Apps Script 網址,請先點「設定」");
     openSettings();
     return;
   }
@@ -318,7 +318,7 @@ function describeOffshoreSync(data) {
 
   const v = ps.verify;
   if (v && (v.error || v.found === false)) {
-    return ` · ⚠ 離島字卡可能沒寫進去[${v.error || `讀回=沒有 · 平台單 ${v.pf} 列`}]`;
+    return ` · 離島字卡可能沒寫進去[${v.error || `讀回=沒有 · 平台單 ${v.pf} 列`}]`;
   }
   if (ps.skipped) return ` · 離島字卡:今天已同步過`;
   const dup = ps.duplicated ? `,另 ${ps.duplicated} 張已同步過` : "";

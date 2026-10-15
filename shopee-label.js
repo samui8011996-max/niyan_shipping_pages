@@ -125,7 +125,7 @@ function saveShopeeEdit(uid) {
   // 字型是切過的子集,打到不在裡面的字會印成 □ —— 當場講,不要等印出來才發現
   const bad = unsupportedChars(lines.join(""));
   if (bad.length) {
-    setShopeeStatus("⚠ 這些字印不出來,紙上會變成 □:" + bad.join(" "), "warn");
+    setShopeeStatus("這些字印不出來,紙上會變成 □:" + bad.join(" "), "warn");
   }
 }
 
@@ -519,7 +519,7 @@ function renderShopeePreview() {
     const cls = r.miss ? "shopee-row miss" : (r.unknown ? "shopee-row unknown" : "shopee-row");
     const tag = job.kind === "nolabel" ? "無標籤" : "P" + (i + 1);
     // 對不到裝箱單 / 認不出品項的,清單上要有一個一眼看得到的驚嘆號,不能只靠底色
-    const flag = r.miss ? "❗" : (r.unknown ? "⚠" : "");
+    const flag = r.miss ? "缺" : (r.unknown ? "?" : "");
     const key = shopeeJobKey(job);
     const hide = shopeeNoInvoice.has(key);
     if (shopeeEditingUid === job.uid) {
@@ -572,8 +572,8 @@ function renderShopeePreview() {
 
   const bits = [jobs.length + " 頁"];
   if (nolabel) bits.push(nolabel + " 筆沒有熱感應標籤(改印物流單號)");
-  if (miss) bits.push("⚠ " + miss + " 頁對不到裝箱單");
-  if (unknown) bits.push("⚠ " + unknown + " 頁有認不出來的品項");
+  if (miss) bits.push(miss + " 頁對不到裝箱單");
+  if (unknown) bits.push(unknown + " 頁有認不出來的品項");
   const hidden = jobs.filter(j => shopeeNoInvoice.has(shopeeJobKey(j))).length;
   if (hidden) bits.push(hidden + " 張不印發票");
   if (shopeeRemoved.size) bits.push("已拿掉 " + shopeeRemoved.size + " 頁");
@@ -741,12 +741,12 @@ async function generateShopeeLabels() {
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     setShopeeStatus(
       "已產生 " + name + "(" + jobs.length + " 頁)"
-        + (overflow ? "、⚠ " + overflow + " 頁品項太多印不完,請檢查" : ""),
+        + (overflow ? "、" + overflow + " 頁品項太多印不完,請檢查" : ""),
       overflow ? "warn" : "success");
   } catch (e) {
     setShopeeStatus("產生失敗:" + e.message, "error");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "▶  產生出貨單"; }
+    if (btn) { btn.disabled = false; btn.textContent = "產生出貨單"; }
   }
 }
 

@@ -339,7 +339,7 @@ async function savePagesAsPdf(pageIndexes, filename) {
 function zonedPdfGroupButton(kind, idx) {
   if (!zonedPdfReady()) return "";
   return '<button class="btn btn-lavender btn-small" onclick="downloadZonedGroupPdf(\'' +
-         kind + '\', ' + idx + ')">⬇ 託運單</button>';
+         kind + '\', ' + idx + ')">託運單</button>';
 }
 
 async function downloadZonedGroupPdf(kind, idx) {
@@ -357,7 +357,7 @@ async function downloadZonedGroupPdf(kind, idx) {
     }
     await savePagesAsPdf(r.pages, "託運單_" + sanitizeFilenamePart(g.label) + ".pdf");
     let msg = "✓ 已下載「" + g.label + "」託運單 " + r.pages.length + " 頁";
-    if (r.missing.length > 0) msg += " · ⚠ " + r.missing.length + " 筆訂單在 PDF 裡沒有對應的單";
+    if (r.missing.length > 0) msg += " · " + r.missing.length + " 筆訂單在 PDF 裡沒有對應的單";
     setStatus("zonedStatus", r.missing.length > 0 ? "warn" : "success", msg);
   } catch (e) {
     setStatus("zonedStatus", "error", "✗ 託運單下載失敗:" + e.message);
@@ -396,7 +396,7 @@ async function downloadAllZonedPdfs() {
       await new Promise(res => setTimeout(res, 300));
     }
     let msg = "✓ 已下載 " + files + " 個託運單 PDF,共 " + pageTotal + " 頁";
-    if (missTotal > 0) msg += " · ⚠ " + missTotal + " 筆訂單找不到對應的託運單";
+    if (missTotal > 0) msg += " · " + missTotal + " 筆訂單找不到對應的託運單";
     setStatus("zonedStatus", missTotal > 0 ? "warn" : "success", msg);
   } catch (e) {
     setStatus("zonedStatus", "error", "✗ 批次下載失敗:" + e.message);
@@ -458,7 +458,7 @@ function renderZonedPdfSummary() {
   }
 
   const extras = zonedPdfExtraBuckets().map((b, i) =>
-    '<button class="btn btn-secondary btn-small" onclick="downloadZonedExtraPdf(' + i + ')">⬇ ' +
+    '<button class="btn btn-secondary btn-small" onclick="downloadZonedExtraPdf(' + i + ')">' +
     escapeHtml(b.label) + "(" + b.pageIndexes.length + " 頁)</button>").join("");
 
   el.innerHTML =
@@ -481,7 +481,7 @@ function renderZonedPdfSummary() {
     '</div>' +
     '<div class="actions" style="margin-bottom: 0;">' +
       '<button class="btn btn-lavender" onclick="downloadAllZonedPdfs()" ' +
-      'title="清單上每一組各出一個 PDF 檔">▶ 全部下載託運單(每組一檔)</button>' +
+      'title="清單上每一組各出一個 PDF 檔">全部下載託運單(每組一檔)</button>' +
       extras +
     '</div>';
 }

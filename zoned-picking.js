@@ -495,7 +495,7 @@ function renderZonedGroupList(groups) {
             </button>
           </div>
           <span style="display: flex; gap: 6px; flex-shrink: 0;">
-            <button class="btn btn-secondary btn-small" onclick="downloadZonedGroup(${idx})">${g.downloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+            <button class="btn btn-secondary btn-small" onclick="downloadZonedGroup(${idx})">${g.downloaded ? "✓ 已下載" : "下載列印"}</button>
             ${typeof zonedPdfGroupButton === "function" ? zonedPdfGroupButton("own", idx) : ""}
           </span>
         </div>
@@ -555,7 +555,7 @@ function renderZonedMergedBlock(mergedRows, threshold) {
       <div class="problem-item-row1" style="justify-content: space-between; width: 100%;">
         <span class="pi-id">其他合併(未超過 ${threshold} 個的品項)</span>
         <span style="display: flex; gap: 6px; flex-shrink: 0;">
-          <button class="btn btn-secondary btn-small" onclick="downloadZonedMerged()">${zonedMergedDownloaded ? "✓ 已下載" : "⬇ 下載列印"}</button>
+          <button class="btn btn-secondary btn-small" onclick="downloadZonedMerged()">${zonedMergedDownloaded ? "✓ 已下載" : "下載列印"}</button>
           ${typeof zonedPdfGroupButton === "function" ? zonedPdfGroupButton("merged", -1) : ""}
         </span>
       </div>
@@ -772,7 +772,7 @@ function generateZonedOutput() {
       renderZonedMergedBlock(zonedMergedRowsCache, threshold);
 
       let msg = `✓ 分區列印完成,共 ${fileTotal} 個檔案`;
-      if (problemHitTotal > 0) msg += `  · 🟧 ${problemHitTotal} 筆問題訂單已橘色反白`;
+      if (problemHitTotal > 0) msg += `  · ${problemHitTotal} 筆問題訂單已橘色反白`;
       setStatus("zonedStatus", "success", msg);
     } catch (e) {
       setStatus("zonedStatus", "error", `✗ 分區列印失敗:${e.message}`);
