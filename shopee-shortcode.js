@@ -154,7 +154,7 @@ const SC_ITEMS = [
   [/蟾蜍/,                   "蟾蜍"],
   [/招財犬|旺旺招財犬/,       "犬"],
   [/發財兔|兔兔公仔|火箭兔/,   "兔"],
-  [/黑馬招財[猫貓]|奔富黑馬/, "馬"],
+  [/黑馬招財[猫貓]|奔富黑馬/, "馬貓"],
   [/雙喵組/,                 "雙喵"],
   // 「圓滾滾幸運貓團圓版」品名裡「團圓」兩字沒有跟「貓」黏在一起(…貓團圓版),
   // 原本只認literal「團圓貓」連續四字會漏抓,所以兩種寫法都收
@@ -342,7 +342,8 @@ function buildShortCode(row) {
   const pair2 = spec.match(/招福[:：]\s*([^,，]+)/);
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
-  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油") {
+  // 馬貓沒有顏色可選,品名的「黑馬」會被當成顏色「黑」,所以也排除
+  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
