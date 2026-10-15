@@ -28,6 +28,7 @@ const WEB_LABEL = {
   shipTop: 20, shipSize: 26,  // 送貨方式(最大)
   paySize: 18,                // 付款方式
   snLabelSize: 9, snSize: 14, // 訂單編號
+  totalSize: 16,              // 訂單金額(同一排靠右)
   itemsTop: 226, itemsBottom: 500,
   itemSize: 18, itemMin: 7, lineRatio: 1.45,
   noteSize: 10, noteBottom: 535,
@@ -251,9 +252,17 @@ async function generateWebLabels() {
         y += 12 + 8;
       }
       y += 4;
+      // 訂單金額跟訂單編號同一排、靠右對齊(左邊編號、右邊金額,跟蝦皮出貨單一樣只印數字)
+      const putRight = (text, top, size) => {
+        page.drawText(text, { x: L.right - font.widthOfTextAtSize(text, size), y: fromTop(top + size),
+                              size, font, color: black });
+      };
       put(sanitizeCode("訂單編號"), y, L.snLabelSize);
+      putRight(sanitizeCode("訂單金額"), y, L.snLabelSize);
       y += L.snLabelSize + 4;
       put(sanitizeCode(o.id), y, L.snSize);
+      // 金額字比編號大一點,底部對齊
+      putRight(sanitizeCode("$" + o.total), y - (L.totalSize - L.snSize), L.totalSize);
       // SHOPEE_GAP(中間印刷區)刻意留白
 
       // ---- 下半:品項簡稱 → 訂單備註 ----
