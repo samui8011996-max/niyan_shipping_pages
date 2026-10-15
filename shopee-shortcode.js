@@ -383,9 +383,10 @@ function buildShortCode(row) {
   const qty = Number(row["數量"] ?? 1) || 1;
   const price = Number(String(row["價格"] ?? "").replace(/[^0-9.]/g, "")) || 0;
   const parts = seg.filter(Boolean);
-  // code = 給畫面預覽看的(有空白比較好讀);compact = 印在紙上的(照使用者範例,不留空白)
-  const code = parts.join(" ") + (qty > 1 ? " x" + qty : "");
-  const compact = parts.join("") + "*" + qty;
+  // code = 給畫面預覽看的(有空白比較好讀);compact = 印在紙上的(不留空白)。
+  // 數量一律寫「 x數量」,1 也要寫(使用者 2026-10-15 指定,原本是「*1」)
+  const code = parts.join(" ") + " x" + qty;
+  const compact = parts.join("") + " x" + qty;
   return { code, compact, parts, qty, price, unknown: unknown || code.includes("?") };
 }
 
