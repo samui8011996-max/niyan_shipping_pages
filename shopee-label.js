@@ -79,12 +79,14 @@ const SHOPEE_FORMATS = {
     page: { ...SHOPEE_PAGE }, items: { ...SHOPEE_ITEMS }, total: { ...SHOPEE_TOTAL },
     label: { ...SHOPEE_LABEL_BOX }, nolabel: { ...SHOPEE_NOLABEL },
   },
+  // 4x6 一筆訂單印兩張(使用者 2026-10-15 指定):第 1 張明細(最上面印訂單編號,才對得回標籤),
+  // 第 2 張標籤(放大到填滿整張、置中)。明細整張都能用,字可以印大一點
   "4x6": {
     page: { w: 4 * 72, h: 6 * 72 },                         // 288 x 432 pt
-    items: { x1: 18, x2: 152, colW: 118, fullW: 252, top: 12, maxBottom: 92 },
-    total: { top: 96, valueRight: 270 },
-    label: { x: null, w: 252, top: 118, maxH: 432 - 118 - 6 },
-    nolabel: { top: 140 },
+    items: { x1: 18, x2: 152, colW: 118, fullW: 252, top: 54, maxBottom: 380, size: 18 },
+    total: { top: 396, valueRight: 270 },
+    label: { x: null, w: 288 - 12, top: 6, maxH: 432 - 12 },
+    nolabel: { top: 30 },
   },
 };
 let shopeeFormat = "bcat";
@@ -693,10 +695,21 @@ async function generateShopeeLabels() {
     const jobs = shopeeBuildJobs();
     let overflow = 0;
 
+    const split = shopeeFormat === "4x6";   // 明細、標籤分兩張印
     for (const job of jobs) {
       const page = out.addPage([SHOPEE_PAGE.w, SHOPEE_PAGE.h]);
+      const labelPage = split ? out.addPage([SHOPEE_PAGE.w, SHOPEE_PAGE.h]) : page;
+      if (split) {
+        // 明細跟標籤分開了,明細最上面印訂單編號,才對得回是哪張標籤
+        page.drawText(sanitizeCode("訂單編號"), {
+          x: SHOPEE_ITEMS.x1, y: fromTop(14 + 9), size: 9, font, color: PDFLib.rgb(0, 0, 0),
+        });
+        page.drawText(sanitizeCode(job.orderSn || job.tracking || ""), {
+          x: SHOPEE_ITEMS.x1, y: fromTop(26 + 16), size: 16, font, color: PDFLib.rgb(0, 0, 0),
+        });
+      }
 
-      // ---- 下半部:有標籤就貼標籤,沒有就印大字物流單號 ----
+      // ---- 下半部(4x6 是第 2 張):有標籤就貼標籤,沒有就印大字物流單號 ----
       if (job.kind === "label") {
         const srcPage = srcDocs[job.pdfIdx].getPages()[job.pageIndex];
         if (srcPage) {
@@ -719,7 +732,7 @@ async function generateShopeeLabels() {
                                  SHOPEE_LABEL_BOX.maxH / (crop.top - crop.bottom));
           const drawW = (crop.right - crop.left) * scale;
           const drawH = (crop.top - crop.bottom) * scale;
-          page.drawPage(embedded, {
+          labelPage.drawPage(embedded, {
             x: SHOPEE_LABEL_BOX.x ?? (SHOPEE_PAGE.w - drawW) / 2,
             y: fromTop(SHOPEE_LABEL_BOX.top) - drawH + nudge,
             xScale: scale,
@@ -729,7 +742,7 @@ async function generateShopeeLabels() {
       } else {
         let y = SHOPEE_NOLABEL.top;
         const put = (text, size) => {
-          page.drawText(sanitizeCode(text), {
+          labelPage.drawText(sanitizeCode(text), {
             x: SHOPEE_ITEMS.x1,
             y: fromTop(y + size),
             size, font, color: PDFLib.rgb(0, 0, 0),
@@ -788,7 +801,7 @@ async function generateShopeeLabels() {
     const name = "蝦皮出貨單_" + (shopeeFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     setShopeeStatus(
-      "已產生 " + name + "(" + jobs.length + " 頁)"
+      "已產生 " + name + "(" + jobs.length + " 筆" + (split ? "、" + jobs.length * 2 + " 頁" : "") + ")"
         + (overflow ? "、" + overflow + " 頁品項太多印不完,請檢查" : ""),
       overflow ? "warn" : "success");
   } catch (e) {
