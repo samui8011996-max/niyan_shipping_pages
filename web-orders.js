@@ -26,9 +26,10 @@ const WEB_PAID = "已付款";
 const WEB_LABEL = {
   x: 22, right: 247,          // 左右邊界
   shipTop: 20, shipSize: 26,  // 送貨方式(最大)
-  paySize: 18,                // 付款方式
-  snLabelSize: 9, snSize: 14, // 訂單編號
-  totalSize: 16,              // 訂單金額(同一排靠右)
+  paySize: 14,                // 付款方式(使用者 2026-10-15:縮小,比訂單編號小)
+  codSize: 18,                // 代收金額
+  snLabelSize: 9, snSize: 20, // 訂單編號(放大;太長會自動縮,見下方)
+  totalSize: 20,              // 訂單金額(同一排靠右)
   itemsTop: 226, itemsBottom: 500,
   itemSize: 18, itemMin: 7, lineRatio: 1.45,
   noteSize: 10, noteBottom: 535,
@@ -232,7 +233,8 @@ async function generateWebLabels() {
 
       // ---- 上半:送貨方式(最大)→ 付款方式 → 訂單編號 ----
       let y = L.shipTop;
-      const ship = sanitizeCode(WEB_PLATFORM_TAG + " " + webNorm(o.ship));
+      // 「黑貓-常溫」只寫「黑貓」(常溫是預設,寫了只是佔位置);貨到付款那種保留括號
+      const ship = sanitizeCode(WEB_PLATFORM_TAG + " " + webNorm(o.ship).replace(/-常溫/, ""));
       const shipSize = webFitSize(font, ship, W, L.shipSize, 12);
       put(ship, y, shipSize);
       y += shipSize + 10;
@@ -242,8 +244,8 @@ async function generateWebLabels() {
       put(pay, y, paySize);
       y += paySize + 8;
       if (o.cod) {
-        put(sanitizeCode("代收 $" + o.total), y, L.paySize);
-        y += L.paySize + 8;
+        put(sanitizeCode("代收 $" + o.total), y, L.codSize);
+        y += L.codSize + 8;
       }
       // 超商取貨印門市名稱,現場分袋比較好認
       if (o.store) {
@@ -260,9 +262,12 @@ async function generateWebLabels() {
       put(sanitizeCode("訂單編號"), y, L.snLabelSize);
       putRight(sanitizeCode("訂單金額"), y, L.snLabelSize);
       y += L.snLabelSize + 4;
-      put(sanitizeCode(o.id), y, L.snSize);
-      // 金額字比編號大一點,底部對齊
-      putRight(sanitizeCode("$" + o.total), y - (L.totalSize - L.snSize), L.totalSize);
+      // 編號放大,但官網編號有 17 碼,太長會撞到右邊的金額 → 縮到剛好放得下
+      const totalText = sanitizeCode("$" + o.total);
+      const snMaxW = W - font.widthOfTextAtSize(totalText, L.totalSize) - 10;
+      const snSize = webFitSize(font, sanitizeCode(o.id), snMaxW, L.snSize, 10);
+      put(sanitizeCode(o.id), y + (L.snSize - snSize), snSize);   // 縮小的話底部對齊
+      putRight(totalText, y, L.totalSize);
       // SHOPEE_GAP(中間印刷區)刻意留白
 
       // ---- 下半:品項簡稱 → 訂單備註 ----
