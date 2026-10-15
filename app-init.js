@@ -50,6 +50,9 @@ document.getElementById("bcDetailInput").addEventListener("change", (e) => {
 document.getElementById("shopeeInput").addEventListener("change", (e) => {
   onShopeeFiles(e.target.files);
 });
+document.getElementById("webInput").addEventListener("change", (e) => {
+  onWebFile(e.target.files[0]);
+});
 
 // ---------------------------------------------------------------
 // 拖曳上傳:每個檔案欄位所在的整張卡片都能放。
@@ -63,6 +66,7 @@ const DROP_ZONES = [
   { input: "lineTemplateInput", accept: [".xlsx"],         status: "logisticsStatus" },
   { input: "bcDetailInput",     accept: [".xlsx", ".xls"], status: "logisticsStatus" },
   { input: "shopeeInput",       accept: [".xlsx", ".xls", ".pdf"], status: "shopeeStatus" },
+  { input: "webInput",          accept: [".xls", ".xlsx"], status: "webStatus" },
 ];
 
 DROP_ZONES.forEach(({ input, accept, status }) => {

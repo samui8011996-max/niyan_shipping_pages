@@ -404,7 +404,9 @@ const MAX_ROWS_PER_FILE = 100;
 
 // 把一批已排序好的訂單資料寫成一或多份黑貓出貨表 xlsx(超過 MAX_ROWS_PER_FILE 自動分檔);
 // filePrefix 例如 "黑貓出貨表" 或 "黑貓出貨表_A區",回傳實際檔案數與命中的問題訂單數,給呼叫端組出狀態訊息
-function writeBcatFiles(rows, filePrefix) {
+// opts.senderName:寄件人名稱(官網訂單用自己的,不寫就是 LINE 的 SENDER_NAME);
+// row["_代收金額"]:貨到付款要黑貓代收的金額(官網訂單才有,LINE 的列沒有這欄就留空)
+function writeBcatFiles(rows, filePrefix, opts = {}) {
   const today = todayStr();
   const total = rows.length;
   const fileCount = Math.ceil(total / MAX_ROWS_PER_FILE);
@@ -432,7 +434,8 @@ function writeBcatFiles(rows, filePrefix) {
         if (col >= 0) newRow[col] = row[src] ?? "";
       }
       newRow[TEMPLATE_HEADERS.indexOf("備註")] = row["_備註"];
-      newRow[TEMPLATE_HEADERS.indexOf("寄件人姓名")] = SENDER_NAME;
+      newRow[TEMPLATE_HEADERS.indexOf("寄件人姓名")] = opts.senderName || SENDER_NAME;
+      if (row["_代收金額"]) newRow[TEMPLATE_HEADERS.indexOf("代收金額或到付")] = row["_代收金額"];
       newRow[TEMPLATE_HEADERS.indexOf("件數")] = ITEM_COUNT;
       newRow[TEMPLATE_HEADERS.indexOf("品名(詳參數表)")] = ITEM_NAME_CODE;
       aoa.push(newRow);

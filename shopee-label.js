@@ -48,6 +48,9 @@ const SHOPEE_TOTAL = {
   top: 150, valueRight: 243.6, valueSize: 14.2,
 };
 
+// 金額那一行左邊印的平台註記
+const SHOPEE_PLATFORM_TAG = "蝦皮";
+
 // 中間的印刷區/分割線:紙上本來就有東西,這一段什麼都不能印。
 // 留這個常數只是為了讓人一眼看到「這段是故意空的」,程式不會往這裡畫。
 const SHOPEE_GAP = { top: 185, bottom: 212 };
@@ -718,6 +721,14 @@ async function generateShopeeLabels() {
       const amount = sanitizeCode(noInvoice ? "不印發票" : String(detail.total || 0));
       page.drawText(amount, {
         x: SHOPEE_TOTAL.valueRight - font.widthOfTextAtSize(amount, SHOPEE_TOTAL.valueSize),
+        y: fromTop(SHOPEE_TOTAL.top + SHOPEE_TOTAL.valueSize),
+        size: SHOPEE_TOTAL.valueSize, font, color: PDFLib.rgb(0, 0, 0),
+      });
+
+      // 平台註記:印在金額同一行的左邊(那裡本來空著,不會壓到品項)。
+      // 官網訂單用同一種紙,不註記的話印出來分不出是哪個平台的單
+      page.drawText(sanitizeCode(SHOPEE_PLATFORM_TAG), {
+        x: SHOPEE_ITEMS.x1,
         y: fromTop(SHOPEE_TOTAL.top + SHOPEE_TOTAL.valueSize),
         size: SHOPEE_TOTAL.valueSize, font, color: PDFLib.rgb(0, 0, 0),
       });
