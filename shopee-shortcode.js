@@ -2,11 +2,11 @@
 // 蝦皮出貨工具:把「商品名稱 + 規格」自動縮寫成印在熱感應單上的撿貨代號。
 //
 // 代號長什麼樣(由左到右,沒有的就整段省略):
-//   [雕] [主體+尺寸] [顏色+款式] [星座] [+加購]
-//   例:  雕 貓小對 黃 獅子 +木
+//   [【雷雕】] [主體+尺寸] [顏色+款式] [星座] [+加購]
+//   例:  【雷雕】星座貓 獅子座 +木
 //        貓小 黃金 +寶
 //        獅子貓 +茶樹
-//        消波4.5
+//        消波塊4.5cm
 //
 // 為什麼不是直接砍商品名稱:賣場標題塞滿行銷字(【開店送禮,蝦皮限定優惠】…),
 // 真正撿貨要看的四件事 —— 拿哪個公仔、哪個尺寸、哪個顏色/款式、要不要加購 ——
@@ -150,7 +150,7 @@ const SC_ITEMS = [
   [/客製化雷雕.*加購項目/,    "加購"],   // 品名另外還有「雷雕」兩字,前面已經會印「雕」
   [/單方精油/,               "精油"],   // 精油名稱靠 scAddons 的 SC_OILS 另外抽
   // --- 主力公仔線 ---
-  [/消波塊/,                 "消波"],
+  [/消波塊/,                 "消波塊"],
   [/蟾蜍/,                   "蟾蜍"],
   [/招財犬|旺旺招財犬/,       "犬"],
   [/發財兔|兔兔公仔|火箭兔/,   "兔"],
@@ -180,7 +180,7 @@ const SC_ITEMS = [
   // 蝦皮的「胖胖招財招福貓組(大…、小…、原木片)」是一次三件的組合,括號裡的大/小是內容物,
   // 不是可選尺寸 —— 要排在下面「胖胖…貓」那條之前,不然會被當成單隻貓
   [/胖胖[^,，]{0,8}貓組/,     SC_SET_LABEL],
-  [/開運胖胖貓/,             "胖胖貓"],   // 星座貓,星座另外抽
+  [/開運胖胖貓/,             "星座貓"],   // 星座貓跟胖胖貓是不同商品,不能混在一起叫;星座另外抽
   [/胖胖[^,，]{0,6}貓/,       "胖胖貓"],
 ];
 
@@ -265,10 +265,10 @@ function scZodiac(spec, name) {
   let m = spec.match(/星座[:：]\s*([^,，(（]+)/);
   if (m) {
     const sign = SC_ZODIAC.find(z => m[1].includes(z));
-    if (sign) return sign.replace("座", "");
+    if (sign) return sign;
   }
   m = name.match(new RegExp("(" + SC_ZODIAC.join("|") + ")開運胖胖貓"));
-  if (m) return m[1].replace("座", "");
+  if (m) return m[1];
   return "";
 }
 
@@ -296,7 +296,7 @@ function buildShortCode(row) {
   let unknown = false;
   let setParts = null;   // 只有【大小貓組】這類組合商品會用到,先宣告讓後面的區塊也拿得到
 
-  if (/雷雕/.test(all)) seg.push("雕");
+  if (/雷雕/.test(all)) seg.push("【雷雕】");
 
   const rule = scSkuRule(row);
   const itemHit = SC_ITEMS.find(([re]) => re.test(name));
@@ -305,9 +305,9 @@ function buildShortCode(row) {
   if (!itemHit && !(rule && rule.item)) unknown = true;
 
   // 消波塊看的是幾公分,不是尺寸/顏色/款式
-  if (item === "消波") {
+  if (item === "消波塊") {
     const cm = all.match(/(\d+(?:\.\d+)?)\s*(?:cm|公分)/);
-    seg.push("消波" + (cm ? cm[1] : ""));
+    seg.push("消波塊" + (cm ? cm[1] + "cm" : ""));
   } else if (item === "犬") {
     const dog = all.match(/([財富])狗狗/);
     seg.push((dog ? dog[1] : "") + "犬");
@@ -337,7 +337,7 @@ function buildShortCode(row) {
   const pair2 = spec.match(/招福[:：]\s*([^,，]+)/);
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
-  } else if (item !== "消波" && item !== "犬" && item !== "千里眼順風耳") {
+  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);

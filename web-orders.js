@@ -171,7 +171,7 @@ function downloadWebBcat() {
     "收件人姓名": o.name,
     "收件人聯絡電話": o.phone,
     "配送地址": o.address,
-    "_備註": o.items.map(i => i.compact).join(" "),
+    "_備註": o.items.map(i => i.compact).join("、"),   // 品項裡已經有空白(… x1),改用頓號分隔才分得清
     "_代收金額": o.cod ? o.total : "",
     "_類別": null,
   }));

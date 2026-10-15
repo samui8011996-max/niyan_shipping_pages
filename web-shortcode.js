@@ -54,15 +54,15 @@ const WEB_SKU_RULES = [
     m => ["胖胖貓(小)", WEB_COLORS[m[1]] + WEB_STYLES[m[2]], "+霜"]],
   [/^GIFT-OIL-([A-Z]+)-(GOLD|FU)-([A-Z]+)$/,
     m => ["胖胖貓(小)", WEB_COLORS[m[1]] + WEB_STYLES[m[2]], "+木+" + WEB_OILS[m[3]]]],
-  [/^GIFT-TETRAPOD-([A-Z]+)$/, m => ["消波4.5", "+" + WEB_OILS[m[1]]]],
-  // 星座貓:-ENG 是客製刻印,前面掛「雕」(跟蝦皮的雷雕一樣),刻字內容看訂單備註
+  [/^GIFT-TETRAPOD-([A-Z]+)$/, m => ["消波塊4.5cm", "+" + WEB_OILS[m[1]]]],
+  // 星座貓:-ENG 是客製刻印,前面掛「【雷雕】」(跟蝦皮一樣),刻字內容看訂單備註
   [/^ZCAT-(?:ALL-)?([A-Z]+?)(-ENG)?$/,
-    m => [m[2] ? "雕" : "", "胖胖貓", WEB_ZODIAC[m[1]]]],
+    m => [m[2] ? "【雷雕】" : "", "星座貓", WEB_ZODIAC[m[1]] + "座"]],
   // 永生花
   [/^FLOWERCAT-(PINK|BLUE)-(GOLD|PINK)$/,
     m => ["永生花" + WEB_COLORS[m[1]], m[2] === "GOLD" ? "黃金" : "粉福"]],
   [/^ZFLOWER-([A-Z]+)-([A-Z]+)$/,
-    m => ["星座永生花" + WEB_COLORS[m[1]], WEB_ZODIAC[m[2]]]],
+    m => ["星座永生花" + WEB_COLORS[m[1]], WEB_ZODIAC[m[2]] + "座"]],
   // 圓滾滾幸運貓(LINE 那邊叫「雙手貓」,見 keyword-rules.js)
   [/^LUCKY-([A-Z]+)-(S|M|L|SET)$/,
     m => ["雙手貓" + (m[2] === "SET" ? "(一家三口)" : webSize(m[2])), WEB_COLORS[m[1]]]],
@@ -72,7 +72,7 @@ const WEB_SKU_RULES = [
     m => ["招財貓招福貓", WEB_COLORS[m[1]] + { R: "金", L: "福", PAIR: "金福" }[m[2]]]],
   [/^DOG-([A-Z]+)-(CAI|FU)$/, m => [(m[2] === "CAI" ? "財" : "富") + "犬", WEB_COLORS[m[1]]]],
   [/^DRAGON-([A-Z]+)-(\d+)CM$/, m => ["龍寶寶" + m[2], WEB_COLORS[m[1]]]],
-  [/^TETRAPOD-(S|M|L)$/, m => ["消波" + { S: "4.5", M: "8", L: "12" }[m[1]]]],
+  [/^TETRAPOD-(S|M|L)$/, m => ["消波塊" + { S: "4.5", M: "8", L: "12" }[m[1]] + "cm"]],
   [/^RABBIT-(S|L)$/, m => ["兔" + (m[1] === "S" ? "4.5" : "8")]],
   [/^MOONRABBIT-([A-Z]+)$/, m => ["中秋兔", WEB_COLORS[m[1]]]],
   [/^TOAD-([A-Z]+)$/, m => ["蟾蜍", WEB_COLORS[m[1]]]],
@@ -82,8 +82,8 @@ const WEB_SKU_RULES = [
   [/^MOAI-S-([A-Z]+)-([A-Z0-9]+)$/, m => ["摩艾", WEB_COLORS[m[1]], WEB_MOAI[m[2]]]],
   [/^HORSECAT-([A-Z]+)$/, m => ["馬", "+" + WEB_OILS[m[1]]]],
   [/^OIL(?:5|10)-([A-Z]+)$/, m => ["精油", "+" + WEB_OILS[m[1]]]],
-  [/^ENGRAVE-CAT-(M|L|XL)$/, m => ["雕", "加購(" + WEB_SIZES[m[1]] + "貓)"]],
-  [/^ENGRAVE-WOOD$/, () => ["雕", "加購(木片)"]],
+  [/^ENGRAVE-CAT-(M|L|XL)$/, m => ["【雷雕】", "加購(" + WEB_SIZES[m[1]] + "貓)"]],
+  [/^ENGRAVE-WOOD$/, () => ["【雷雕】", "加購(木片)"]],
   [/^GIFT-CARD-SET$/, () => ["賀卡+插卡棒+木片"]],
   [/^GIFT-CARD$/, () => ["賀卡"]],
   [/^GIFT-BAG-RED$/, () => ["提袋"]],
@@ -103,8 +103,8 @@ function buildWebShortCode(row) {
   const finish = (parts, unknown) => {
     parts = parts.filter(Boolean);
     return {
-      code: parts.join(" ") + (qty > 1 ? " x" + qty : ""),
-      compact: parts.join("") + "*" + qty,
+      code: parts.join(" ") + " x" + qty,
+      compact: parts.join("") + " x" + qty,   // 每個品項都寫 x數量,1 也要寫
       qty,
       unknown: unknown || parts.some(p => /undefined|\?/.test(p)),
     };
