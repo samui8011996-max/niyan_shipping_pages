@@ -146,7 +146,7 @@ function renderWebPreview() {
 
   box.innerHTML = webOrders.map(o => {
     const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
-    const flag = o.blocked ? "擋" : (o.unknown ? "?" : "");
+    const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const pay = o.payMethod + (o.cod ? "" : "(" + o.payStatus + ")");
     const codes = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單、不印出貨單"
                             : o.items.map(i => i.code).join("　");

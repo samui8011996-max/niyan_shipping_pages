@@ -519,7 +519,7 @@ function renderShopeePreview() {
     const cls = r.miss ? "shopee-row miss" : (r.unknown ? "shopee-row unknown" : "shopee-row");
     const tag = job.kind === "nolabel" ? "無標籤" : "P" + (i + 1);
     // 對不到裝箱單 / 認不出品項的,清單上要有一個一眼看得到的驚嘆號,不能只靠底色
-    const flag = r.miss ? "缺" : (r.unknown ? "?" : "");
+    const flag = r.miss ? "❗" : (r.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const key = shopeeJobKey(job);
     const hide = shopeeNoInvoice.has(key);
     if (shopeeEditingUid === job.uid) {
