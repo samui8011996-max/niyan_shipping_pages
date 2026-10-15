@@ -30,11 +30,11 @@ const WEB_LABEL = {
   shipSize: 26,               // 送貨方式(最大)
   paySize: 14,                // 付款方式(使用者 2026-10-15:縮小)
   storeSize: 12,              // 超商門市
-  totalSize: 20,              // 訂單金額 / 代收金額(品項下面獨立一行)
-  amountGap: 8,               // 金額跟最後一個品項之間多空一點
+  totalSize: 13,              // 訂單金額 / 代收金額(固定右下角,字不要太大)
   itemsTop: 226, itemsBottom: 500,
   itemSize: 18, itemMin: 7, lineRatio: 1.45,
-  noteSize: 10, noteBottom: 535,
+  noteSize: 10,               // 訂單備註(在金額上面)
+  bottom: 535,                // 最下面一行(金額)的底線
 };
 
 let webOrders = [];      // 併好的訂單(含被擋的,UI 要列出來)
@@ -265,17 +265,26 @@ async function generateWebLabels() {
 
       // SHOPEE_GAP(中間印刷區)刻意留白
 
-      // ---- 下半:品項簡稱 → 金額 → 訂單備註 ----
+      // ---- 下半:品項簡稱 →(往下)… 訂單備註 → 金額(固定右下角) ----
+      // 金額固定在右下角、字不要太大(使用者 2026-10-15 指定),備註寫在金額上面。
+      // 貨到付款/取貨付款寫「代收金額」—— 要收的錢跟訂單金額是同一個數字,不重複印兩行
+      const amount = sanitizeCode((o.cod ? "代收金額 $" : "訂單金額 $") + o.total);
+      const amountTop = L.bottom - L.totalSize;
+      page.drawText(amount, {
+        x: L.right - font.widthOfTextAtSize(amount, L.totalSize),
+        y: fromTop(L.bottom), size: L.totalSize, font, color: black,
+      });
+
       const note = o.note ? sanitizeCode("備註:" + webNorm(o.note)) : "";
       const noteLines = note ? webWrap(font, note, L.noteSize, W) : [];
       const noteH = noteLines.length * L.noteSize * 1.4;
-      const itemsBottom = Math.min(L.itemsBottom, L.noteBottom - noteH - 8);
+      const noteTop = amountTop - 8 - noteH;
+      let ny = noteTop;
+      noteLines.forEach(t => { put(t, ny, L.noteSize); ny += L.noteSize * 1.4; });
+
+      const itemsBottom = Math.min(L.itemsBottom, noteTop - 8);
       const lines = o.items.map(i => sanitizeCode(i.compact));
-      // 金額寫在全部品項下面、獨立一行(使用者 2026-10-15 指定)。
-      // 貨到付款/取貨付款寫「代收金額」—— 要收的錢跟訂單金額是同一個數字,不重複印兩行
-      const amount = sanitizeCode((o.cod ? "代收金額 $" : "訂單金額 $") + o.total);
-      const amountH = L.totalSize * 1.4 + L.amountGap;
-      const avail = itemsBottom - L.itemsTop - amountH;
+      const avail = itemsBottom - L.itemsTop;
       let size = L.itemSize;
       while (size > L.itemMin && (lines.length * size * L.lineRatio > avail
              || lines.some(t => font.widthOfTextAtSize(t, size) > W))) size -= 0.25;
@@ -286,11 +295,6 @@ async function generateWebLabels() {
         if (top + lh > itemsBottom + 0.5) return;
         put(t, top, size);
       });
-      const amountTop = L.itemsTop + lh * Math.min(lines.length, Math.floor(avail / lh)) + L.amountGap;
-      put(amount, amountTop, webFitSize(font, amount, W, L.totalSize, 10));
-
-      let ny = L.noteBottom - noteH;
-      noteLines.forEach(t => { put(t, ny, L.noteSize); ny += L.noteSize * 1.4; });
     }
 
     const bytes = await out.save();
