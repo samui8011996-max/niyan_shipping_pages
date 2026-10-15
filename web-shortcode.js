@@ -81,9 +81,11 @@ const WEB_SKU_RULES = [
   [/^OWL-TILT-(L|R|PAIR)$/, m => ["貓頭鷹", { L: "歪左", R: "歪右", PAIR: "一對" }[m[1]]]],
   [/^MOAI-S-([A-Z]+)-([A-Z0-9]+)$/, m => ["摩艾", WEB_COLORS[m[1]], WEB_MOAI[m[2]]]],
   [/^HORSECAT-([A-Z]+)$/, m => ["馬", "+" + WEB_OILS[m[1]]]],
-  [/^OIL(?:5|10)-([A-Z]+)$/, m => ["精油", "+" + WEB_OILS[m[1]]]],
-  [/^ENGRAVE-CAT-(M|L|XL)$/, m => ["【雷雕】", "加購(" + WEB_SIZES[m[1]] + "貓)"]],
-  [/^ENGRAVE-WOOD$/, () => ["【雷雕】", "加購(木片)"]],
+  // 單買的精油寫「檸檬精油」;「精油+檸檬」看起來像加購(使用者 2026-10-15 指定)
+  [/^OIL(?:5|10)-([A-Z]+)$/, m => [WEB_OILS[m[1]] + "精油"]],
+  // 雷雕加購是不是加購品由報表的「商品類型」決定(會自動掛「加購:」),這裡不再自己寫「加購」
+  [/^ENGRAVE-CAT-(M|L|XL)$/, m => ["【雷雕】", WEB_SIZES[m[1]] + "貓刻字"]],
+  [/^ENGRAVE-WOOD$/, () => ["【雷雕】", "木片刻字"]],
   [/^GIFT-CARD-SET$/, () => ["賀卡+插卡棒+木片"]],
   [/^GIFT-CARD$/, () => ["賀卡"]],
   [/^GIFT-BAG-RED$/, () => ["提袋"]],
@@ -96,12 +98,15 @@ const WEB_SKU_RULES = [
 ];
 
 // row = 官網報表的一列(一個商品)。回傳格式跟蝦皮的 buildShortCode 一樣:
-// { code(預覽用,有空白), compact(印在紙上,不留空白 + *數量), qty, unknown }
+// { code(預覽用,有空白), compact(印在紙上,不留空白 + x數量), qty, unknown }
 function buildWebShortCode(row) {
   const sku = String(row["商品貨號"] ?? "").trim().toUpperCase();
   const qty = Number(row["數量"] ?? 1) || 1;
+  // 報表「商品類型」欄會標「加購品」,這種前面掛「加購:」,跟單買的分得開
+  const addon = String(row["商品類型"] ?? "").trim() === "加購品";
   const finish = (parts, unknown) => {
     parts = parts.filter(Boolean);
+    if (addon && parts.length) parts[0] = "加購:" + parts[0];
     return {
       code: parts.join(" ") + " x" + qty,
       compact: parts.join("") + " x" + qty,   // 每個品項都寫 x數量,1 也要寫

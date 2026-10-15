@@ -148,7 +148,7 @@ const SC_ITEMS = [
   [/送禮加購.*提袋|泥研製所提袋/, "提袋"],
   [/送禮加購.*賀卡|泥研製所賀卡/, "賀卡"],
   [/客製化雷雕.*加購項目/,    "加購"],   // 品名另外還有「雷雕」兩字,前面已經會印「雕」
-  [/單方精油/,               "精油"],   // 精油名稱靠 scAddons 的 SC_OILS 另外抽
+  [/單方(?:純天然)?精油/,      "精油"],   // 寫成「檸檬精油」,精油名在 buildShortCode 的「精油」分支抽
   // --- 主力公仔線 ---
   [/消波塊/,                 "消波塊"],
   [/蟾蜍/,                   "蟾蜍"],
@@ -328,6 +328,11 @@ function buildShortCode(row) {
   } else if (item === "千里眼順風耳") {
     // 這組沒有顏色/尺寸可選,規格欄寫的就是「千里眼」或「順風耳」本身,直接當代號用
     seg.push(/千里眼/.test(spec) ? "千里眼" : (/順風耳/.test(spec) ? "順風耳" : "千里眼順風耳"));
+  } else if (item === "精油") {
+    // 單買的精油寫成「檸檬精油」—— 原本的「精油+檸檬」看起來像加購(使用者 2026-10-15 指定)
+    // 先看規格欄:品名常把整組都列出來(茶樹/檸檬/甜橙),直接比品名會抓到第一個
+    const oil = SC_OILS.find(([re]) => re.test(spec)) || SC_OILS.find(([re]) => re.test(name));
+    seg.push((oil ? oil[1] : "?") + "精油");
   } else {
     seg.push(item + (rule && rule.size !== undefined ? rule.size : scSize(name)));
   }
@@ -337,7 +342,7 @@ function buildShortCode(row) {
   const pair2 = spec.match(/招福[:：]\s*([^,，]+)/);
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
-  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳") {
+  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
@@ -377,7 +382,9 @@ function buildShortCode(row) {
   const zodiac = scZodiac(spec, name);
   if (zodiac) seg.push(zodiac);
 
-  const addons = scAddons(spec, name, rule && rule.dropAddons);
+  let addons = scAddons(spec, name, rule && rule.dropAddons);
+  // 單買精油的精油名已經寫在主體裡了,不要再掛一次「+檸檬」
+  if (item === "精油") addons = addons.filter(a => !SC_OILS.some(([, n]) => n === a));
   if (addons.length) seg.push("+" + addons.join("+"));
 
   const qty = Number(row["數量"] ?? 1) || 1;
