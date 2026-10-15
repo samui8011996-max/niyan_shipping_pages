@@ -22,8 +22,9 @@ const WEB_COD_RE = /取貨付款|貨到付款/;
 // 這兩種會被擋:已取消的單、以及付款狀態不是「已付款」的非貨到付款單
 const WEB_PAID = "已付款";
 
-// 出貨單版面(pt,距離頁面上緣)。紙張、中間印刷區沿用蝦皮的 SHOPEE_PAGE / SHOPEE_GAP
+// 出貨單版面(pt,距離頁面上緣)。預設是黑貓熱感應紙(跟蝦皮同一種 95x193mm,中間有印刷區)
 const WEB_LABEL = {
+  pageW: 95 * 72 / 25.4, pageH: 193 * 72 / 25.4,
   x: 22, right: 247,          // 左右邊界
   top: 16,
   snLabelSize: 9, snSize: 20, // 訂單編號(最上面;太長會自動縮)
@@ -36,6 +37,23 @@ const WEB_LABEL = {
   noteSize: 10,               // 訂單備註(在金額上面)
   bottom: 535,                // 最下面一行(金額)的底線
 };
+
+// 紙張格式(膠囊鈕切換)。4x6 = 101.6x152.4mm 通用熱感應貼紙,沒有中間印刷區,
+// 所以品項直接接在上面那段後面(itemsTop: null = 接著排),不用跳過印刷區
+const WEB_FORMATS = {
+  bcat: { ...WEB_LABEL },
+  "4x6": { ...WEB_LABEL, pageW: 4 * 72, pageH: 6 * 72, x: 18, right: 270,
+           itemsTop: null, itemsBottom: 400, bottom: 420 },
+};
+let webFormat = "bcat";
+
+function setWebFormat(fmt) {
+  if (!WEB_FORMATS[fmt]) return;
+  webFormat = fmt;
+  Object.assign(WEB_LABEL, WEB_FORMATS[fmt]);
+  setFormatPills("webFormatPills", fmt);
+  try { localStorage.setItem("webFormat", fmt); } catch (e) {}
+}
 
 let webOrders = [];      // 併好的訂單(含被擋的,UI 要列出來)
 let webFileName = "";
@@ -227,14 +245,14 @@ async function generateWebLabels() {
     let overflow = 0;
 
     for (const o of jobs) {
-      const page = out.addPage([SHOPEE_PAGE.w, SHOPEE_PAGE.h]);
-      const fromTop = y => SHOPEE_PAGE.h - y;
+      const page = out.addPage([L.pageW, L.pageH]);
+      const fromTop = y => L.pageH - y;
       const put = (text, top, size) => {
         page.drawText(text, { x: L.x, y: fromTop(top + size), size, font, color: black });
       };
 
       // ---- 上半:訂單編號 → 送貨方式(最大)→ 付款方式 → 門市 → 金額(獨立一行) ----
-      // 全部要擠在中間印刷區(SHOPEE_GAP.top=185)以上,最多的情況(超商取貨付款)約排到 172
+      // 黑貓紙:全部要擠在中間印刷區(SHOPEE_GAP.top=185)以上,最多的情況(超商取貨付款)約排到 172
       let y = L.top;
       put(sanitizeCode("訂單編號"), y, L.snLabelSize);
       y += L.snLabelSize + 3;
@@ -263,7 +281,8 @@ async function generateWebLabels() {
         y += L.storeSize + 6;
       }
 
-      // SHOPEE_GAP(中間印刷區)刻意留白
+      // 黑貓紙:SHOPEE_GAP(中間印刷區)刻意留白,品項從印刷區下面開始;4x6 直接接著排
+      const itemsTop = L.itemsTop ?? (y + 14);
 
       // ---- 下半:品項簡稱 →(往下)… 訂單備註 → 金額(固定右下角) ----
       // 金額固定在右下角、字不要太大(使用者 2026-10-15 指定),備註寫在金額上面。
@@ -284,21 +303,21 @@ async function generateWebLabels() {
 
       const itemsBottom = Math.min(L.itemsBottom, noteTop - 8);
       const lines = o.items.map(i => sanitizeCode(i.compact));
-      const avail = itemsBottom - L.itemsTop;
+      const avail = itemsBottom - itemsTop;
       let size = L.itemSize;
       while (size > L.itemMin && (lines.length * size * L.lineRatio > avail
              || lines.some(t => font.widthOfTextAtSize(t, size) > W))) size -= 0.25;
       const lh = size * L.lineRatio;
       if (lines.length * lh > avail) overflow++;
       lines.forEach((t, i) => {
-        const top = L.itemsTop + lh * i;
+        const top = itemsTop + lh * i;
         if (top + lh > itemsBottom + 0.5) return;
         put(t, top, size);
       });
     }
 
     const bytes = await out.save();
-    const name = "官網出貨單_" + todayStr("") + ".pdf";
+    const name = "官網出貨單_" + (webFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     const skipped = webOrders.length - jobs.length;
     setStatus("webStatus", overflow ? "warn" : "success",

@@ -432,6 +432,21 @@
     font-size: 14px;
   }
   .shopee-row:last-child { border-bottom: none; }
+
+  /* 紙張格式膠囊鈕(蝦皮/官網出貨單) */
+  .fmt-pills {
+    display: inline-flex; align-self: center; margin-left: auto;
+    background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px; gap: 2px;
+  }
+  .fmt-pill {
+    background: none; border: none; cursor: pointer;
+    border-radius: 999px; padding: 6px 14px;
+    font-family: inherit; font-size: 13px; color: var(--text-dim);
+    white-space: nowrap; transition: background 0.15s, color 0.15s;
+  }
+  .fmt-pill:hover { color: var(--text); }
+  .fmt-pill.active { background: var(--accent); color: #fff; font-weight: 600; }
   .web-ship { flex: 0 0 150px; font-size: 13px; color: var(--text); line-height: 1.4; }
   .web-ship small { color: var(--text-dim); font-size: 12px; }
   .shopee-flag {
@@ -1760,6 +1775,10 @@
         <button id="shopeeGenBtn" class="btn btn-primary" disabled onclick="generateShopeeLabels()">
           產生出貨單
         </button>
+        <div id="shopeeFormatPills" class="fmt-pills" role="radiogroup" aria-label="紙張格式">
+          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setShopeeFormat('bcat')">黑貓熱感應 95×193</button>
+          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setShopeeFormat('4x6')">4×6</button>
+        </div>
       </div>
 
       <div id="shopeeStatus" class="status">還差裝箱單…</div>
@@ -1805,6 +1824,10 @@
         <button id="webLabelBtn" class="btn btn-lavender" disabled onclick="generateWebLabels()">
           產生出貨單 PDF
         </button>
+        <div id="webFormatPills" class="fmt-pills" role="radiogroup" aria-label="紙張格式">
+          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setWebFormat('bcat')">黑貓熱感應 95×193</button>
+          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setWebFormat('4x6')">4×6</button>
+        </div>
       </div>
 
       <div id="webStatus" class="status">把官網訂單報表(niyancement_orders_….xls)丟進來…</div>

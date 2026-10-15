@@ -55,8 +55,9 @@ const SHOPEE_PLATFORM_TAG = "蝦皮";
 // 留這個常數只是為了讓人一眼看到「這段是故意空的」,程式不會往這裡畫。
 const SHOPEE_GAP = { top: 185, bottom: 212 };
 
-// 原標籤貼上來的位置
-const SHOPEE_LABEL_BOX = { x: 35.2, w: 199.7, top: 229.9 };
+// 原標籤貼上來的位置。maxH 是標籤最多能佔的高度(黑貓紙下半部夠高,不限);
+// x 為 null 時置中(4x6 用)
+const SHOPEE_LABEL_BOX = { x: 35.2, w: 199.7, top: 229.9, maxH: Infinity };
 
 // 沒有熱感應標籤時(黑貓宅急便),下半部改印這幾行。
 // 「蝦皮黑貓」跟物流單號一樣大 —— 這張紙上沒有任何條碼,得一眼認出是哪家物流的單。
@@ -68,6 +69,50 @@ const SHOPEE_NOLABEL = {
   snSize: 14,           // 訂單編號本身
   gap: 14,
 };
+
+// ---- 紙張格式(膠囊鈕切換)-------------------------------------------
+// 預設「黑貓熱感應」= 上面那組照範例量好的 95x193mm 版面(中間有印刷區)。
+// 「4x6」= 101.6x152.4mm 通用熱感應貼紙,沒有印刷區:上面明細+金額,下面貼標籤(縮到放得下、置中)。
+// 切換時把對應的數值整組蓋進上面那幾個常數物件 —— 產生 PDF 的程式完全不用分兩套。
+const SHOPEE_FORMATS = {
+  bcat: {
+    page: { ...SHOPEE_PAGE }, items: { ...SHOPEE_ITEMS }, total: { ...SHOPEE_TOTAL },
+    label: { ...SHOPEE_LABEL_BOX }, nolabel: { ...SHOPEE_NOLABEL },
+  },
+  "4x6": {
+    page: { w: 4 * 72, h: 6 * 72 },                         // 288 x 432 pt
+    items: { x1: 18, x2: 152, colW: 118, fullW: 252, top: 12, maxBottom: 92 },
+    total: { top: 96, valueRight: 270 },
+    label: { x: null, w: 252, top: 118, maxH: 432 - 118 - 6 },
+    nolabel: { top: 140 },
+  },
+};
+let shopeeFormat = "bcat";
+
+function setShopeeFormat(fmt) {
+  const f = SHOPEE_FORMATS[fmt];
+  if (!f) return;
+  shopeeFormat = fmt;
+  const base = SHOPEE_FORMATS.bcat;
+  Object.assign(SHOPEE_PAGE, base.page, f.page);
+  Object.assign(SHOPEE_ITEMS, base.items, f.items);
+  Object.assign(SHOPEE_TOTAL, base.total, f.total);
+  Object.assign(SHOPEE_LABEL_BOX, base.label, f.label);
+  Object.assign(SHOPEE_NOLABEL, base.nolabel, f.nolabel);
+  setFormatPills("shopeeFormatPills", fmt);
+  try { localStorage.setItem("shopeeFormat", fmt); } catch (e) {}
+}
+
+// 膠囊鈕的選取狀態(蝦皮、官網共用)
+function setFormatPills(groupId, fmt) {
+  const g = document.getElementById(groupId);
+  if (!g) return;
+  g.querySelectorAll(".fmt-pill").forEach(b => {
+    const on = b.dataset.fmt === fmt;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+  });
+}
 
 // 原檔上「標籤本身」佔的範圍,單位是 pt、從頁面左上角量起。
 //
@@ -669,10 +714,13 @@ async function generateShopeeLabels() {
             top:    sh - cropTop,
           };
           const embedded = await out.embedPage(srcPage, crop);
-          const scale = SHOPEE_LABEL_BOX.w / (crop.right - crop.left);
+          // 寬度撐滿,但不能超過可用高度(4x6 下半部比較矮);x 沒指定就置中
+          const scale = Math.min(SHOPEE_LABEL_BOX.w / (crop.right - crop.left),
+                                 SHOPEE_LABEL_BOX.maxH / (crop.top - crop.bottom));
+          const drawW = (crop.right - crop.left) * scale;
           const drawH = (crop.top - crop.bottom) * scale;
           page.drawPage(embedded, {
-            x: SHOPEE_LABEL_BOX.x,
+            x: SHOPEE_LABEL_BOX.x ?? (SHOPEE_PAGE.w - drawW) / 2,
             y: fromTop(SHOPEE_LABEL_BOX.top) - drawH + nudge,
             xScale: scale,
             yScale: scale,
@@ -737,7 +785,7 @@ async function generateShopeeLabels() {
     }
 
     const bytes = await out.save();
-    const name = "蝦皮出貨單_" + todayStr("") + ".pdf";
+    const name = "蝦皮出貨單_" + (shopeeFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     setShopeeStatus(
       "已產生 " + name + "(" + jobs.length + " 頁)"

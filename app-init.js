@@ -7,6 +7,14 @@ document.addEventListener("keydown", (e) => {
 
 document.getElementById("returnDate").value = todayStr("-");
 
+// 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
+(() => {
+  let s = null, w = null;
+  try { s = localStorage.getItem("shopeeFormat"); w = localStorage.getItem("webFormat"); } catch (e) {}
+  if (s) setShopeeFormat(s);
+  if (w) setWebFormat(w);
+})();
+
 document.getElementById("fileInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
