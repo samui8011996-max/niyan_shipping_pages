@@ -25,11 +25,13 @@ const WEB_PAID = "已付款";
 // 出貨單版面(pt,距離頁面上緣)。紙張、中間印刷區沿用蝦皮的 SHOPEE_PAGE / SHOPEE_GAP
 const WEB_LABEL = {
   x: 22, right: 247,          // 左右邊界
-  shipTop: 20, shipSize: 26,  // 送貨方式(最大)
-  paySize: 14,                // 付款方式(使用者 2026-10-15:縮小,比訂單編號小)
-  codSize: 18,                // 代收金額
-  snLabelSize: 9, snSize: 20, // 訂單編號(放大;太長會自動縮,見下方)
-  totalSize: 20,              // 訂單金額(同一排靠右)
+  top: 16,
+  snLabelSize: 9, snSize: 20, // 訂單編號(最上面;太長會自動縮)
+  shipSize: 26,               // 送貨方式(最大)
+  paySize: 14,                // 付款方式(使用者 2026-10-15:縮小)
+  storeSize: 12,              // 超商門市
+  totalSize: 20,              // 訂單金額 / 代收金額(品項下面獨立一行)
+  amountGap: 8,               // 金額跟最後一個品項之間多空一點
   itemsTop: 226, itemsBottom: 500,
   itemSize: 18, itemMin: 7, lineRatio: 1.45,
   noteSize: 10, noteBottom: 535,
@@ -231,52 +233,49 @@ async function generateWebLabels() {
         page.drawText(text, { x: L.x, y: fromTop(top + size), size, font, color: black });
       };
 
-      // ---- 上半:送貨方式(最大)→ 付款方式 → 訂單編號 ----
-      let y = L.shipTop;
-      // 「黑貓-常溫」只寫「黑貓」(常溫是預設,寫了只是佔位置);貨到付款那種保留括號
-      const ship = sanitizeCode(WEB_PLATFORM_TAG + " " + webNorm(o.ship).replace(/-常溫/, ""));
+      // ---- 上半:訂單編號 → 送貨方式(最大)→ 付款方式 → 門市 → 金額(獨立一行) ----
+      // 全部要擠在中間印刷區(SHOPEE_GAP.top=185)以上,最多的情況(超商取貨付款)約排到 172
+      let y = L.top;
+      put(sanitizeCode("訂單編號"), y, L.snLabelSize);
+      y += L.snLabelSize + 3;
+      const sn = sanitizeCode(o.id);
+      const snSize = webFitSize(font, sn, W, L.snSize, 10);
+      put(sn, y + (L.snSize - snSize), snSize);   // 縮小的話底部對齊
+      y += L.snSize + 8;
+
+      // 「黑貓-常溫」只寫「黑貓」(常溫是預設,寫了只是佔位置);貨到付款那種保留括號。
+      // 超商的「(C2C)」也拿掉:「全家 取貨付款 (C2C)」→「全家 取貨付款」
+      const ship = sanitizeCode(WEB_PLATFORM_TAG + " "
+        + webNorm(o.ship).replace(/-常溫/, "").replace(/\s*\(C2C\)/i, ""));
       const shipSize = webFitSize(font, ship, W, L.shipSize, 12);
       put(ship, y, shipSize);
-      y += shipSize + 10;
+      y += shipSize + 8;
 
-      const pay = sanitizeCode(webNorm(o.payMethod));
-      const paySize = webFitSize(font, pay, W, L.paySize, 10);
-      put(pay, y, paySize);
-      y += paySize + 8;
-      if (o.cod) {
-        put(sanitizeCode("代收 $" + o.total), y, L.codSize);
-        y += L.codSize + 8;
-      }
+      // 付款方式一樣拿掉「C2C」:「全家 C2C 取貨付款」→「全家 取貨付款」
+      const pay = sanitizeCode(webNorm(o.payMethod).replace(/\s*C2C\s*/i, " ").trim());
+      put(pay, y, webFitSize(font, pay, W, L.paySize, 10));
+      y += L.paySize + 6;
+
       // 超商取貨印門市名稱,現場分袋比較好認
       if (o.store) {
         const st = sanitizeCode(webNorm(o.store));
-        put(st, y, webFitSize(font, st, W, 12, 8));
-        y += 12 + 8;
+        put(st, y, webFitSize(font, st, W, L.storeSize, 8));
+        y += L.storeSize + 6;
       }
-      y += 4;
-      // 訂單金額跟訂單編號同一排、靠右對齊(左邊編號、右邊金額,跟蝦皮出貨單一樣只印數字)
-      const putRight = (text, top, size) => {
-        page.drawText(text, { x: L.right - font.widthOfTextAtSize(text, size), y: fromTop(top + size),
-                              size, font, color: black });
-      };
-      put(sanitizeCode("訂單編號"), y, L.snLabelSize);
-      putRight(sanitizeCode("訂單金額"), y, L.snLabelSize);
-      y += L.snLabelSize + 4;
-      // 編號放大,但官網編號有 17 碼,太長會撞到右邊的金額 → 縮到剛好放得下
-      const totalText = sanitizeCode("$" + o.total);
-      const snMaxW = W - font.widthOfTextAtSize(totalText, L.totalSize) - 10;
-      const snSize = webFitSize(font, sanitizeCode(o.id), snMaxW, L.snSize, 10);
-      put(sanitizeCode(o.id), y + (L.snSize - snSize), snSize);   // 縮小的話底部對齊
-      putRight(totalText, y, L.totalSize);
+
       // SHOPEE_GAP(中間印刷區)刻意留白
 
-      // ---- 下半:品項簡稱 → 訂單備註 ----
+      // ---- 下半:品項簡稱 → 金額 → 訂單備註 ----
       const note = o.note ? sanitizeCode("備註:" + webNorm(o.note)) : "";
       const noteLines = note ? webWrap(font, note, L.noteSize, W) : [];
       const noteH = noteLines.length * L.noteSize * 1.4;
       const itemsBottom = Math.min(L.itemsBottom, L.noteBottom - noteH - 8);
       const lines = o.items.map(i => sanitizeCode(i.compact));
-      const avail = itemsBottom - L.itemsTop;
+      // 金額寫在全部品項下面、獨立一行(使用者 2026-10-15 指定)。
+      // 貨到付款/取貨付款寫「代收金額」—— 要收的錢跟訂單金額是同一個數字,不重複印兩行
+      const amount = sanitizeCode((o.cod ? "代收金額 $" : "訂單金額 $") + o.total);
+      const amountH = L.totalSize * 1.4 + L.amountGap;
+      const avail = itemsBottom - L.itemsTop - amountH;
       let size = L.itemSize;
       while (size > L.itemMin && (lines.length * size * L.lineRatio > avail
              || lines.some(t => font.widthOfTextAtSize(t, size) > W))) size -= 0.25;
@@ -287,6 +286,8 @@ async function generateWebLabels() {
         if (top + lh > itemsBottom + 0.5) return;
         put(t, top, size);
       });
+      const amountTop = L.itemsTop + lh * Math.min(lines.length, Math.floor(avail / lh)) + L.amountGap;
+      put(amount, amountTop, webFitSize(font, amount, W, L.totalSize, 10));
 
       let ny = L.noteBottom - noteH;
       noteLines.forEach(t => { put(t, ny, L.noteSize); ny += L.noteSize * 1.4; });
