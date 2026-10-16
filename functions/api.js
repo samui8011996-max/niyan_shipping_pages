@@ -497,6 +497,15 @@ async function ensureReturnsTable(DB) {
   ).run();
   // 同平台同訂單編號只會有一筆（重送是更新）。舊試算表的蝦皮/mo 有幾列沒填訂單編號，
   // 所以是「訂單編號不是空的才唯一」的部分索引，不然那幾列會互相擋住匯不進來。
+  // 線上的索引如果不是部分索引(例如匯入資料時建成一般的唯一索引),沒填訂單編號的退貨
+  // 同平台只能存一筆 —— 2026-10-16 訂單編號改選填後第二筆就撞到。發現不對就重建成部分索引。
+  // (現有資料一定符合比較嚴的舊索引,所以重建不會失敗)
+  const idx = await DB.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_shipping_returns_key'"
+  ).first();
+  if (idx && !/WHERE/i.test(idx.sql || '')) {
+    await DB.prepare('DROP INDEX idx_shipping_returns_key').run();
+  }
   await DB.prepare(
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_shipping_returns_key ' +
     `ON shipping_returns("平台","訂單編號") WHERE "訂單編號" <> ''`
@@ -526,8 +535,18 @@ async function handleAddReturn(env, body) {
   const values = returnValues({ ...record, orderId, trackingNo });
   const setSql = RETURN_FIELDS.map(([, col]) => `"${col}"=?`).join(',');
 
-  // 編輯既有那一筆
+  // 編輯時把訂單編號改成「另一筆已經在用的」→ 講清楚是哪一筆,不要丟資料庫的英文錯誤
   const editId = parseInt(body.id, 10);
+  if (orderId) {
+    const dup = await DB.prepare(
+      'SELECT id,"日期" FROM shipping_returns WHERE "平台"=? AND "訂單編號"=? AND id<>? LIMIT 1'
+    ).bind(platform, orderId, Number.isFinite(editId) ? editId : -1).first();
+    if (dup && Number.isFinite(editId) && editId > 0) {
+      return json({ ok: false, error: `這個訂單編號已經有一筆了(日期 ${dup['日期'] || '沒填'}),請直接編輯那一筆` });
+    }
+  }
+
+  // 編輯既有那一筆
   if (Number.isFinite(editId) && editId > 0) {
     const row = await DB.prepare('SELECT id FROM shipping_returns WHERE id=? AND "平台"=?')
       .bind(editId, platform).first();

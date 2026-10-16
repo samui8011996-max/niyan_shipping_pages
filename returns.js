@@ -120,6 +120,7 @@ function onReturnFilterChange() {
 function onReturnPlatformChange() {
   const platform = currentReturnPlatform();
   returnEditingId = null;     // 換平台等於放棄剛剛那筆的編輯
+  setReturnEditMode(null);
   document.getElementById("returnContactFields").style.display = (platform === "line禮物") ? "" : "none";
   document.getElementById("returnListTitle").textContent = `${platform} 退貨清單`;
   renderReturnList();
@@ -197,8 +198,19 @@ function prefillReturnContactDate(el) {
   el.setSelectionRange(len, len);
 }
 
+// 編輯模式的外觀:表單換橘色、上面一條「編輯中」、送出鈕改成「更新這一筆」
+function setReturnEditMode(label) {
+  const on = !!label;
+  document.getElementById("returnFormCard").classList.toggle("editing", on);
+  document.getElementById("returnEditBanner").hidden = !on;
+  if (on) document.getElementById("returnEditLabel").textContent = label;
+  document.getElementById("returnSubmitBtn").textContent = on ? "更新這一筆" : "送出退貨紀錄";
+  renderReturnList();   // 清單上那一筆跟著標起來 / 取消
+}
+
 function clearReturnForm() {
   returnEditingId = null;
+  setReturnEditMode(null);
   document.getElementById("returnDate").value = todayStr("-");
   document.getElementById("returnOrderId").value = "";
   document.getElementById("returnTrackingNo").value = "";
@@ -331,7 +343,7 @@ function renderReturnList() {
     }
 
     return `
-      <div class="problem-item" data-rid="${r.id}" data-id="${safeId}">
+      <div class="problem-item${r.id === returnEditingId ? " editing" : ""}" data-rid="${r.id}" data-id="${safeId}">
         <div class="problem-item-main">
           <div class="problem-item-row1">
             <span class="pi-id">${safeId}</span>
@@ -380,9 +392,10 @@ function editReturn(id) {
     document.getElementById("returnContact4").value = record.contact4 || "";
   }
 
-  const editing = record.orderId || "(沒有訂單編號的那筆)";
-  setStatus("returnStatus", "warn", `✎ 編輯中:${editing}(修改後點「送出退貨紀錄」會覆蓋更新這一筆)`);
-  document.querySelector(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const editing = record.orderId || record.trackingNo || "(沒有編號的那筆)";
+  setReturnEditMode(editing);
+  setStatus("returnStatus", "warn", `✎ 編輯中:${editing}(改完按「更新這一筆」,或按「取消編輯」放棄)`);
+  document.getElementById("returnFormCard").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function removeReturn(id, orderId, btn) {

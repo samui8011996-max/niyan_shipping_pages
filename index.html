@@ -644,6 +644,22 @@
   .return-search { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; max-width: 520px; }
   .return-search .form-input { flex: 1; font-family: inherit; }
 
+  /* 包裹退貨:編輯中整張表單換成橘色,清單上那筆也標起來 */
+  .return-form.editing {
+    border: 2px solid #E8833A;
+    background: color-mix(in srgb, #E8833A 9%, var(--bg-card));
+    box-shadow: 0 0 0 4px color-mix(in srgb, #E8833A 15%, transparent);
+  }
+  .return-edit-banner {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin: -6px -8px 14px; padding: 10px 14px; border-radius: 10px;
+    background: #E8833A; color: #fff; font-size: 14px;
+  }
+  .return-edit-banner[hidden] { display: none; }
+  .return-edit-banner button { margin-left: auto; }
+  .return-form.editing #returnSubmitBtn { background: #E8833A; }
+  .problem-item.editing { border: 2px solid #E8833A; background: color-mix(in srgb, #E8833A 8%, var(--bg-card)); }
+
   /* 退貨清單上「今天要打第 N 次電話」 */
   .pi-call {
     display: inline-block; padding: 2px 9px; border-radius: 999px;
@@ -1853,7 +1869,7 @@
         <div class="stat-card pink clickable" onclick="scrollToReturnList()" title="點我捲到退貨清單">
           <div class="stat-label">包裹退貨總數</div>
           <div><span id="stat-return-total" class="stat-number">—</span><span class="stat-unit">筆</span></div>
-          <div class="stat-sub">點我 → 開啟試算表</div>
+          <div class="stat-sub">點我 → 看退貨清單</div>
         </div>
         <div class="stat-card orange clickable" onclick="filterReturnsToOpen()" title="點我只看未結案的退貨紀錄">
           <div class="stat-label">未結案退貨</div>
@@ -1862,10 +1878,14 @@
         </div>
       </div>
 
-      <section class="card">
+      <section class="card return-form" id="returnFormCard">
+        <div id="returnEditBanner" class="return-edit-banner" hidden>
+          <span>✎ 編輯中:<b id="returnEditLabel"></b></span>
+          <button type="button" class="btn btn-secondary btn-small" onclick="clearReturnForm()">取消編輯</button>
+        </div>
         <div class="card-label">新增/編輯退貨紀錄</div>
         <p style="color: var(--text-dim); font-size: 12px; margin-bottom: 16px; line-height: 1.7;">
-          先選平台,填訂單編號送出。同平台若已存在相同訂單編號,會直接覆蓋更新那一列(不會產生重複紀錄)。
+          先選平台,填訂單編號或託運單號送出。同平台若已存在相同訂單編號,會直接覆蓋更新那一筆(不會產生重複紀錄)。資料直接存在資料庫(D1)。
         </p>
 
         <label class="form-label">平台</label>
