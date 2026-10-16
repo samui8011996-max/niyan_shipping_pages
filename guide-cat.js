@@ -4,6 +4,7 @@
 //     配色跟官網首頁「招財貓切換」那份一樣)
 //   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒
 //   - 每 2 小時提醒一次「看蝦皮聊聊訊息」,按「我看過了」才重新計時
+//   - 只在上班時間(週一到週五 9:00~18:00)提醒,下班後完全不出現
 //   - 有開「桌面通知」的話,上面兩種提醒也會在 Windows 右下角跳通知(切到別的網站也看得到)
 //   - 每天提醒包裹退貨要打電話(LINE禮物、未結案、四次電聯沒打滿、今天還沒打),
 //     打完填了電聯就自動消失;按「今天先不打」今天就不再提醒,隔天照樣提醒
@@ -59,8 +60,19 @@ function gcNotifySupported() {
   return "Notification" in window && window.isSecureContext;
 }
 
-function gcNotify(title, body, tag) {
+// 上班時間:週一到週五 9:00~18:00(使用者 2026-10-16:下班後千萬不要通知)。
+// 下班時間蝦皮、打電話兩種提醒都不出現 —— 桌面通知、泡泡變色、分頁標題都沒有。
+// 測試網址(#test-…)不受限制,隨時都能測。
+let gcTestMode = false;
+function gcWorkHours(d = new Date()) {
+  const day = d.getDay(), h = d.getHours();
+  return day >= 1 && day <= 5 && h >= 9 && h < 18;
+}
+function gcCanRemind() { return gcTestMode || gcWorkHours(); }
+
+function gcNotify(title, body, tag, force) {
   if (!gcNotifySupported() || Notification.permission !== "granted") return;
+  if (!force && !gcCanRemind()) return;
   try {
     const n = new Notification(title, {
       body, tag,
@@ -88,14 +100,14 @@ function gcAskNotify() {
   if (!gcNotifySupported()) return;
   Notification.requestPermission().then(p => {
     gcRenderNotifyBtn();
-    if (p === "granted") gcNotify("出貨小助手", "桌面通知開好了!時間到會在這裡提醒你。", "gc-hello");
+    if (p === "granted") gcNotify("出貨小助手", "桌面通知開好了!上班時間(週一到週五 9:00~18:00)時間到會在這裡提醒你。", "gc-hello", true);
   });
 }
 
 // 測試用:網址後面加 #test-notify,馬上跳一則測試通知(還沒允許的話先問)
 function gcTestNotify() {
   if (!gcNotifySupported()) { gcSay("這裡不能用桌面通知<br>(要用正式網址開)"); return; }
-  if (Notification.permission === "granted") gcNotify("出貨小助手(測試)", "看到這個就代表桌面通知正常!", "gc-test");
+  if (Notification.permission === "granted") gcNotify("出貨小助手(測試)", "看到這個就代表桌面通知正常!", "gc-test", true);
   else gcAskNotify();
 }
 
@@ -117,7 +129,7 @@ function gcIdle() {
   el.classList.remove("remind");
   document.title = gcTitle;
   // 蝦皮提醒優先;沒有的話,今天還有退貨要打電話就講這個
-  if (gcCalls > 0 && !gcCallSkippedToday()) {
+  if (gcCalls > 0 && !gcCallSkippedToday() && gcCanRemind()) {
     el.classList.add("call");
     gcSay(`<b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
       <span class="gc-btns">
@@ -139,7 +151,7 @@ function gcUpdateReturnCalls() {
 
 // 打電話的桌面通知一天只跳一次(每小時重讀退貨,不能每小時都跳)
 function gcNotifyCalls() {
-  if (gcCalls <= 0 || gcCallSkippedToday()) return;
+  if (gcCalls <= 0 || gcCallSkippedToday() || !gcCanRemind()) return;
   let done = false;
   try { done = localStorage.getItem(GC_CALL_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
   if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
@@ -170,7 +182,7 @@ function gcNextTip() {
 
 // 時間到:右邊泡泡整個變成蝦皮橘、一閃一閃,不按按鈕不會變回來(使用者 2026-10-16:不要正中間跳窗,變色就好)
 function gcRemind() {
-  if (gcReminding) return;
+  if (gcReminding || !gcCanRemind()) return;
   gcReminding = true;
   document.getElementById("guideCat").classList.add("remind");
   document.title = "【看蝦皮訊息】" + gcTitle;   // 分頁在背景也看得到
@@ -190,20 +202,34 @@ function gcAck() {
 
 // 測試用:網址後面加 #test-remind 打開,會馬上跳提醒(不用等兩小時)
 function gcTestRemind() {
+  gcTestMode = true;
   gcReminding = false;
   gcRemind();
 }
 
 // 測試用:網址後面加 #test-call,假裝今天有 3 筆退貨要打電話
 function gcTestCall() {
+  gcTestMode = true;
   try { localStorage.removeItem(GC_CALL_SKIP_KEY); } catch (e) {}
   gcCalls = 3;
   gcReminding = false;
   gcIdle();
 }
 
+// 每分鐘跑一次。下班時間:還亮著的提醒安靜收掉(不算「看過了」,所以隔天 9:00 一上班就會提醒);
+// 上班時間:超過兩小時沒看蝦皮就提醒,打電話的泡泡也在 9:00 一到就出現
 function gcCheck() {
+  if (!gcCanRemind()) {
+    if (gcReminding || document.getElementById("guideCat").classList.contains("call")) gcIdle();
+    return;
+  }
   if (Date.now() - gcLastAck() >= GC_REMIND_MS) gcRemind();
+  else if (!gcReminding) {
+    // 只有打電話泡泡該出現/該消失時才重畫,不然會把正在看的小提醒洗掉
+    const want = gcCalls > 0 && !gcCallSkippedToday();
+    if (want !== document.getElementById("guideCat").classList.contains("call")) gcIdle();
+    gcNotifyCalls();
+  }
 }
 
 function setupGuideCat() {
