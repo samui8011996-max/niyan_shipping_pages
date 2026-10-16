@@ -80,6 +80,7 @@ const GS_URL = "/api";
 
 function openSettings() {
   syncThemeButtons();
+  if (typeof gcSyncNotifyToggle === "function") gcSyncNotifyToggle();
   document.getElementById("settingsModal").classList.add("show");
 }
 function closeSettings() { document.getElementById("settingsModal").classList.remove("show"); }

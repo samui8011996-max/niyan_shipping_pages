@@ -568,6 +568,21 @@
   .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; }
   .gc-notify:empty { display: none; }
 
+  /* 設定:桌面通知開關 */
+  .notify-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 14px; color: var(--text); }
+  .notify-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .notify-track {
+    display: inline-block; flex: 0 0 44px; width: 44px; height: 24px; border-radius: 999px; background: var(--border);
+    position: relative; transition: background 0.15s;
+  }
+  .notify-knob {
+    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: left 0.15s;
+  }
+  .notify-switch input:checked + .notify-track { background: var(--accent); }
+  .notify-switch input:checked + .notify-track .notify-knob { left: 23px; }
+  .notify-switch input:focus-visible + .notify-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
   /* 品項簡寫 */
   .abbr-row {
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -2159,6 +2174,18 @@
           <span class="theme-name">淺色</span>
         </button>
       </div>
+
+      <h2 style="margin-top: 22px;">桌面通知</h2>
+      <p class="hint">
+        小助手在上班時間(週一到週五 9:00~18:00)跳到 Windows 右下角的通知。只影響這台電腦。<br>
+        關掉以後網站裡的貓泡泡還是會提醒,只是不跳桌面通知。
+      </p>
+      <label class="notify-switch">
+        <input type="checkbox" id="notifyToggle" onchange="gcSetNotifyOn(this.checked)">
+        <span class="notify-track"><span class="notify-knob"></span></span>
+        <span id="notifyToggleText">開啟</span>
+      </label>
+      <p id="notifyToggleHint" class="hint" style="margin: 8px 0 0;"></p>
 
       <p class="hint" style="margin-top: 16px; margin-bottom: 0;">
         各分類試算表的網址已經寫死在程式碼裡,不用再貼。<br>

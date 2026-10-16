@@ -81,8 +81,38 @@ function gcWorkHours(d = new Date()) {
 }
 function gcCanRemind() { return gcTestMode || gcWorkHours(); }
 
+// 設定裡的開關(只存在這台電腦)。瀏覽器的「允許」沒辦法從網頁收回,所以用自己的開關擋
+const GC_NOTIFY_OFF_KEY = "guideCatNotifyOff";
+function gcNotifyOn() {
+  try { return localStorage.getItem(GC_NOTIFY_OFF_KEY) !== "1"; } catch (e) { return true; }
+}
+
+function gcSetNotifyOn(on) {
+  try { localStorage.setItem(GC_NOTIFY_OFF_KEY, on ? "0" : "1"); } catch (e) {}
+  // 打開時如果還沒允許過,順便問瀏覽器
+  if (on && gcNotifySupported() && Notification.permission === "default") gcAskNotify();
+  gcSyncNotifyToggle();
+  gcRenderNotifyBtn();
+}
+
+function gcSyncNotifyToggle() {
+  const cb = document.getElementById("notifyToggle");
+  if (!cb) return;
+  const on = gcNotifyOn();
+  cb.checked = on;
+  document.getElementById("notifyToggleText").textContent = on ? "開啟" : "關閉";
+  const hint = document.getElementById("notifyToggleHint");
+  let msg = "";
+  if (!gcNotifySupported()) msg = "這裡不能用桌面通知(要用正式網址開)。";
+  else if (on && Notification.permission === "denied") msg = "瀏覽器把通知封鎖了:點網址列左邊的鎖頭 → 通知 → 允許。";
+  else if (on && Notification.permission === "default") msg = "還沒允許:打開開關時瀏覽器會問,按「允許」。";
+  hint.textContent = msg;
+  hint.style.display = msg ? "" : "none";
+}
+
 function gcNotify(title, body, tag, force) {
   if (!gcNotifySupported() || Notification.permission !== "granted") return;
+  if (!gcNotifyOn()) return;
   if (!force && !gcCanRemind()) return;
   try {
     const n = new Notification(title, {
@@ -102,7 +132,7 @@ function gcRenderNotifyBtn() {
   if (!box) return;
   if (!gcNotifySupported()) { box.innerHTML = ""; return; }
   const p = Notification.permission;
-  if (p === "granted") box.innerHTML = "";
+  if (p === "granted" || !gcNotifyOn()) box.innerHTML = "";   // 已允許、或在設定裡關掉了,就不顯示這顆
   else if (p === "denied") box.innerHTML = `<span class="gc-notify-off" title="點網址列左邊的鎖頭 → 通知 → 允許">桌面通知被封鎖了<br>(網址列左邊鎖頭可以改)</span>`;
   else box.innerHTML = `<button type="button" class="gc-notify-btn" onclick="gcAskNotify()">開啟桌面通知</button>`;
 }
@@ -111,6 +141,7 @@ function gcAskNotify() {
   if (!gcNotifySupported()) return;
   Notification.requestPermission().then(p => {
     gcRenderNotifyBtn();
+    gcSyncNotifyToggle();
     if (p === "granted") gcNotify("出貨小助手", "桌面通知開好了!上班時間(週一到週五 9:00~18:00)時間到會在這裡提醒你。", "gc-hello", true);
   });
 }
