@@ -527,6 +527,59 @@
   }
   .shopee-row:last-child { border-bottom: none; }
 
+  /* 出貨小助手貓(guide-cat.js):固定在畫面右邊中間,內容區外面 */
+  .guide-cat {
+    /* 放在內容(最寬 1040px)右邊那塊空白的正中間 */
+    position: fixed; top: 50%; transform: translateY(-50%); z-index: 40;
+    right: max(6px, calc((100vw - 1040px) / 4 - 59px));
+    width: 118px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .gc-bubble {
+    position: relative; width: 100%; padding: 10px 10px;
+    background: #FFFDF8; color: #4A3F30; border: 1.5px solid #BCA17F; border-radius: 14px;
+    font-size: 12px; line-height: 1.6; letter-spacing: 0.3px; text-align: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  }
+  .gc-bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px;
+    background: #FFFDF8; border-right: 1.5px solid #BCA17F; border-bottom: 1.5px solid #BCA17F;
+    transform: rotate(45deg);
+  }
+  .gc-bubble b { color: #7F6C50; }
+  .gc-n { display: block; font-size: 11px; color: #B5A58A; margin-bottom: 2px; }
+  .gc-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .gc-btn {
+    display: block; padding: 6px 12px; border-radius: 999px; border: 0; cursor: pointer;
+    background: #EE4D2D; color: #fff; font: inherit; font-size: 12px; font-weight: 700;
+    text-decoration: none; letter-spacing: 1px;
+  }
+  .gc-btn.ghost { background: none; color: #7F6C50; border: 1px solid #BCA17F; font-weight: 500; }
+  .gc-btn:hover { opacity: 0.88; }
+  .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; }
+  .gc-cat { display: block; width: 88px; height: auto; animation: gc-bob 2.4s ease-in-out infinite; }
+  @keyframes gc-bob { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-5px) rotate(-3deg); } }
+  /* 提醒時:整個泡泡變蝦皮橘、白字、一閃一閃;貓跳快一點 */
+  .guide-cat.remind .gc-bubble {
+    background: #EE4D2D; color: #fff; border-color: #EE4D2D;
+    animation: gc-flash 1.2s ease-in-out infinite;
+  }
+  .guide-cat.remind .gc-bubble::after { background: #EE4D2D; border-color: #EE4D2D; }
+  .guide-cat.remind .gc-bubble b { color: #fff; }
+  .gc-remind-title { display: block; font-size: 15px; margin-bottom: 2px; }
+  .guide-cat.remind .gc-btn { background: #fff; color: #EE4D2D; }
+  .guide-cat.remind .gc-btn.ghost { background: none; color: #fff; border-color: rgba(255, 255, 255, 0.7); }
+  .guide-cat.remind .gc-cat { animation-duration: 0.9s; }
+  @keyframes gc-flash {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 77, 45, 0.55), 0 6px 18px rgba(0, 0, 0, 0.15); }
+    50%      { box-shadow: 0 0 0 10px rgba(238, 77, 45, 0), 0 6px 18px rgba(0, 0, 0, 0.15); }
+  }
+  /* 視窗不夠寬(會蓋到內容)就縮到右下角 */
+  @media (max-width: 1280px) {
+    .guide-cat { top: auto; bottom: 16px; right: 16px; transform: none; width: 160px; }
+    .gc-cat { width: 72px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .gc-cat { animation: none; } }
+
   /* 分割按鈕:[ 印單 | ⌄ ],箭頭點開選紙張(split-button.js) */
   .split-btn { position: relative; display: inline-flex; align-items: stretch; }
   .split-btn > .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
@@ -2065,6 +2118,7 @@
 <script src="web-shortcode.js"></script>
 <script src="web-orders.js"></script>
 <script src="split-button.js"></script>
+<script src="guide-cat.js"></script>
 <script src="app-init.js"></script>
 </body>
 </html>

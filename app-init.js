@@ -17,6 +17,9 @@ document.getElementById("returnDate").value = todayStr("-");
 // 印單按鈕旁的紙張下拉 → 分割按鈕(要在下面「記住上次選擇」之前,值才會同步到箭頭提示)
 setupSplitButtons();
 
+// 出貨小助手貓(右邊那隻招福貓,每 2 小時提醒看蝦皮訊息)
+setupGuideCat();
+
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
   let s = null, w = null, o = null;
