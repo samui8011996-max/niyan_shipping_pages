@@ -153,7 +153,10 @@ const SC_ITEMS = [
   [/消波塊/,                 "消波塊"],
   [/蟾蜍/,                   "蟾蜍"],
   [/招財犬|旺旺招財犬/,       "犬"],
-  [/發財兔|兔兔公仔|火箭兔/,   "兔"],
+  // 兩種兔子分開叫(使用者 2026-10-16):中秋發財兔 → 發財兔;兔兔公仔(你要我多可愛…)→ 可愛兔
+  [/發財兔/,                 "發財兔"],
+  [/兔兔公仔|多可愛/,         "可愛兔"],
+  [/火箭兔/,                 "兔"],
   [/黑馬招財[猫貓]|奔富黑馬/, "馬貓"],
   [/雙喵組/,                 "雙喵"],
   // 「圓滾滾幸運貓團圓版」品名裡「團圓」兩字沒有跟「貓」黏在一起(…貓團圓版),
@@ -304,10 +307,10 @@ function buildShortCode(row) {
   // 有貨號特例就不算認不出來 —— 那是我們自己指定的名字,不是猜的
   if (!itemHit && !(rule && rule.item)) unknown = true;
 
-  // 消波塊看的是幾公分,不是尺寸/顏色/款式
-  if (item === "消波塊") {
+  // 消波塊、可愛兔看的是幾公分,不是尺寸/顏色/款式
+  if (item === "消波塊" || item === "可愛兔") {
     const cm = all.match(/(\d+(?:\.\d+)?)\s*(?:cm|公分)/);
-    seg.push("消波塊" + (cm ? cm[1] + "cm" : ""));
+    seg.push(item + (cm ? cm[1] + "cm" : ""));
   } else if (item === "犬") {
     const dog = all.match(/([財富])狗狗/);
     seg.push((dog ? dog[1] : "") + "犬");
@@ -344,7 +347,7 @@ function buildShortCode(row) {
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
   // 馬貓沒有顏色可選,品名的「黑馬」會被當成顏色「黑」,所以也排除
-  } else if (item !== "消波塊" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
+  } else if (item !== "消波塊" && item !== "可愛兔" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
