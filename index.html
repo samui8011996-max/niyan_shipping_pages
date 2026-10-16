@@ -269,6 +269,8 @@
     transition: border-color 0.15s, color 0.15s;
   }
   .quick-link:hover { border-color: var(--accent); color: var(--accent); }
+  .quick-link { display: inline-flex; align-items: center; gap: 7px; }
+  .quick-icon { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; }
 
   /* 平台資訊列 */
   .platform-bar {
@@ -1336,7 +1338,7 @@
         <h1 class="title">出貨幫手</h1>
         <p class="subtitle">照平台分類:開後台 · 印單 · 要不要印發票 · <code>泥研製所</code></p>
         <div class="quick-links">
-          <a class="quick-link" href="https://niyan-packing-pages.pages.dev/" target="_blank" rel="noopener noreferrer">包貨網站 ↗</a>
+          <a class="quick-link" href="https://niyan-packing-pages.pages.dev/" target="_blank" rel="noopener noreferrer"><img class="quick-icon" src="logos/packing.png" alt="">包貨網站 ↗</a>
           <a class="quick-link" href="https://web2.einvoice.com.tw/einv/Login/index.action" target="_blank" rel="noopener noreferrer">電子發票平台 ↗</a>
         </div>
       </div>
