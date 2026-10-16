@@ -627,6 +627,23 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(47, 125, 91, 0.5), 0 6px 18px rgba(0, 0, 0, 0.15); }
     50%      { box-shadow: 0 0 0 10px rgba(47, 125, 91, 0), 0 6px 18px rgba(0, 0, 0, 0.15); }
   }
+  /* 包裹退貨:原因預設選項(顏色照 Notion 那份)、搜尋 */
+  .return-either { margin: 6px 0 0; font-size: 12px; color: var(--text-dim); }
+  .rr-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .rr-tag {
+    display: inline-block; padding: 3px 10px; border-radius: 6px; border: 0;
+    font: inherit; font-size: 12px; font-weight: 700; color: #fff; line-height: 1.6;
+  }
+  button.rr-tag { cursor: pointer; padding: 5px 12px; font-size: 13px; transition: transform 0.1s, opacity 0.15s; }
+  button.rr-tag:hover { opacity: 0.88; transform: translateY(-1px); }
+  .pi-note .rr-tag { margin-right: 6px; }
+  .rr-pink { background: #8C4D6C; }
+  .rr-blue { background: #2D5F8F; }
+  .rr-red  { background: #A63A3A; }
+  .rr-gold { background: #8A6A1E; }
+  .return-search { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; max-width: 520px; }
+  .return-search .form-input { flex: 1; font-family: inherit; }
+
   /* 退貨清單上「今天要打第 N 次電話」 */
   .pi-call {
     display: inline-block; padding: 2px 9px; border-radius: 999px;
@@ -1870,14 +1887,21 @@
         <label class="form-label">日期</label>
         <input type="date" id="returnDate" class="form-input">
 
-        <label class="form-label">訂單編號</label>
+        <label class="form-label">訂單編號(選填)</label>
         <input type="text" id="returnOrderId" class="form-input" placeholder="例如:202608130100002574">
 
-        <label class="form-label">託運單號</label>
+        <label class="form-label">託運單號(選填)</label>
         <input type="text" id="returnTrackingNo" class="form-input" placeholder="黑貓/郵局託運單號">
+        <p class="return-either">訂單編號、託運單號至少填一個</p>
 
-        <label class="form-label">原因</label>
+        <label class="form-label">原因(可以自己打,或點下面的選項)</label>
         <input type="text" id="returnReason" class="form-input" placeholder="例如:未取貨退回">
+        <div class="rr-presets">
+          <button type="button" class="rr-tag rr-pink" onclick="pickReturnReason('未接電話')">未接電話</button>
+          <button type="button" class="rr-tag rr-blue" onclick="pickReturnReason('地址錯誤')">地址錯誤</button>
+          <button type="button" class="rr-tag rr-red" onclick="pickReturnReason('電話錯誤')">電話錯誤</button>
+          <button type="button" class="rr-tag rr-gold" onclick="pickReturnReason('自取未取')">自取未取</button>
+        </div>
 
         <label class="form-label">結果</label>
         <div class="problem-type-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
@@ -1926,6 +1950,12 @@
       <div class="stats-header">
         <span class="stats-title" id="returnListTitle">line禮物 退貨清單</span>
         <span id="returnListHint" class="stats-hint">載入中…</span>
+      </div>
+
+      <div class="return-search">
+        <input type="search" id="returnSearch" class="form-input" oninput="renderReturnList()"
+          placeholder="搜尋訂單編號或託運單號(打一部分也可以)">
+        <button type="button" class="btn btn-secondary btn-small" onclick="clearReturnSearch()">清除</button>
       </div>
 
       <div class="problem-type-grid" style="grid-template-columns: repeat(3, 1fr); max-width: 460px; margin-bottom: 12px;">

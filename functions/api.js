@@ -516,12 +516,14 @@ async function handleAddReturn(env, body) {
 
   const record = body.record || {};
   const orderId = String(record.orderId || '').trim();
-  if (!orderId) return json({ ok: false, error: '缺少訂單編號' });
+  const trackingNo = String(record.trackingNo || '').trim();
+  // 訂單編號、託運單號擇一就好(2026-10-16 起兩個都是選填),兩個都空才擋
+  if (!orderId && !trackingNo) return json({ ok: false, error: '訂單編號或託運單號至少要填一個' });
 
   const DB = requireDb(env);
   await ensureReturnsTable(DB);
 
-  const values = returnValues({ ...record, orderId });
+  const values = returnValues({ ...record, orderId, trackingNo });
   const setSql = RETURN_FIELDS.map(([, col]) => `"${col}"=?`).join(',');
 
   // 編輯既有那一筆
@@ -535,9 +537,14 @@ async function handleAddReturn(env, body) {
     }
   }
 
-  const existing = await DB.prepare(
-    'SELECT id FROM shipping_returns WHERE "平台"=? AND "訂單編號"=? LIMIT 1'
-  ).bind(platform, orderId).first();
+  // 有訂單編號就用訂單編號找舊的那筆;只有託運單號的,用託運單號找(而且那筆也沒有訂單編號)
+  const existing = orderId
+    ? await DB.prepare(
+        'SELECT id FROM shipping_returns WHERE "平台"=? AND "訂單編號"=? LIMIT 1'
+      ).bind(platform, orderId).first()
+    : await DB.prepare(
+        'SELECT id FROM shipping_returns WHERE "平台"=? AND "訂單編號"=\'\' AND "託運單號"=? LIMIT 1'
+      ).bind(platform, trackingNo).first();
   if (existing) {
     await DB.prepare(`UPDATE shipping_returns SET ${setSql} WHERE id=?`).bind(...values, existing.id).run();
     return json({ ok: true, updated: true, id: existing.id });

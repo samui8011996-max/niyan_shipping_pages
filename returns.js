@@ -53,6 +53,52 @@ function returnsToCallToday() {
   return (returnListCache["line禮物"] || []).filter(returnNeedsCallToday);
 }
 
+// ---- 原因:可以自己打,也可以點預設選項(顏色跟 Notion 那份一樣) ----
+const RETURN_REASON_PRESETS = [
+  { text: "未接電話", cls: "rr-pink" },
+  { text: "地址錯誤", cls: "rr-blue" },
+  { text: "電話錯誤", cls: "rr-red" },
+  { text: "自取未取", cls: "rr-gold" },
+];
+
+// 點預設選項:欄位空的(或只有另一個預設選項)就直接換掉,已經有自己打的字就接在後面
+function pickReturnReason(text) {
+  const el = document.getElementById("returnReason");
+  const cur = el.value.trim();
+  if (!cur || RETURN_REASON_PRESETS.some(p => p.text === cur)) el.value = text;
+  else if (!cur.includes(text)) el.value = cur + "、" + text;
+  el.focus();
+}
+
+// 清單上的原因:預設選項變成彩色小標籤,其他字照原樣
+function returnReasonHtml(reason) {
+  let rest = String(reason || "").trim();
+  if (!rest) return "";
+  const tags = [];
+  RETURN_REASON_PRESETS.forEach(p => {
+    if (rest.includes(p.text)) {
+      tags.push(`<span class="rr-tag ${p.cls}">${p.text}</span>`);
+      rest = rest.replace(p.text, "");
+    }
+  });
+  rest = rest.replace(/^[、,，\s]+|[、,，\s]+$/g, "").replace(/[、,，]\s*[、,，]/g, "、");
+  return `<div class="pi-note">${tags.join("")}${rest ? escapeHtml(rest) : ""}</div>`;
+}
+
+// ---- 搜尋(訂單編號、託運單號都能查,不分已結案/未結案) ----
+function returnSearchText() {
+  const el = document.getElementById("returnSearch");
+  return el ? el.value.replace(/\s+/g, "").toLowerCase() : "";
+}
+function returnMatchesSearch(r, q) {
+  return String(r.orderId || "").toLowerCase().includes(q)
+      || String(r.trackingNo || "").replace(/\s+/g, "").toLowerCase().includes(q);
+}
+function clearReturnSearch() {
+  document.getElementById("returnSearch").value = "";
+  renderReturnList();
+}
+
 function returnResultBadgeHtml(result) {
   const v = String(result || "").trim();
   if (!v) return `<span class="pi-open">未結案</span>`;
@@ -89,17 +135,20 @@ function submitReturn() {
 
   const platform = currentReturnPlatform();
   const orderId = document.getElementById("returnOrderId").value.trim();
-  if (!orderId) {
-    setStatus("returnStatus", "error", "✗ 請輸入訂單編號");
+  const trackingNo = document.getElementById("returnTrackingNo").value.trim();
+  // 訂單編號、託運單號擇一就好
+  if (!orderId && !trackingNo) {
+    setStatus("returnStatus", "error", "✗ 訂單編號或託運單號至少要填一個");
     document.getElementById("returnOrderId").focus();
     return;
   }
+  const label = orderId || trackingNo;   // 狀態訊息裡用來指這一筆
 
   const resultEl = document.querySelector('input[name="returnResult"]:checked');
   const record = {
     date: document.getElementById("returnDate").value.trim(),
     orderId,
-    trackingNo: document.getElementById("returnTrackingNo").value.trim(),
+    trackingNo,
     reason: document.getElementById("returnReason").value.trim(),
     result: resultEl ? resultEl.value : "未結案",
   };
@@ -122,8 +171,8 @@ function submitReturn() {
     .then(data => {
       if (data.ok) {
         const msg = data.updated
-          ? `✓ 已更新退貨紀錄 ${orderId}`
-          : `✓ 已新增退貨紀錄 ${orderId}`;
+          ? `✓ 已更新退貨紀錄 ${label}`
+          : `✓ 已新增退貨紀錄 ${label}`;
         setStatus("returnStatus", "success", msg);
         clearReturnForm();
         loadReturns();
@@ -219,7 +268,12 @@ function renderReturnList() {
   if (returnedCountEl) returnedCountEl.textContent = `(${returnedCount})`;
 
   let filtered, filterLabel;
-  if (filter === "closed") {
+  const q = returnSearchText();
+  if (q) {
+    // 有打搜尋字就整個平台一起找,不管上面選哪個篩選
+    filtered = list.filter(r => returnMatchesSearch(r, q));
+    filterLabel = `搜尋「${q}」`;
+  } else if (filter === "closed") {
     filtered = list.filter(r => !isReturnOpen(r));
     filterLabel = "已結案";
   } else if (filter === "returned") {
@@ -233,6 +287,16 @@ function renderReturnList() {
   if (list.length === 0) {
     hint.textContent = `${platform} 目前沒有退貨紀錄`;
     container.innerHTML = `<div class="problem-empty">${platform} 目前沒有退貨紀錄</div>`;
+    return;
+  }
+  if (filtered.length === 0 && q) {
+    // 這個平台找不到,看看其他平台有沒有(常見:選錯平台)
+    const others = RETURN_PLATFORMS.filter(p => p !== platform
+      && (returnListCache[p] || []).some(r => returnMatchesSearch(r, q)));
+    hint.textContent = `${platform} 找不到「${q}」`;
+    container.innerHTML = `<div class="problem-empty">${platform} 找不到「${escapeHtml(q)}」`
+      + (others.length ? `<br>在 <b>${others.join("、")}</b> 有找到,上面換平台看看` : "")
+      + `</div>`;
     return;
   }
   if (filtered.length === 0) {
@@ -250,11 +314,10 @@ function renderReturnList() {
     const safeId = escapeHtml(r.orderId || "");
     const safeTracking = escapeHtml(r.trackingNo || "");
     const safeDate = escapeHtml(r.date || "");
-    const safeReason = escapeHtml(r.reason || "");
 
     const resultHtml = returnResultBadgeHtml(r.result);
     const trackingHtml = safeTracking ? `<span class="pi-tracking">${safeTracking}</span>` : "";
-    const reasonHtml = safeReason ? `<div class="pi-note">${safeReason}</div>` : "";
+    const reasonHtml = returnReasonHtml(r.reason);
 
     const contactLines = [];
     const callHtml = (platform === "line禮物" && returnNeedsCallToday(r))
