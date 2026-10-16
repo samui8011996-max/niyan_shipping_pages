@@ -527,6 +527,33 @@
   }
   .shopee-row:last-child { border-bottom: none; }
 
+  /* 分割按鈕:[ 印單 | ⌄ ],箭頭點開選紙張(split-button.js) */
+  .split-btn { position: relative; display: inline-flex; align-items: stretch; }
+  .split-btn > .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .split-btn > .split-arrow {
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+    padding: 0 12px; margin-left: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.45);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .split-btn > .split-arrow.dim { opacity: 0.4; }
+  .split-btn > .split-arrow svg { display: block; }
+  .split-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 190px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); padding: 4px;
+  }
+  .split-menu[hidden] { display: none; }
+  .split-item {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; border-radius: 7px; padding: 9px 12px;
+    font-family: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer;
+    white-space: nowrap;
+  }
+  .split-item:hover { background: var(--bg-input); }
+  .split-item.on { color: var(--accent); font-weight: 700; }
+  .split-check { width: 14px; flex: 0 0 14px; }
+
   /* 紙張格式下拉(緊貼在印單按鈕右邊,右側小箭頭) */
   .fmt-select {
     appearance: none; -webkit-appearance: none;
@@ -1437,7 +1464,7 @@
           <option value="4x6">4×6</option>
         </select>
         <button id="uploadBtn" class="btn btn-gsheet" disabled onclick="uploadAllToSheet()">
-          上傳到 Google Sheet
+          上傳包貨平台與試算表
         </button>
 
       </div>
@@ -2037,6 +2064,7 @@
 <script src="shopee-label.js"></script>
 <script src="web-shortcode.js"></script>
 <script src="web-orders.js"></script>
+<script src="split-button.js"></script>
 <script src="app-init.js"></script>
 </body>
 </html>

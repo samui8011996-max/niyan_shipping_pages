@@ -14,6 +14,9 @@ document.getElementById("returnDate").value = todayStr("-");
   if (!switchTab(last || "line")) switchTab("line");   // 存的值認不得(改版前的舊分頁名)就回 LINE禮物
 })();
 
+// 印單按鈕旁的紙張下拉 → 分割按鈕(要在下面「記住上次選擇」之前,值才會同步到箭頭提示)
+setupSplitButtons();
+
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
   let s = null, w = null, o = null;
