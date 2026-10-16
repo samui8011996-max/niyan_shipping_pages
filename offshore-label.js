@@ -4,7 +4,7 @@
 //
 // 兩種紙(膠囊鈕切換,預設黑貓熱感應):
 //   bcat = 黑貓熱感應紙 95x193mm。中間 64~77mm 是紙上原本的印刷區,不能印字,
-//          所以上半印寄件人+備註(小字),下半印收件人(大字)
+//          所以上半印備註(訂單編號+品項),下半印寄件人 → 收件人(大字)
 //   4x6  = 原本的 100x150mm 貼紙,版面跟以前一樣
 // ===================================================================
 const OFFSHORE_FORMATS = {
@@ -67,9 +67,9 @@ function drawOffshoreLabel(row, fmt) {
   const contentW = W - marginX * 2;
   let y = mmToPx(8);
 
-  // ---- 寄件人(固定資訊,字較小) ----
+  // ---- 寄件人(固定資訊,字較小;黑貓紙稍大一點,使用者 2026-10-16 指定) ----
   const drawSender = () => {
-    const senderFontPx = mmToPx(3.6);
+    const senderFontPx = mmToPx(fmt.gapTop ? 4.2 : 3.6);
     ctx.font = `${senderFontPx}px "Noto Sans TC", sans-serif`;
     [
       "寄件人",
@@ -152,13 +152,13 @@ function drawOffshoreLabel(row, fmt) {
   };
 
   if (fmt.gapTop) {
-    // 黑貓紙:上半 寄件人 → 備註;中間印刷區留白;下半 收件人
-    drawSender();
-    y += mmToPx(3);
-    drawLine();
-    y += mmToPx(3);
+    // 黑貓紙:上半 備註(訂單編號+品項);中間印刷區留白;下半 寄件人 → 分隔線 → 收件人
     drawNote();
     y = mmToPx(fmt.gapBottom + 6);
+    drawSender();
+    y += mmToPx(4);
+    drawLine();
+    y += mmToPx(7);
     drawRecipient();
   } else {
     // 4x6:跟以前一樣 寄件人 → 分隔線 → 收件人 → 備註
