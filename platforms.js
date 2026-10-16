@@ -22,7 +22,7 @@ const PLATFORMS = [
   { id: "shopee", name: "蝦皮", url: "https://seller.shopee.tw/", invoice: true, panel: "shopee" },
   { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true },   // 自動印單還沒做
   // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
-  { id: "web", name: "官網", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web" },
+  { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web" },
   { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false },   // 自動印單還沒做
   { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false },
   { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false },
@@ -90,7 +90,7 @@ function renderPlatformBar(top) {
   bar.innerHTML = `
     <div class="pb-head">
       <h2 class="pb-name">${escapeHtml(p.name)}</h2>
-      <a class="btn btn-primary pb-open" href="${p.url}" target="_blank" rel="noopener noreferrer">開啟 ${escapeHtml(p.name)} 後台 ↗</a>
+      <a class="btn btn-primary pb-open" href="${p.url}" target="_blank" rel="noopener noreferrer">開啟 ${escapeHtml(p.name.endsWith("後台") ? p.name : p.name + " 後台")} ↗</a>
     </div>
     ${invoice}
     ${p.note ? `<p class="pb-note">${escapeHtml(p.note)}</p>` : ""}
