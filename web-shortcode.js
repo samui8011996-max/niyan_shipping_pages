@@ -65,7 +65,8 @@ const WEB_SKU_RULES = [
     m => ["星座永生花" + WEB_COLORS[m[1]], WEB_ZODIAC[m[2]] + "座"]],
   // 圓滾滾幸運貓(LINE 那邊叫「雙手貓」,見 keyword-rules.js)
   [/^LUCKY-([A-Z]+)-(S|M|L|SET)$/,
-    m => ["雙手貓" + (m[2] === "SET" ? "(一家三口)" : webSize(m[2])), WEB_COLORS[m[1]]]],
+    // 一家三口(大+中+小)跟蝦皮團圓版一樣叫「雙手貓 黃 三入」
+    m => m[2] === "SET" ? ["雙手貓", WEB_COLORS[m[1]], "三入"] : ["雙手貓" + webSize(m[2]), WEB_COLORS[m[1]]]],
   [/^GIANT-CHARCOAL-(R|L|PAIR)$/,
     m => ["炭錢巨貓", { R: "右", L: "左", PAIR: "一對" }[m[1]]]],
   [/^SLIMCAT8-([A-Z]+)-(R|L|PAIR)$/,
