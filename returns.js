@@ -35,6 +35,24 @@ function isReturnReturned(record) {
   return String(record.result || "").trim() === "已退貨";
 }
 
+// ---- 退貨電聯提醒(LINE禮物才有電聯欄位) ----
+// 電聯欄位一點進去會自動帶「月/日 」(見 prefillReturnContactDate),所以開頭是今天日期 = 今天打過了
+function returnContactCount(r) {
+  return [r.contact1, r.contact2, r.contact3, r.contact4].filter(v => String(v || "").trim()).length;
+}
+function returnCalledToday(r) {
+  const t = new Date();
+  const re = new RegExp("^\\s*0?" + (t.getMonth() + 1) + "\\s*/\\s*0?" + t.getDate() + "(?!\\d)");
+  return [r.contact1, r.contact2, r.contact3, r.contact4].some(v => re.test(String(v || "")));
+}
+// 今天要打電話:未結案、四次還沒打滿、今天還沒打
+function returnNeedsCallToday(r) {
+  return isReturnOpen(r) && returnContactCount(r) < 4 && !returnCalledToday(r);
+}
+function returnsToCallToday() {
+  return (returnListCache["line禮物"] || []).filter(returnNeedsCallToday);
+}
+
 function returnResultBadgeHtml(result) {
   const v = String(result || "").trim();
   if (!v) return `<span class="pi-open">未結案</span>`;
@@ -173,6 +191,7 @@ function loadReturns() {
       const statOpenEl = document.getElementById("stat-return-open");
       if (statOpenEl) statOpenEl.textContent = openTotal;
       renderReturnList();
+      if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();   // 小助手貓的打電話提醒跟著更新
     })
     .catch(err => {
       document.getElementById("returnListHint").textContent = "載入失敗";
@@ -238,6 +257,8 @@ function renderReturnList() {
     const reasonHtml = safeReason ? `<div class="pi-note">${safeReason}</div>` : "";
 
     const contactLines = [];
+    const callHtml = (platform === "line禮物" && returnNeedsCallToday(r))
+      ? `<span class="pi-call">今天要打第 ${returnContactCount(r) + 1} 次電話</span>` : "";
     if (platform === "line禮物") {
       [["第一次電聯", r.contact1], ["第二次電聯", r.contact2], ["第三次電聯", r.contact3], ["第四次電聯", r.contact4]]
         .forEach(([label, val]) => {
@@ -253,6 +274,7 @@ function renderReturnList() {
             <span class="pi-id">${safeId}</span>
             ${trackingHtml}
             ${resultHtml}
+            ${callHtml}
             <span class="pi-time">${safeDate}</span>
           </div>
           ${reasonHtml}
@@ -336,6 +358,23 @@ function removeReturn(id, orderId, btn) {
     });
 }
 
+
+function loadReturnsQuietly() {
+  const url = getGsUrl();
+  if (!url) return;
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "getReturns" }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      returnListCache = data.returns || returnListCache;
+      if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();
+    })
+    .catch(err => console.warn("背景讀取退貨失敗(打電話提醒先不顯示):", err));
+}
 
 function maybeLoadReturnsOnTabSwitch(name) {
   const total = RETURN_PLATFORMS.reduce((s, p) => s + (returnListCache[p] || []).length, 0);

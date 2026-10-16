@@ -4,6 +4,8 @@
 //     配色跟官網首頁「招財貓切換」那份一樣)
 //   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒
 //   - 每 2 小時提醒一次「看蝦皮聊聊訊息」,按「我看過了」才重新計時
+//   - 每天提醒包裹退貨要打電話(LINE禮物、未結案、四次電聯沒打滿、今天還沒打),
+//     打完填了電聯就自動消失;按「今天先不打」今天就不再提醒,隔天照樣提醒
 //     (時間存在 localStorage,重新整理、關掉再開都接著算)
 // 貓的圖是從官網首頁那份 HTML 拿的 symbol,直接內嵌 —— 同事常用檔案總管直接開
 // index.html(file://),另外抓 .svg 檔會被瀏覽器擋。
@@ -32,6 +34,8 @@ const GC_REMIND_MS = 2 * 60 * 60 * 1000;           // 2 小時
 const GC_SHOPEE_CHAT = "https://seller.shopee.tw/webchat/conversations";
 const GC_KEY = "guideCatLastAck";
 
+const GC_CALL_SKIP_KEY = "guideCatCallSkip";   // 按「今天先不打」的日期
+let gcCalls = 0;                                  // 今天還要打幾筆
 let gcTip = -1;
 let gcReminding = false;
 const gcTitle = document.title;
@@ -48,15 +52,56 @@ function gcSay(html) {
   document.getElementById("gcBubble").innerHTML = html;
 }
 
+function gcTodayKey() {
+  const t = new Date();
+  return t.getFullYear() + "-" + (t.getMonth() + 1) + "-" + t.getDate();
+}
+function gcCallSkippedToday() {
+  try { return localStorage.getItem(GC_CALL_SKIP_KEY) === gcTodayKey(); } catch (e) { return false; }
+}
+
 function gcIdle() {
   gcReminding = false;
-  document.getElementById("guideCat").classList.remove("remind");
+  const el = document.getElementById("guideCat");
+  el.classList.remove("remind");
   document.title = gcTitle;
+  // 蝦皮提醒優先;沒有的話,今天還有退貨要打電話就講這個
+  if (gcCalls > 0 && !gcCallSkippedToday()) {
+    el.classList.add("call");
+    gcSay(`<b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
+      <span class="gc-btns">
+        <button type="button" class="gc-btn" onclick="gcGoReturns()">去包裹退貨</button>
+        <button type="button" class="gc-btn ghost" onclick="gcSkipCalls()">今天先不打</button>
+      </span>`);
+    return;
+  }
+  el.classList.remove("call");
   gcSay('我是出貨小助手<br>點我看小提醒');
+}
+
+// returns.js 每次讀到退貨資料都會叫這支
+function gcUpdateReturnCalls() {
+  gcCalls = (typeof returnsToCallToday === "function") ? returnsToCallToday().length : 0;
+  if (!gcReminding) gcIdle();
+}
+
+function gcGoReturns() {
+  switchTab("returns");
+  const radio = document.querySelector('input[name="returnPlatform"][value="line禮物"]');
+  if (radio && !radio.checked) { radio.checked = true; onReturnPlatformChange(); }
+  const open = document.querySelector('input[name="returnFilter"][value="open"]');
+  if (open && !open.checked) { open.checked = true; onReturnFilterChange(); }
+  document.getElementById("returnList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function gcSkipCalls() {
+  try { localStorage.setItem(GC_CALL_SKIP_KEY, gcTodayKey()); } catch (e) {}
+  gcIdle();
 }
 
 function gcNextTip() {
   if (gcReminding) return;
+  document.getElementById("guideCat").classList.remove("call");
   gcTip = (gcTip + 1) % GC_TIPS.length;
   gcSay(`<span class="gc-n">${gcTip + 1}/${GC_TIPS.length}</span>${GC_TIPS[gcTip]}`);
 }
@@ -85,6 +130,14 @@ function gcTestRemind() {
   gcRemind();
 }
 
+// 測試用:網址後面加 #test-call,假裝今天有 3 筆退貨要打電話
+function gcTestCall() {
+  try { localStorage.removeItem(GC_CALL_SKIP_KEY); } catch (e) {}
+  gcCalls = 3;
+  gcReminding = false;
+  gcIdle();
+}
+
 function gcCheck() {
   if (Date.now() - gcLastAck() >= GC_REMIND_MS) gcRemind();
 }
@@ -103,8 +156,18 @@ function setupGuideCat() {
     </button>`;
   document.body.appendChild(el);
   gcIdle();
-  if (location.hash === "#test-remind") gcTestRemind();
+  const runTest = () => {
+    if (location.hash === "#test-remind") gcTestRemind();
+    else if (location.hash === "#test-call") gcTestCall();
+  };
+  if (location.hash === "#test-remind" || location.hash === "#test-call") runTest();
   else gcCheck();
   setInterval(gcCheck, 60 * 1000);
-  window.addEventListener("hashchange", () => { if (location.hash === "#test-remind") gcTestRemind(); });
+  window.addEventListener("hashchange", runTest);
+
+  // 打電話提醒:開網站先讀一次退貨,之後每小時再讀(過了半夜也會換成新的一天)
+  if (location.hash !== "#test-call" && typeof loadReturnsQuietly === "function") {
+    loadReturnsQuietly();
+    setInterval(loadReturnsQuietly, 60 * 60 * 1000);
+  }
 }
