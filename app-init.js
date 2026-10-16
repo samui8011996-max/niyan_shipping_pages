@@ -20,6 +20,9 @@ setupSplitButtons();
 // 出貨小助手貓(右邊那隻招福貓,每 2 小時提醒看蝦皮訊息)
 setupGuideCat();
 
+// 品項簡寫:先畫出空白提示
+renderAbbr();
+
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
   let s = null, w = null, o = null;

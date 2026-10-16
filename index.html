@@ -567,6 +567,19 @@
   .gc-btn:hover { opacity: 0.88; }
   .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; }
   .gc-notify:empty { display: none; }
+
+  /* 品項簡寫 */
+  .abbr-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+  }
+  .abbr-row:last-of-type { border-bottom: none; }
+  .abbr-code { font-size: 20px; font-weight: 800; color: var(--text); min-width: 200px; }
+  .abbr-row.unknown .abbr-code { color: var(--warn); }
+  .abbr-src { flex: 1 1 260px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .abbr-by { margin-left: 8px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; }
+  .abbr-copy { margin-left: auto; }
+  .abbr-hint { margin: 10px 14px; font-size: 12px; color: var(--warn); }
   .gc-notify-btn {
     background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
     border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px; cursor: pointer;
@@ -1518,6 +1531,7 @@
     <div class="tool-tabs" role="tablist" aria-label="共用工具">
       <button class="tab tab-tool" data-tab="problems" onclick="switchTab('problems')">問題訂單</button>
       <button class="tab tab-tool" data-tab="returns" onclick="switchTab('returns')">包裹退貨</button>
+      <button class="tab tab-tool" data-tab="abbr" onclick="switchTab('abbr')">品項簡寫</button>
     </div>
 
     <!-- 平台資訊列(後台連結、發票提醒、LINE 的子功能切換),內容由 platforms.js 畫 -->
@@ -1780,6 +1794,24 @@
     </div>
 
     <!-- ================ Tab 4: 包裹退貨 ================ -->
+    <!-- ================ 品項簡寫(abbr-tool.js) ================ -->
+    <div id="tab-abbr" class="tab-panel">
+      <section class="card">
+        <div class="card-label">商品標題</div>
+        <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          打商品標題就會變成出貨單上的簡寫。一行一個,可以一次貼很多行;打官網貨號(例如 FATCATF-WHITE-S-GOLD)也可以。
+        </p>
+        <textarea id="abbrTitle" class="form-textarea" rows="3" oninput="renderAbbr()"
+          placeholder="例如:【開運送禮】胖胖招財招福貓 (小)"></textarea>
+        <label class="form-label" for="abbrSpec">規格 / 選項(選填,顏色款式寫在這裡的話要填)</label>
+        <input type="text" id="abbrSpec" class="form-input" oninput="renderAbbr()" placeholder="例如:招財黃-金運">
+        <div style="margin-top: 12px;">
+          <button type="button" class="btn btn-secondary btn-small" onclick="clearAbbr()">清除</button>
+        </div>
+      </section>
+      <div id="abbrResult" class="problem-list"></div>
+    </div>
+
     <div id="tab-returns" class="tab-panel">
 
       <!-- 統計字卡:總數 + 未結案 -->
@@ -2156,6 +2188,7 @@
 <script src="shopee-label.js"></script>
 <script src="web-shortcode.js"></script>
 <script src="web-orders.js"></script>
+<script src="abbr-tool.js"></script>
 <script src="split-button.js"></script>
 <script src="guide-cat.js"></script>
 <script src="app-init.js"></script>
