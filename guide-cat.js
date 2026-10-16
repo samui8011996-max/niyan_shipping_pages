@@ -3,7 +3,8 @@
 //   - 每次打開網站隨機一種顏色,偶爾換成金運款(平常是招福款)。六色:招財黃/戀愛粉/健康綠/炭錢黑/純淨白/清水灰,
 //     配色跟官網首頁「招財貓切換」那份一樣)
 //   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒
-//   - 每 2 小時提醒一次「看蝦皮聊聊訊息」,按「我看過了」才重新計時
+//   - 定點提醒「看蝦皮聊聊訊息」:9:00、11:00、13:00、15:00、17:00(使用者 2026-10-16:
+//     改成定點,不要每人各自從打開網站開始算 2 小時)。按「我看過了」就算看過這一個時段
 //   - 只在上班時間(週一到週五 9:00~18:00)提醒,下班後完全不出現
 //   - 有開「桌面通知」的話,上面兩種提醒也會在 Windows 右下角跳通知(切到別的網站也看得到)
 //   - 每天提醒包裹退貨要打電話(LINE禮物、未結案、四次電聯沒打滿、今天還沒打),
@@ -35,7 +36,7 @@ const GC_TIPS = [
   "客人有狀況記到「問題訂單」,退回來的包裹記到「包裹退貨」。",
 ];
 
-const GC_REMIND_MS = 2 * 60 * 60 * 1000;           // 2 小時
+const GC_REMIND_HOURS = [9, 11, 13, 15, 17];       // 定點提醒的時間(整點)
 const GC_SHOPEE_CHAT = "https://seller.shopee.tw/webchat/conversations";
 const GC_KEY = "guideCatLastAck";
 
@@ -45,6 +46,16 @@ let gcCalls = 0;                                  // 今天還要打幾筆
 let gcTip = -1;
 let gcReminding = false;
 const gcTitle = document.title;
+
+// 今天已經到了的最後一個提醒時段(Date),還沒到 9:00 就是 null
+function gcCurrentSlot(now = new Date()) {
+  let slot = null;
+  for (const h of GC_REMIND_HOURS) {
+    const t = new Date(now); t.setHours(h, 0, 0, 0);
+    if (t <= now) slot = t;
+  }
+  return slot;
+}
 
 function gcLastAck() {
   let t = 0;
@@ -186,13 +197,15 @@ function gcRemind() {
   gcReminding = true;
   document.getElementById("guideCat").classList.add("remind");
   document.title = "【看蝦皮訊息】" + gcTitle;   // 分頁在背景也看得到
-  gcSay(`<b class="gc-remind-title">該看蝦皮訊息囉!</b>已經兩個小時了
+  const slot = gcCurrentSlot();
+  const at = slot ? slot.getHours() + ":00" : "";
+  gcSay(`<b class="gc-remind-title">該看蝦皮訊息囉!</b>${at ? at + " " : ""}看訊息時間到了
     <span class="gc-btns">
       <a class="gc-btn" href="${GC_SHOPEE_CHAT}" target="_blank" rel="noopener noreferrer" onclick="gcAck()">開啟聊聊</a>
       <button type="button" class="gc-btn ghost" onclick="gcAck()">我看過了</button>
     </span>`);
-  // 同一次提醒只跳一則(gcReminding 擋住重複),按了「我看過了」兩小時後才會再跳
-  gcNotify("該看蝦皮訊息囉!", "已經兩個小時了,去蝦皮聊聊看看有沒有客人在問。", "gc-shopee");
+  // 同一次提醒只跳一則(gcReminding 擋住重複),按了「我看過了」就等下一個時段
+  gcNotify("該看蝦皮訊息囉!", `${at ? at + " " : ""}看訊息時間到了,去蝦皮聊聊看看有沒有客人在問。`, "gc-shopee");
 }
 
 function gcAck() {
@@ -200,7 +213,7 @@ function gcAck() {
   gcIdle();
 }
 
-// 測試用:網址後面加 #test-remind 打開,會馬上跳提醒(不用等兩小時)
+// 測試用:網址後面加 #test-remind 打開,會馬上跳提醒(不用等到整點)
 function gcTestRemind() {
   gcTestMode = true;
   gcReminding = false;
@@ -217,13 +230,14 @@ function gcTestCall() {
 }
 
 // 每分鐘跑一次。下班時間:還亮著的提醒安靜收掉(不算「看過了」,所以隔天 9:00 一上班就會提醒);
-// 上班時間:超過兩小時沒看蝦皮就提醒,打電話的泡泡也在 9:00 一到就出現
+// 上班時間:最近一個提醒時段之後還沒人按過「看過了」就提醒;打電話的泡泡也在 9:00 一到就出現
 function gcCheck() {
   if (!gcCanRemind()) {
     if (gcReminding || document.getElementById("guideCat").classList.contains("call")) gcIdle();
     return;
   }
-  if (Date.now() - gcLastAck() >= GC_REMIND_MS) gcRemind();
+  const slot = gcCurrentSlot();
+  if (slot && gcLastAck() < slot.getTime()) gcRemind();
   else if (!gcReminding) {
     // 只有打電話泡泡該出現/該消失時才重畫,不然會把正在看的小提醒洗掉
     const want = gcCalls > 0 && !gcCallSkippedToday();
