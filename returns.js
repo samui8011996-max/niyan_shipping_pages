@@ -4,8 +4,12 @@
 // line禮物/蝦皮/mo 三個平台各自獨立(蝦皮、mo 沒有電聯欄位)
 // 2026-09-23 起資料存在 D1 的 shipping_returns,不再寫 Google 試算表;
 // 每筆的識別碼是 D1 的 id(以前是試算表列號 rowIndex)。
-const RETURN_PLATFORMS = ["line禮物", "蝦皮", "mo"];
-let returnListCache = { "line禮物": [], "蝦皮": [], "mo": [] };   // { id, date, orderId, trackingNo, reason, result, contact1~4, resendNo }
+const RETURN_PLATFORMS = ["line禮物", "蝦皮", "Pinkoi", "官網", "瑪黑", "mo", "博客來", "酷澎"];
+// 畫面上顯示的名字(資料庫裡存的值不變:line禮物、mo 是舊資料就在用的)
+const RETURN_PLATFORM_LABEL = { "line禮物": "LINE禮物", "mo": "MO+" };
+function returnPlatformLabel(p) { return RETURN_PLATFORM_LABEL[p] || p; }
+function emptyReturnCache() { return Object.fromEntries(RETURN_PLATFORMS.map(p => [p, []])); }
+let returnListCache = emptyReturnCache();   // { id, date, orderId, trackingNo, reason, result, contact1~4, resendNo }
 // 正在編輯哪一筆(按「✏️ 編輯」時記下 id)。帶著它送出才是更新那一筆,
 // 不然改了訂單編號會被當成新的一筆
 let returnEditingId = null;
@@ -90,10 +94,14 @@ function returnSearchText() {
   const el = document.getElementById("returnSearch");
   return el ? el.value.replace(/\s+/g, "").toLowerCase() : "";
 }
+// 重寄可以寄很多次:一行一個(逗號、頓號分開也行)
+function returnResendList(v) {
+  return String(v || "").split(/[\n,，、]+/).map(x => x.trim()).filter(Boolean);
+}
 function returnMatchesSearch(r, q) {
   return String(r.orderId || "").toLowerCase().includes(q)
       || String(r.trackingNo || "").replace(/\s+/g, "").toLowerCase().includes(q)
-      || String(r.resendNo || "").replace(/\s+/g, "").toLowerCase().includes(q);
+      || returnResendList(r.resendNo).some(n => n.replace(/\s+/g, "").toLowerCase().includes(q));
 }
 function clearReturnSearch() {
   document.getElementById("returnSearch").value = "";
@@ -123,7 +131,7 @@ function onReturnPlatformChange() {
   returnEditingId = null;     // 換平台等於放棄剛剛那筆的編輯
   setReturnEditMode(null);
   document.getElementById("returnContactFields").style.display = (platform === "line禮物") ? "" : "none";
-  document.getElementById("returnListTitle").textContent = `${platform} 退貨清單`;
+  document.getElementById("returnListTitle").textContent = `${returnPlatformLabel(platform)} 退貨清單`;
   renderReturnList();
 }
 
@@ -151,7 +159,7 @@ function submitReturn() {
     date: document.getElementById("returnDate").value.trim(),
     orderId,
     trackingNo,
-    resendNo: document.getElementById("returnResendNo").value.trim(),
+    resendNo: returnResendList(document.getElementById("returnResendNo").value).join("\n"),
     reason: document.getElementById("returnReason").value.trim(),
     result: resultEl ? resultEl.value : "未結案",
   };
@@ -245,7 +253,7 @@ function loadReturns() {
     .then(r => r.json())
     .then(data => {
       if (!data.ok) throw new Error(data.error || "讀取失敗");
-      returnListCache = data.returns || { "line禮物": [], "蝦皮": [], "mo": [] };
+      returnListCache = { ...emptyReturnCache(), ...(data.returns || {}) };
       const total = RETURN_PLATFORMS.reduce((s, p) => s + (returnListCache[p] || []).length, 0);
       const openTotal = RETURN_PLATFORMS.reduce(
         (s, p) => s + (returnListCache[p] || []).filter(isReturnOpen).length, 0
@@ -300,23 +308,23 @@ function renderReturnList() {
   }
 
   if (list.length === 0) {
-    hint.textContent = `${platform} 目前沒有退貨紀錄`;
-    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有退貨紀錄</div>`;
+    hint.textContent = `${returnPlatformLabel(platform)} 目前沒有退貨紀錄`;
+    container.innerHTML = `<div class="problem-empty">${returnPlatformLabel(platform)} 目前沒有退貨紀錄</div>`;
     return;
   }
   if (filtered.length === 0 && q) {
     // 這個平台找不到,看看其他平台有沒有(常見:選錯平台)
     const others = RETURN_PLATFORMS.filter(p => p !== platform
       && (returnListCache[p] || []).some(r => returnMatchesSearch(r, q)));
-    hint.textContent = `${platform} 找不到「${q}」`;
-    container.innerHTML = `<div class="problem-empty">${platform} 找不到「${escapeHtml(q)}」`
-      + (others.length ? `<br>在 <b>${others.join("、")}</b> 有找到,上面換平台看看` : "")
+    hint.textContent = `${returnPlatformLabel(platform)} 找不到「${q}」`;
+    container.innerHTML = `<div class="problem-empty">${returnPlatformLabel(platform)} 找不到「${escapeHtml(q)}」`
+      + (others.length ? `<br>在 <b>${others.map(returnPlatformLabel).join("、")}</b> 有找到,上面換平台看看` : "")
       + `</div>`;
     return;
   }
   if (filtered.length === 0) {
-    hint.textContent = `${platform} 沒有${filterLabel}的紀錄`;
-    container.innerHTML = `<div class="problem-empty">${platform} 目前沒有${filterLabel}的退貨紀錄</div>`;
+    hint.textContent = `${returnPlatformLabel(platform)} 沒有${filterLabel}的紀錄`;
+    container.innerHTML = `<div class="problem-empty">${returnPlatformLabel(platform)} 目前沒有${filterLabel}的退貨紀錄</div>`;
     return;
   }
 
@@ -333,8 +341,8 @@ function renderReturnList() {
     const resultHtml = returnResultBadgeHtml(r.result);
     const trackingHtml = safeTracking ? `<span class="pi-tracking">${safeTracking}</span>` : "";
     const reasonHtml = returnReasonHtml(r.reason);
-    const resend = String(r.resendNo || "").trim();
-    const resendHtml = resend ? `<div class="pi-note"><span class="pi-resend">重寄</span>${escapeHtml(resend)}</div>` : "";
+    const resendHtml = returnResendList(r.resendNo)
+      .map(n => `<div class="pi-note"><span class="pi-resend">重寄</span>${escapeHtml(n)}</div>`).join("");
 
     const contactLines = [];
     const callHtml = (platform === "line禮物" && returnNeedsCallToday(r))
@@ -412,7 +420,7 @@ function removeReturn(id, orderId, btn) {
     return;
   }
   const platform = currentReturnPlatform();
-  if (!confirm(`確定要刪除 ${platform} 的退貨紀錄 ${orderId || "(沒有訂單編號的那筆)"} ?`)) return;
+  if (!confirm(`確定要刪除 ${returnPlatformLabel(platform)} 的退貨紀錄 ${orderId || "(沒有訂單編號的那筆)"} ?`)) return;
 
   if (btn) {
     btn.disabled = true;
@@ -453,7 +461,7 @@ function loadReturnsQuietly() {
     .then(r => r.json())
     .then(data => {
       if (!data.ok) return;
-      returnListCache = data.returns || returnListCache;
+      returnListCache = { ...emptyReturnCache(), ...(data.returns || {}) };
       if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();
     })
     .catch(err => console.warn("背景讀取退貨失敗(打電話提醒先不顯示):", err));

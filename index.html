@@ -1893,18 +1893,38 @@
         </p>
 
         <label class="form-label">平台</label>
-        <div class="problem-type-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 16px;">
+        <div class="problem-type-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
           <label class="radio-card">
             <input type="radio" name="returnPlatform" value="line禮物" checked onchange="onReturnPlatformChange()">
-            <span>line禮物</span>
+            <span>LINE禮物</span>
           </label>
           <label class="radio-card">
             <input type="radio" name="returnPlatform" value="蝦皮" onchange="onReturnPlatformChange()">
             <span>蝦皮</span>
           </label>
           <label class="radio-card">
+            <input type="radio" name="returnPlatform" value="Pinkoi" onchange="onReturnPlatformChange()">
+            <span>Pinkoi</span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnPlatform" value="官網" onchange="onReturnPlatformChange()">
+            <span>官網</span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnPlatform" value="瑪黑" onchange="onReturnPlatformChange()">
+            <span>瑪黑</span>
+          </label>
+          <label class="radio-card">
             <input type="radio" name="returnPlatform" value="mo" onchange="onReturnPlatformChange()">
-            <span>mo</span>
+            <span>MO+</span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnPlatform" value="博客來" onchange="onReturnPlatformChange()">
+            <span>博客來</span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnPlatform" value="酷澎" onchange="onReturnPlatformChange()">
+            <span>酷澎</span>
           </label>
         </div>
 
@@ -1947,8 +1967,8 @@
           </label>
         </div>
 
-        <label class="form-label">重寄託運單號(有重寄才填)</label>
-        <input type="text" id="returnResendNo" class="form-input" placeholder="重新寄出那一張的黑貓/郵局託運單號">
+        <label class="form-label">重寄託運單號(有重寄才填,可以寄很多次:一行一個)</label>
+        <textarea id="returnResendNo" class="form-textarea" rows="2" placeholder="重新寄出那一張的託運單號,寄了好幾次就一行一個"></textarea>
 
         <div id="returnContactFields">
           <label class="form-label">第一次電聯</label>
@@ -1975,7 +1995,7 @@
       <div id="returnStatus" class="status">填寫後送出 → 直接存進資料庫…</div>
 
       <div class="stats-header">
-        <span class="stats-title" id="returnListTitle">line禮物 退貨清單</span>
+        <span class="stats-title" id="returnListTitle">LINE禮物 退貨清單</span>
         <span id="returnListHint" class="stats-hint">載入中…</span>
       </div>
 

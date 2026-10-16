@@ -471,7 +471,8 @@ async function handleRemoveProblem(env, body) {
 // 刪一筆要把底下整塊往上搬（不能 deleteRow，會錯開旁邊平台），列號還會跟著變動。
 // 搬到 D1 之後一筆就是一列，平台只是一個欄位，那些位移邏輯全部不需要了。
 // 前端原本認的 rowIndex 改成 D1 的 id。
-const RETURN_PLATFORMS = ['line禮物', '蝦皮', 'mo'];
+// 2026-10-16 起所有平台都能記退貨(舊的 line禮物/蝦皮/mo 值不變,mo 畫面上顯示成 MO+)
+const RETURN_PLATFORMS = ['line禮物', '蝦皮', 'Pinkoi', '官網', '瑪黑', 'mo', '博客來', '酷澎'];
 // 蝦皮、mo 沒有電聯欄位，那四欄留空即可（欄位本身共用一張表）
 const RETURN_FIELDS = [
   ['date', '日期'],
