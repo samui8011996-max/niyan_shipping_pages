@@ -483,6 +483,7 @@ const RETURN_FIELDS = [
   ['contact2', '第二次電聯'],
   ['contact3', '第三次電聯'],
   ['contact4', '第四次電聯'],
+  ['resendNo', '重寄託運單號'],   // 2026-10-16 加:退貨後重新寄出的那張託運單
 ];
 
 let _returnsReady = false;
@@ -493,10 +494,16 @@ async function ensureReturnsTable(DB) {
     'id INTEGER PRIMARY KEY AUTOINCREMENT, "平台" TEXT NOT NULL, "日期" TEXT, ' +
     '"訂單編號" TEXT, "託運單號" TEXT, "原因" TEXT, "結果" TEXT, ' +
     '"第一次電聯" TEXT, "第二次電聯" TEXT, "第三次電聯" TEXT, "第四次電聯" TEXT, ' +
-    '"建立時間" TEXT)'
+    '"建立時間" TEXT, "重寄託運單號" TEXT)'
   ).run();
   // 同平台同訂單編號只會有一筆（重送是更新）。舊試算表的蝦皮/mo 有幾列沒填訂單編號，
   // 所以是「訂單編號不是空的才唯一」的部分索引，不然那幾列會互相擋住匯不進來。
+  // 舊表沒有「重寄託運單號」這欄 → 補上(加欄位不會動到既有資料,舊的那幾筆就是空的)
+  const cols = await DB.prepare('PRAGMA table_info(shipping_returns)').all();
+  if (!(cols.results || []).some(c => c.name === '重寄託運單號')) {
+    await DB.prepare('ALTER TABLE shipping_returns ADD COLUMN "重寄託運單號" TEXT').run();
+  }
+
   // 線上的索引如果不是部分索引(例如匯入資料時建成一般的唯一索引),沒填訂單編號的退貨
   // 同平台只能存一筆 —— 2026-10-16 訂單編號改選填後第二筆就撞到。發現不對就重建成部分索引。
   // (現有資料一定符合比較嚴的舊索引,所以重建不會失敗)

@@ -637,6 +637,10 @@
   button.rr-tag { cursor: pointer; padding: 5px 12px; font-size: 13px; transition: transform 0.1s, opacity 0.15s; }
   button.rr-tag:hover { opacity: 0.88; transform: translateY(-1px); }
   .pi-note .rr-tag { margin-right: 6px; }
+  .pi-resend {
+    display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 6px;
+    background: #3E7C9C; color: #fff; font-size: 12px; font-weight: 700;
+  }
   .rr-pink { background: #8C4D6C; }
   .rr-blue { background: #2D5F8F; }
   .rr-red  { background: #A63A3A; }
@@ -1943,6 +1947,9 @@
           </label>
         </div>
 
+        <label class="form-label">重寄託運單號(有重寄才填)</label>
+        <input type="text" id="returnResendNo" class="form-input" placeholder="重新寄出那一張的黑貓/郵局託運單號">
+
         <div id="returnContactFields">
           <label class="form-label">第一次電聯</label>
           <textarea id="returnContact1" class="form-textarea" placeholder="例如:8/7 11:11致電未接" onfocus="prefillReturnContactDate(this)"></textarea>
@@ -1974,7 +1981,7 @@
 
       <div class="return-search">
         <input type="search" id="returnSearch" class="form-input" oninput="renderReturnList()"
-          placeholder="搜尋訂單編號或託運單號(打一部分也可以)">
+          placeholder="搜尋訂單編號、託運單號或重寄單號(打一部分也可以)">
         <button type="button" class="btn btn-secondary btn-small" onclick="clearReturnSearch()">清除</button>
       </div>
 

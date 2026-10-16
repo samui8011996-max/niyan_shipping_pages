@@ -5,7 +5,7 @@
 // 2026-09-23 起資料存在 D1 的 shipping_returns,不再寫 Google 試算表;
 // 每筆的識別碼是 D1 的 id(以前是試算表列號 rowIndex)。
 const RETURN_PLATFORMS = ["line禮物", "蝦皮", "mo"];
-let returnListCache = { "line禮物": [], "蝦皮": [], "mo": [] };   // { id, date, orderId, trackingNo, reason, result, contact1~4 }
+let returnListCache = { "line禮物": [], "蝦皮": [], "mo": [] };   // { id, date, orderId, trackingNo, reason, result, contact1~4, resendNo }
 // 正在編輯哪一筆(按「✏️ 編輯」時記下 id)。帶著它送出才是更新那一筆,
 // 不然改了訂單編號會被當成新的一筆
 let returnEditingId = null;
@@ -92,7 +92,8 @@ function returnSearchText() {
 }
 function returnMatchesSearch(r, q) {
   return String(r.orderId || "").toLowerCase().includes(q)
-      || String(r.trackingNo || "").replace(/\s+/g, "").toLowerCase().includes(q);
+      || String(r.trackingNo || "").replace(/\s+/g, "").toLowerCase().includes(q)
+      || String(r.resendNo || "").replace(/\s+/g, "").toLowerCase().includes(q);
 }
 function clearReturnSearch() {
   document.getElementById("returnSearch").value = "";
@@ -150,6 +151,7 @@ function submitReturn() {
     date: document.getElementById("returnDate").value.trim(),
     orderId,
     trackingNo,
+    resendNo: document.getElementById("returnResendNo").value.trim(),
     reason: document.getElementById("returnReason").value.trim(),
     result: resultEl ? resultEl.value : "未結案",
   };
@@ -214,6 +216,7 @@ function clearReturnForm() {
   document.getElementById("returnDate").value = todayStr("-");
   document.getElementById("returnOrderId").value = "";
   document.getElementById("returnTrackingNo").value = "";
+  document.getElementById("returnResendNo").value = "";
   document.getElementById("returnReason").value = "";
   const defaultResult = document.querySelector('input[name="returnResult"][value="未結案"]');
   if (defaultResult) defaultResult.checked = true;
@@ -330,6 +333,8 @@ function renderReturnList() {
     const resultHtml = returnResultBadgeHtml(r.result);
     const trackingHtml = safeTracking ? `<span class="pi-tracking">${safeTracking}</span>` : "";
     const reasonHtml = returnReasonHtml(r.reason);
+    const resend = String(r.resendNo || "").trim();
+    const resendHtml = resend ? `<div class="pi-note"><span class="pi-resend">重寄</span>${escapeHtml(resend)}</div>` : "";
 
     const contactLines = [];
     const callHtml = (platform === "line禮物" && returnNeedsCallToday(r))
@@ -353,6 +358,7 @@ function renderReturnList() {
             <span class="pi-time">${safeDate}</span>
           </div>
           ${reasonHtml}
+          ${resendHtml}
           ${contactLines.join("")}
         </div>
         <div class="problem-item-btns">
@@ -373,6 +379,7 @@ function editReturn(id) {
   document.getElementById("returnDate").value = record.date || "";
   document.getElementById("returnOrderId").value = record.orderId || "";
   document.getElementById("returnTrackingNo").value = record.trackingNo || "";
+  document.getElementById("returnResendNo").value = record.resendNo || "";
   document.getElementById("returnReason").value = record.reason || "";
   const resultVal = String(record.result || "").trim();
   const resultRadios = document.querySelectorAll('input[name="returnResult"]');
