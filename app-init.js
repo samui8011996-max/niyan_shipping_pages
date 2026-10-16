@@ -16,10 +16,11 @@ document.getElementById("returnDate").value = todayStr("-");
 
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
-  let s = null, w = null;
-  try { s = localStorage.getItem("shopeeFormat"); w = localStorage.getItem("webFormat"); } catch (e) {}
+  let s = null, w = null, o = null;
+  try { s = localStorage.getItem("shopeeFormat"); w = localStorage.getItem("webFormat"); o = localStorage.getItem("offshoreFormat"); } catch (e) {}
   if (s) setShopeeFormat(s);
   if (w) setWebFormat(w);
+  if (o) setOffshoreFormat(o);
 })();
 
 document.getElementById("fileInput").addEventListener("change", (e) => {

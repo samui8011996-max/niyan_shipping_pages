@@ -63,7 +63,6 @@ const OFFSHORE_SENDER = {
   name: "LINE禮物泥研製所",
   phone: "037480616",
 };
-const OFFSHORE_LABEL_MM = { w: 100, h: 150 };
 
 // 離島鄉鎮 → 3 碼郵遞區號(收件人地址標籤用,不含 suffix 比對,避免漏抓)
 const OFFSHORE_ZIP_MAP = {

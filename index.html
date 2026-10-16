@@ -1418,6 +1418,10 @@
         <button id="offshorePdfBtn" class="btn btn-lavender" disabled onclick="generateOffshorePdf()">
           產離島貼紙 PDF
         </button>
+        <div id="offshoreFormatPills" class="fmt-pills" role="radiogroup" aria-label="離島貼紙紙張">
+          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setOffshoreFormat('bcat')">黑貓熱感應 95×193</button>
+          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setOffshoreFormat('4x6')">4×6</button>
+        </div>
         <button id="uploadBtn" class="btn btn-gsheet" disabled onclick="uploadAllToSheet()">
           上傳到 Google Sheet
         </button>
