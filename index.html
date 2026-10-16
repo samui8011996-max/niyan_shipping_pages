@@ -299,6 +299,16 @@
   .pb-invoice-link { margin-left: auto; color: var(--warn); font-weight: 700; text-decoration: none; white-space: nowrap; }
   .pb-invoice-link:hover { text-decoration: underline; }
   .pb-invoice.no { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-dim); }
+  /* 新訂單看 Gmail(Gmail 紅) */
+  .pb-gmail {
+    border: 2px solid #D93025; border-radius: 10px; padding: 12px 14px;
+    background: color-mix(in srgb, #D93025 9%, transparent);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 14px; line-height: 1.6; color: var(--text);
+  }
+  .pb-gmail strong { color: #D93025; font-size: 16px; }
+  .pb-gmail-link { margin-left: auto; color: #D93025; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .pb-gmail-link:hover { text-decoration: underline; }
   .pb-invoice.no strong { color: var(--text); }
   .pb-note { margin: 0; color: var(--text-dim); font-size: 13px; }
   .platform-bar .pb-subs { align-self: flex-start; margin-left: 0; }
@@ -556,6 +566,13 @@
   .gc-btn.ghost { background: none; color: #7F6C50; border: 1px solid #BCA17F; font-weight: 500; }
   .gc-btn:hover { opacity: 0.88; }
   .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; }
+  .gc-notify:empty { display: none; }
+  .gc-notify-btn {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .gc-notify-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gc-notify-off { display: block; font-size: 11px; line-height: 1.5; color: var(--text-dim); text-align: center; }
   .gc-cat { display: block; width: 88px; height: auto; animation: gc-bob 2.4s ease-in-out infinite; }
   @keyframes gc-bob { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-5px) rotate(-3deg); } }
   /* 提醒時:整個泡泡變蝦皮橘、白字、一閃一閃;貓跳快一點 */

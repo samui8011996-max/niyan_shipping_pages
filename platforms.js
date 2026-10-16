@@ -7,9 +7,11 @@
 //   subs    : 有好幾個功能的平台(LINE禮物)用膠囊鈕切換子功能
 //   invoice : 要不要印發票(蝦皮、Pinkoi、官網要印,其他不印)
 //   note    : 資訊列上的補充說明(選填)
+//   gmail   : 新訂單會寄信通知,資訊列多一條「新訂單請檢查 Gmail」
 // ===================================================================
 
 const INVOICE_URL = "https://web2.einvoice.com.tw/einv/Login/index.action";
+const GMAIL_URL = "https://mail.google.com/";
 const PACKING_URL = "https://niyan-packing-pages.pages.dev/";
 
 const PLATFORMS = [
@@ -22,10 +24,10 @@ const PLATFORMS = [
   { id: "shopee", name: "蝦皮", url: "https://seller.shopee.tw/", invoice: true, panel: "shopee" },
   { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true },   // 自動印單還沒做
   // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
-  { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web" },
-  { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false },   // 自動印單還沒做
-  { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false },
-  { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false },
+  { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
+  { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true },   // 自動印單還沒做
+  { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, gmail: true },
+  { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false, gmail: true },
   // 使用者給的是 Coupang 登入頁的完整網址,但裡面的 state 是一次性的登入參數,放久了會失效;
   // 改連登入後要去的那一頁(出貨管理),沒登入時 Coupang 會自己導去登入頁
   { id: "coupang", name: "酷澎", url: "https://wing.coupang.com/tenants/sfl-portal/delivery/management", invoice: false },
@@ -93,6 +95,11 @@ function renderPlatformBar(top) {
       <a class="btn btn-primary pb-open" href="${p.url}" target="_blank" rel="noopener noreferrer">開啟 ${escapeHtml(p.name.endsWith("後台") ? p.name : p.name + " 後台")} ↗</a>
     </div>
     ${invoice}
+    ${p.gmail ? `<div class="pb-gmail">
+        <strong>新訂單請檢查 Gmail</strong>
+        <span>這個平台有新訂單會寄信通知。</span>
+        <a class="pb-gmail-link" href="${GMAIL_URL}" target="_blank" rel="noopener noreferrer">開啟 Gmail ↗</a>
+      </div>` : ""}
     ${p.note ? `<p class="pb-note">${escapeHtml(p.note)}</p>` : ""}
     ${subs}`;
 

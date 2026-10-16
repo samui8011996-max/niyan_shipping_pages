@@ -4,6 +4,7 @@
 //     配色跟官網首頁「招財貓切換」那份一樣)
 //   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒
 //   - 每 2 小時提醒一次「看蝦皮聊聊訊息」,按「我看過了」才重新計時
+//   - 有開「桌面通知」的話,上面兩種提醒也會在 Windows 右下角跳通知(切到別的網站也看得到)
 //   - 每天提醒包裹退貨要打電話(LINE禮物、未結案、四次電聯沒打滿、今天還沒打),
 //     打完填了電聯就自動消失;按「今天先不打」今天就不再提醒,隔天照樣提醒
 //     (時間存在 localStorage,重新整理、關掉再開都接著算)
@@ -38,6 +39,7 @@ const GC_SHOPEE_CHAT = "https://seller.shopee.tw/webchat/conversations";
 const GC_KEY = "guideCatLastAck";
 
 const GC_CALL_SKIP_KEY = "guideCatCallSkip";   // 按「今天先不打」的日期
+const GC_CALL_NOTIFIED_KEY = "guideCatCallNotified";   // 今天的打電話通知跳過了沒(一天只跳一次)
 let gcCalls = 0;                                  // 今天還要打幾筆
 let gcTip = -1;
 let gcReminding = false;
@@ -50,6 +52,52 @@ function gcLastAck() {
   return t;
 }
 function gcSetAck(t) { try { localStorage.setItem(GC_KEY, String(t)); } catch (e) {} }
+
+// ---- 桌面通知(Windows 右下角跳出來,切到別的網站也看得到) ----
+// 限制:要按過「允許」、出貨幫手的分頁要開著(可以在背景或縮小)、只有 https 網址能用(本機 file:// 不行)
+function gcNotifySupported() {
+  return "Notification" in window && window.isSecureContext;
+}
+
+function gcNotify(title, body, tag) {
+  if (!gcNotifySupported() || Notification.permission !== "granted") return;
+  try {
+    const n = new Notification(title, {
+      body, tag,
+      icon: "icon.png",
+      requireInteraction: true,   // 不會自己消失,要人按掉
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch (e) {
+    console.warn("桌面通知失敗:", e);
+  }
+}
+
+// 貓下面那一行:還沒允許就顯示「開啟桌面通知」按鈕;被封鎖就說去哪裡開
+function gcRenderNotifyBtn() {
+  const box = document.getElementById("gcNotify");
+  if (!box) return;
+  if (!gcNotifySupported()) { box.innerHTML = ""; return; }
+  const p = Notification.permission;
+  if (p === "granted") box.innerHTML = "";
+  else if (p === "denied") box.innerHTML = `<span class="gc-notify-off" title="點網址列左邊的鎖頭 → 通知 → 允許">桌面通知被封鎖了<br>(網址列左邊鎖頭可以改)</span>`;
+  else box.innerHTML = `<button type="button" class="gc-notify-btn" onclick="gcAskNotify()">開啟桌面通知</button>`;
+}
+
+function gcAskNotify() {
+  if (!gcNotifySupported()) return;
+  Notification.requestPermission().then(p => {
+    gcRenderNotifyBtn();
+    if (p === "granted") gcNotify("出貨小助手", "桌面通知開好了!時間到會在這裡提醒你。", "gc-hello");
+  });
+}
+
+// 測試用:網址後面加 #test-notify,馬上跳一則測試通知(還沒允許的話先問)
+function gcTestNotify() {
+  if (!gcNotifySupported()) { gcSay("這裡不能用桌面通知<br>(要用正式網址開)"); return; }
+  if (Notification.permission === "granted") gcNotify("出貨小助手(測試)", "看到這個就代表桌面通知正常!", "gc-test");
+  else gcAskNotify();
+}
 
 function gcSay(html) {
   document.getElementById("gcBubble").innerHTML = html;
@@ -86,6 +134,17 @@ function gcIdle() {
 function gcUpdateReturnCalls() {
   gcCalls = (typeof returnsToCallToday === "function") ? returnsToCallToday().length : 0;
   if (!gcReminding) gcIdle();
+  gcNotifyCalls();
+}
+
+// 打電話的桌面通知一天只跳一次(每小時重讀退貨,不能每小時都跳)
+function gcNotifyCalls() {
+  if (gcCalls <= 0 || gcCallSkippedToday()) return;
+  let done = false;
+  try { done = localStorage.getItem(GC_CALL_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
+  if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
+  gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物)`, "gc-call");
+  try { localStorage.setItem(GC_CALL_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
 }
 
 function gcGoReturns() {
@@ -120,6 +179,8 @@ function gcRemind() {
       <a class="gc-btn" href="${GC_SHOPEE_CHAT}" target="_blank" rel="noopener noreferrer" onclick="gcAck()">開啟聊聊</a>
       <button type="button" class="gc-btn ghost" onclick="gcAck()">我看過了</button>
     </span>`);
+  // 同一次提醒只跳一則(gcReminding 擋住重複),按了「我看過了」兩小時後才會再跳
+  gcNotify("該看蝦皮訊息囉!", "已經兩個小時了,去蝦皮聊聊看看有沒有客人在問。", "gc-shopee");
 }
 
 function gcAck() {
@@ -158,14 +219,17 @@ function setupGuideCat() {
     <div id="gcBubble" class="gc-bubble"></div>
     <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看小提醒" onclick="gcNextTip()">
       <svg class="gc-cat" viewBox="0 0 418 462" style="${c.css}" aria-hidden="true"><use href="#${gold ? "gc-cat-gold" : "gc-cat-fu"}"/></svg>
-    </button>`;
+    </button>
+    <div id="gcNotify" class="gc-notify"></div>`;
   document.body.appendChild(el);
   gcIdle();
+  gcRenderNotifyBtn();
   const runTest = () => {
     if (location.hash === "#test-remind") gcTestRemind();
     else if (location.hash === "#test-call") gcTestCall();
+    else if (location.hash === "#test-notify") gcTestNotify();
   };
-  if (location.hash === "#test-remind" || location.hash === "#test-call") runTest();
+  if (["#test-remind", "#test-call", "#test-notify"].includes(location.hash)) runTest();
   else gcCheck();
   setInterval(gcCheck, 60 * 1000);
   window.addEventListener("hashchange", runTest);
