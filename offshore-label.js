@@ -2,7 +2,7 @@
 // 離島出貨貼紙 PDF(寄件人固定、收件人放大放下面)
 // 多筆訂單時壓成同一個 PDF,一筆一頁
 //
-// 兩種紙(膠囊鈕切換,預設黑貓熱感應):
+// 兩種紙(膠囊鈕切換,預設 4x6(使用者 2026-10-16 指定:離島郵局用 4x6)):
 //   bcat = 黑貓熱感應紙 95x193mm。中間 64~77mm 是紙上原本的印刷區,不能印字,
 //          所以上半印備註(訂單編號+品項),下半印寄件人 → 收件人(大字)
 //   4x6  = 原本的 100x150mm 貼紙,版面跟以前一樣
@@ -11,13 +11,13 @@ const OFFSHORE_FORMATS = {
   bcat: { w: 95, h: 193, gapTop: 64, gapBottom: 77 },
   "4x6": { w: 100, h: 150 },
 };
-let offshoreFormat = "bcat";
+let offshoreFormat = "4x6";
 
 function setOffshoreFormat(fmt) {
   if (!OFFSHORE_FORMATS[fmt]) return;
   offshoreFormat = fmt;
   setFormatPills("offshoreFormatPills", fmt);
-  try { localStorage.setItem("offshoreFormat", fmt); } catch (e) {}
+  try { localStorage.setItem("offshoreFormat2", fmt); } catch (e) {}
 }
 function wrapCanvasText(ctx, text, maxWidth) {
   const chars = String(text ?? "").split("");

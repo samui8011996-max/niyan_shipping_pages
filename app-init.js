@@ -26,7 +26,7 @@ renderAbbr();
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
   let s = null, w = null, o = null;
-  try { s = localStorage.getItem("shopeeFormat"); w = localStorage.getItem("webFormat"); o = localStorage.getItem("offshoreFormat"); } catch (e) {}
+  try { s = localStorage.getItem("shopeeFormat"); w = localStorage.getItem("webFormat"); o = localStorage.getItem("offshoreFormat2"); } catch (e) {}   // 離島改預設 4x6 時換了鍵名,舊的選擇不沿用
   if (s) setShopeeFormat(s);
   if (w) setWebFormat(w);
   if (o) setOffshoreFormat(o);
