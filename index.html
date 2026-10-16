@@ -527,6 +527,20 @@
   }
   .shopee-row:last-child { border-bottom: none; }
 
+  /* 紙張格式下拉(緊貼在印單按鈕右邊,右側小箭頭) */
+  .fmt-select {
+    appearance: none; -webkit-appearance: none;
+    align-self: stretch; min-height: 40px; padding: 0 34px 0 14px; border-radius: 10px; cursor: pointer;
+    background-color: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border);
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23999' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.15s;
+  }
+  .fmt-select:hover, .fmt-select:focus { border-color: var(--accent); outline: none; }
+  .fmt-select option { background: var(--bg-card); color: var(--text); }
+
   /* 紙張格式膠囊鈕(蝦皮/官網出貨單) */
   .fmt-pills {
     display: inline-flex; align-self: center; margin-left: auto;
@@ -1418,10 +1432,10 @@
         <button id="offshorePdfBtn" class="btn btn-lavender" disabled onclick="generateOffshorePdf()">
           產離島貼紙 PDF
         </button>
-        <div id="offshoreFormatPills" class="fmt-pills" role="radiogroup" aria-label="離島貼紙紙張">
-          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setOffshoreFormat('bcat')">黑貓熱感應 95×193</button>
-          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setOffshoreFormat('4x6')">4×6</button>
-        </div>
+        <select id="offshoreFormatPills" class="fmt-select" aria-label="紙張格式" title="紙張格式" onchange="setOffshoreFormat(this.value)">
+          <option value="bcat">黑貓熱感應 95×193</option>
+          <option value="4x6">4×6</option>
+        </select>
         <button id="uploadBtn" class="btn btn-gsheet" disabled onclick="uploadAllToSheet()">
           上傳到 Google Sheet
         </button>
@@ -1900,10 +1914,10 @@
         <button id="shopeeGenBtn" class="btn btn-primary" disabled onclick="generateShopeeLabels()">
           產生出貨單
         </button>
-        <div id="shopeeFormatPills" class="fmt-pills" role="radiogroup" aria-label="紙張格式">
-          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setShopeeFormat('bcat')">黑貓熱感應 95×193</button>
-          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setShopeeFormat('4x6')">4×6</button>
-        </div>
+        <select id="shopeeFormatPills" class="fmt-select" aria-label="紙張格式" title="紙張格式" onchange="setShopeeFormat(this.value)">
+          <option value="bcat">黑貓熱感應 95×193</option>
+          <option value="4x6">4×6</option>
+        </select>
       </div>
 
       <div id="shopeeStatus" class="status">還差裝箱單…</div>
@@ -1953,10 +1967,10 @@
         <button id="webLabelBtn" class="btn btn-lavender" disabled onclick="generateWebLabels()">
           產生出貨單 PDF
         </button>
-        <div id="webFormatPills" class="fmt-pills" role="radiogroup" aria-label="紙張格式">
-          <button type="button" class="fmt-pill active" data-fmt="bcat" role="radio" aria-checked="true" onclick="setWebFormat('bcat')">黑貓熱感應 95×193</button>
-          <button type="button" class="fmt-pill" data-fmt="4x6" role="radio" aria-checked="false" onclick="setWebFormat('4x6')">4×6</button>
-        </div>
+        <select id="webFormatPills" class="fmt-select" aria-label="紙張格式" title="紙張格式" onchange="setWebFormat(this.value)">
+          <option value="bcat">黑貓熱感應 95×193</option>
+          <option value="4x6">4×6</option>
+        </select>
       </div>
 
       <div id="webStatus" class="status">把官網訂單報表(niyancement_orders_….xls)丟進來…</div>

@@ -105,10 +105,11 @@ function setShopeeFormat(fmt) {
   try { localStorage.setItem("shopeeFormat", fmt); } catch (e) {}
 }
 
-// 膠囊鈕的選取狀態(蝦皮、官網共用)
+// 紙張格式的選取狀態(蝦皮、官網、離島貼紙共用;下拉選單或膠囊鈕都吃)
 function setFormatPills(groupId, fmt) {
   const g = document.getElementById(groupId);
   if (!g) return;
+  if (g.tagName === "SELECT") { g.value = fmt; return; }   // 紙張格式現在是下拉選單
   g.querySelectorAll(".fmt-pill").forEach(b => {
     const on = b.dataset.fmt === fmt;
     b.classList.toggle("active", on);
