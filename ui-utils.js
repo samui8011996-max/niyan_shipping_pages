@@ -1,16 +1,7 @@
 // ===================================================================
 // UI 工具
 // ===================================================================
-function switchTab(name) {
-  document.querySelectorAll(".tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.tab === name);
-  });
-  document.querySelectorAll(".tab-panel").forEach(p => {
-    p.classList.toggle("active", p.id === `tab-${name}`);
-  });
-  maybeLoadProblemsOnTabSwitch(name);
-  maybeLoadReturnsOnTabSwitch(name);
-}
+// 分頁切換 switchTab 在 platforms.js(2026-10-16 改成照平台分頁)
 
 function setStatus(elId, type, msg) {
   const el = document.getElementById(elId);

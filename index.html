@@ -220,6 +220,98 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
   }
 
+  /* 平台大按鈕 */
+  .plat-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px;
+  }
+  .tab.plat {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-radius: 14px; cursor: pointer;
+    background: color-mix(in srgb, var(--c) 10%, var(--bg-card));
+    border: 1.5px solid color-mix(in srgb, var(--c) 45%, var(--border));
+    color: var(--text); font-family: inherit; text-align: left;
+    transition: transform 0.12s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .tab.plat:hover {
+    transform: translateY(-1px);
+    border-color: var(--c);
+    background: color-mix(in srgb, var(--c) 18%, var(--bg-card));
+  }
+  .tab.plat.active {
+    background: var(--c); border-color: var(--c); color: #fff;
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--c) 40%, transparent);
+  }
+  .plat-logo {
+    width: 40px; height: 40px; flex: 0 0 40px; object-fit: contain;
+    border-radius: 10px; background: #fff; padding: 3px;
+  }
+  .plat-name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+  @media (max-width: 700px) { .plat-grid { grid-template-columns: repeat(2, 1fr); } }
+  /* 共用工具:跟上面平台按鈕同一組 4 欄格線,左邊對齊 LINE禮物/蝦皮 */
+  .tool-tabs {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+  }
+  .tab.tab-tool {
+    padding: 11px 16px; border-radius: 12px; text-align: center;
+    background: var(--bg-card); border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600;
+  }
+  .tab.tab-tool:hover { border-color: var(--accent); color: var(--text); }
+  .tab.tab-tool.active { border-color: var(--accent); background: var(--bg-input); color: var(--accent); }
+  @media (max-width: 700px) { .tool-tabs { grid-template-columns: repeat(2, 1fr); } }
+
+  /* 表頭常用連結 */
+  .quick-links { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .quick-link {
+    display: inline-block; padding: 7px 16px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text); font-size: 13px; text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .quick-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* 平台資訊列 */
+  .platform-bar {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 22px; margin-bottom: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .platform-bar[hidden] { display: none; }
+  .pb-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .pb-name { font-size: 24px; font-weight: 700; color: var(--text); margin: 0; }
+  .pb-open { margin-left: auto; text-decoration: none; }
+  /* 後台按鈕用該平台的品牌色(--c 由 platforms.js 從按鈕上抄過來) */
+  :root .platform-bar a.pb-open { background: var(--c, var(--accent)); color: #fff; }
+  @media (max-width: 640px) {
+    .pb-open { margin-left: 0; width: 100%; text-align: center; }
+    .pb-invoice-link { margin-left: 0; }
+  }
+  .pb-invoice { border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.6; }
+  .pb-invoice.yes {
+    border: 2px solid var(--warn);
+    background: color-mix(in srgb, var(--warn) 12%, transparent);
+    color: var(--text);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .pb-invoice.yes strong { color: var(--warn); font-size: 16px; }
+  .pb-invoice-link { margin-left: auto; color: var(--warn); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .pb-invoice-link:hover { text-decoration: underline; }
+  .pb-invoice.no { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-dim); }
+  .pb-invoice.no strong { color: var(--text); }
+  .pb-note { margin: 0; color: var(--text-dim); font-size: 13px; }
+  .platform-bar .pb-subs { align-self: flex-start; margin-left: 0; }
+  .pb-beta { margin-left: 4px; font-size: 10px; opacity: 0.7; }
+  .none-text { margin: 0; color: var(--text-dim); font-size: 14px; line-height: 1.7; }
+
+  /* 官網:開發中告示 */
+  .dev-notice {
+    border: 2px dashed var(--error); border-radius: 12px;
+    background: color-mix(in srgb, var(--error) 8%, transparent);
+    padding: 14px 18px; margin-bottom: 14px;
+    font-size: 14px; line-height: 1.7; color: var(--text);
+  }
+  .dev-notice strong { display: block; color: var(--error); font-size: 16px; margin-bottom: 2px; }
+
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -1242,34 +1334,65 @@
        </svg>
       <div class="title-wrap">
         <h1 class="title">出貨幫手</h1>
-        <p class="subtitle">LINE 訂單 → 黑貓託運單 · 物流單號回填 · 問題訂單追蹤 · <code>泥研製所</code></p>
+        <p class="subtitle">照平台分類:開後台 · 印單 · 要不要印發票 · <code>泥研製所</code></p>
+        <div class="quick-links">
+          <a class="quick-link" href="https://niyan-packing-pages.pages.dev/" target="_blank" rel="noopener noreferrer">包貨網站 ↗</a>
+          <a class="quick-link" href="https://web2.einvoice.com.tw/einv/Login/index.action" target="_blank" rel="noopener noreferrer">電子發票平台 ↗</a>
+        </div>
       </div>
       <button class="settings-link" onclick="openSettings()">設定</button>
     </header>
 
-    <!-- Tab switcher -->
-    <div class="tabs">
-      <button class="tab active" data-tab="shipping" onclick="switchTab('shipping')">
-        line出貨單產生
+    <!-- 平台大按鈕:每個平台用自己的 LOGO 和品牌色(--c)。要不要印發票寫在點進去的頁面裡,不在按鈕上 -->
+    <div class="plat-grid" role="tablist" aria-label="平台">
+      <button class="tab plat" data-tab="line" style="--c:#06C755" onclick="switchTab('line')">
+        <img class="plat-logo" src="logos/line.png" alt="">
+        <span class="plat-name">LINE禮物</span>
       </button>
-      <button class="tab" data-tab="logistics" onclick="switchTab('logistics')">
-        line物流單號回填
+      <button class="tab plat" data-tab="shopee" style="--c:#EE4D2D" onclick="switchTab('shopee')">
+        <img class="plat-logo" src="logos/shopee.png" alt="">
+        <span class="plat-name">蝦皮</span>
       </button>
-      <button class="tab" data-tab="shopee" onclick="switchTab('shopee')">
-        蝦皮出貨
+      <button class="tab plat" data-tab="pinkoi" style="--c:#E8746A" onclick="switchTab('pinkoi')">
+        <img class="plat-logo" src="logos/pinkoi.png" alt="">
+        <span class="plat-name">Pinkoi</span>
       </button>
-      <button class="tab" data-tab="web" onclick="switchTab('web')">
-        官網訂單
+      <button class="tab plat" data-tab="web" style="--c:#A8875A" onclick="switchTab('web')">
+        <img class="plat-logo" src="logos/web.png" alt="">
+        <span class="plat-name">官網</span>
       </button>
-      <button class="tab" data-tab="problems" onclick="switchTab('problems')">
-        問題訂單
+      <button class="tab plat" data-tab="marais" style="--c:#2E6378" onclick="switchTab('marais')">
+        <img class="plat-logo" src="logos/marais.png" alt="">
+        <span class="plat-name">瑪黑</span>
       </button>
-      <button class="tab" data-tab="returns" onclick="switchTab('returns')">
-        包裹退貨
+      <button class="tab plat" data-tab="momo" style="--c:#D91CAE" onclick="switchTab('momo')">
+        <img class="plat-logo" src="logos/momo.png" alt="">
+        <span class="plat-name">MO+</span>
       </button>
-      <button class="tab" data-tab="zoned" onclick="switchTab('zoned')">
-        分區列印<span style="opacity:.6; font-size:11px; margin-left:2px;">BETA</span>
+      <button class="tab plat" data-tab="books" style="--c:#7DAE14" onclick="switchTab('books')">
+        <img class="plat-logo" src="logos/books.png" alt="">
+        <span class="plat-name">博客來</span>
       </button>
+      <button class="tab plat" data-tab="coupang" style="--c:#D7141E" onclick="switchTab('coupang')">
+        <img class="plat-logo" src="logos/coupang.png" alt="">
+        <span class="plat-name">酷澎</span>
+      </button>
+    </div>
+
+    <!-- 不分平台的共用工具 -->
+    <div class="tool-tabs" role="tablist" aria-label="共用工具">
+      <button class="tab tab-tool" data-tab="problems" onclick="switchTab('problems')">問題訂單</button>
+      <button class="tab tab-tool" data-tab="returns" onclick="switchTab('returns')">包裹退貨</button>
+    </div>
+
+    <!-- 平台資訊列(後台連結、發票提醒、LINE 的子功能切換),內容由 platforms.js 畫 -->
+    <section id="platformBar" class="platform-bar" hidden></section>
+
+    <!-- 沒有自動印單的平台共用這一塊 -->
+    <div id="tab-none" class="tab-panel">
+      <section class="card">
+        <p id="noneText" class="none-text"></p>
+      </section>
     </div>
 
     <!-- ================ Tab 1: 出貨單產生 ================ -->
@@ -1797,6 +1920,12 @@
     <!-- ================ Tab 4: 官網訂單 ================ -->
     <div id="tab-web" class="tab-panel">
 
+      <div class="dev-notice">
+        <strong>開發中,先不要用</strong>
+        目前官網還是舊官網(meepshop),訂單請按上面的按鈕到 meepshop 後台處理。<br>
+        下面的印單功能是給之後的新官網(Shopline)用的,現在僅供開發測試。
+      </div>
+
       <section class="card">
         <div class="card-label">官網訂單報表 (.xls)</div>
         <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
@@ -1834,7 +1963,7 @@
     </div>
 
     <div class="footer">
-      資料不會離開你的瀏覽器  ·  v9.0
+      資料不會離開你的瀏覽器  ·  v10.0
     </div>
 
   </div>
@@ -1881,6 +2010,7 @@
 <script src="problem-orders.js"></script>
 <script src="returns.js"></script>
 <script src="ui-utils.js"></script>
+<script src="platforms.js"></script>
 <script src="shopee-code-chars.js"></script>
 <script src="shopee-shortcode.js"></script>
 <script src="shopee-pack.js"></script>

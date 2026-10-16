@@ -7,6 +7,13 @@ document.addEventListener("keydown", (e) => {
 
 document.getElementById("returnDate").value = todayStr("-");
 
+// 打開時回到上次看的分頁(第一次用是 LINE禮物),順便把平台資訊列畫出來
+(() => {
+  let last = null;
+  try { last = localStorage.getItem("lastTab"); } catch (e) {}
+  if (!switchTab(last || "line")) switchTab("line");   // 存的值認不得(改版前的舊分頁名)就回 LINE禮物
+})();
+
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
   let s = null, w = null;
