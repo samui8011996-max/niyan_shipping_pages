@@ -1805,6 +1805,8 @@
           placeholder="例如:【開運送禮】胖胖招財招福貓 (小)"></textarea>
         <label class="form-label" for="abbrSpec">規格 / 選項(選填,顏色款式寫在這裡的話要填)</label>
         <input type="text" id="abbrSpec" class="form-input" oninput="renderAbbr()" placeholder="例如:招財黃-金運">
+        <label class="form-label" for="abbrQty">數量(某一行結尾寫 x2 就用那行自己的數量)</label>
+        <input type="number" id="abbrQty" class="form-input" value="1" min="1" step="1" style="max-width: 120px;" oninput="renderAbbr()">
         <div style="margin-top: 12px;">
           <button type="button" class="btn btn-secondary btn-small" onclick="clearAbbr()">清除</button>
         </div>
