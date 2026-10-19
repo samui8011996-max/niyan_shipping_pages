@@ -282,38 +282,61 @@ function extractShopeeTracking(text) {
   return hei ? hei[1] : "";
 }
 
-// 一個實體頁面可能塞了不只一張標籤(2026-10-05 起蝦皮的另一種排版:兩張 A6 標籤
-// 直向疊在同一張 A4 畫布上,中間沒有分頁也沒有任何分隔標記)。
+// 一個實體頁面可能塞了不只一張標籤:
+//   2026-10-05 起:兩張 A6 標籤直向疊在同一張 A4 上
+//   2026-10-19 起:A4 上 2×2 排四張(左上、右上、左下、右下),三張的話右下空著
+// 中間沒有分頁也沒有分隔標記,所以用每張「蝦皮訂單編號」文字的位置(x 和 y)當錨點。
 //
-// 用「蝦皮訂單編號」這行出現的 y 位置當每張標籤的錨點 —— 抓到幾個錨點就是幾張標籤。
-// 只有一個錨點時(絕大多數情況)行為跟以前完全一樣。每張標籤的物流單號要在「自己的
-// 錨點到下一個錨點之間」這段範圍內找,不然兩張標籤的號碼會混在一起變成都套用第一張的。
+// 以前是「整行文字」比對,同一排左右兩張標籤的字會被併成一行,只抓得到左邊那張
+// (右上那張就漏了,實際發生在 2026-10-19 的單)。現在逐個文字片段找,左右分開。
+// 每張標籤的物流單號只在「自己那一欄、自己的錨點到下一個錨點之間」找,號碼才不會混。
 //
 // items 是 { str, x, top }( top 從頁面上緣算起,跟 parseItemListBlocks 用的座標系一致)
 function extractShopeeLabelSlots(items) {
-  const lineMap = new Map();
-  for (const it of items) {
-    const k = Math.round(it.top);
-    const arr = lineMap.get(k) || [];
-    arr.push(it);
-    lineMap.set(k, arr);
-  }
-  const lines = [...lineMap.entries()]
-    .map(([top, arr]) => ({ top, text: arr.sort((a, b) => a.x - b.x).map(c => c.str).join("") }))
-    .sort((a, b) => a.top - b.top);
-
+  const sorted = items.slice().sort((a, b) => (a.top - b.top) || (a.x - b.x));
   const anchors = [];
-  for (const ln of lines) {
-    const flat = ln.text.replace(/\s+/g, "");
-    const m = flat.match(/蝦皮訂單編號[:：]?([A-Z0-9]{14})/);
-    if (m) anchors.push({ orderSn: m[1], top: ln.top });
-  }
+  sorted.forEach((it, i) => {
+    if (!/蝦皮訂單編號/.test(it.str.replace(/\s+/g, ""))) return;
+    // 編號本身可能在同一片段,也可能是右邊緊接著的那一片(同一行、x 比較大、離很近)
+    const near = sorted.filter(o => Math.abs(o.top - it.top) < 3 && o.x >= it.x && o.x - it.x < 140)
+                       .sort((a, b) => a.x - b.x).map(o => o.str).join("").replace(/\s+/g, "");
+    const m = near.match(/蝦皮訂單編號[:：]?([A-Z0-9]{14})/);
+    if (m) anchors.push({ orderSn: m[1], top: it.top, x: it.x });
+  });
   if (!anchors.length) return [];
 
-  return anchors.map((a, i) => {
-    const bandEnd = i + 1 < anchors.length ? anchors[i + 1].top : Infinity;
-    const bandText = lines.filter(ln => ln.top >= a.top && ln.top < bandEnd).map(ln => ln.text).join(" ");
-    return { orderSn: a.orderSn, tracking: extractShopeeTracking(bandText), top: a.top };
+  // 欄:x 差不多的算同一欄(左欄 x≈7、右欄 x≈305)
+  const colStarts = [];
+  anchors.slice().sort((a, b) => a.x - b.x).forEach(a => {
+    if (!colStarts.some(c => Math.abs(c - a.x) < 40)) colStarts.push(a.x);
+  });
+  const colOf = x => colStarts.reduce((best, c) => Math.abs(c - x) < Math.abs(best - x) ? c : best, colStarts[0]);
+
+  // 排序:先由上往下、同一排再由左往右(跟紙上的閱讀順序一樣)
+  anchors.sort((a, b) => (Math.abs(a.top - b.top) < 3 ? a.x - b.x : a.top - b.top));
+
+  return anchors.map(a => {
+    const col = colOf(a.x);
+    const colIdx = colStarts.slice().sort((p, q) => p - q).indexOf(col);
+    const nextCol = colStarts.filter(c => c > col).sort((p, q) => p - q)[0] ?? Infinity;
+    const below = anchors.filter(o => colOf(o.x) === col && o.top > a.top + 3).map(o => o.top);
+    const bandEnd = below.length ? Math.min(...below) : Infinity;
+    const mine = items.filter(o => o.top >= a.top - 20 && o.top < bandEnd && o.x >= col - 10 && o.x < nextCol - 10);
+    // 物流單號優先看「寄件編號」那一行自己的值(緊接在後面那一片),不要把整張標籤的字黏在一起找 ——
+    // 黏起來的話,單號後面接著的其他數字(門市代號、條碼字)會被一起吃進去
+    const lbl = mine.find(o => /寄件編號/.test(o.str.replace(/\s+/g, "")));
+    let tracking = "";
+    if (lbl) {
+      const val = mine.filter(o => Math.abs(o.top - lbl.top) < 3 && o.x >= lbl.x).sort((p, q) => p.x - q.x)
+                      .map(o => o.str).join("").replace(/\s+/g, "");
+      const m = val.match(/寄件編號[:：]?([A-Z0-9]+)/) || val.match(/[:：]([A-Z0-9]+)/);
+      if (m) tracking = m[1];
+    }
+    if (!tracking) {
+      const bandText = mine.sort((p, q) => (p.top - q.top) || (p.x - q.x)).map(o => o.str).join(" ");
+      tracking = extractShopeeTracking(bandText);
+    }
+    return { orderSn: a.orderSn, tracking, top: a.top, x: a.x, col: colIdx, colX: col };
   });
 }
 
@@ -440,8 +463,12 @@ async function onShopeePdfFiles(files) {
           // 抓不到錨點的保底:整頁當一張標籤處理,維持舊行為
           pages.push({ index: i - 1, slot: 0, shiftTop: 0, orderSn: extractShopeeOrderSn(text), tracking: extractShopeeTracking(text) });
         } else {
+          // 位移以「最左上那張」為基準:往下幾排 → shiftTop,往右幾欄 → shiftLeft
+          const top0 = Math.min(...slots.map(x => x.top));
+          const left0 = Math.min(...slots.map(x => x.colX));
           slots.forEach((s, k) => {
-            pages.push({ index: i - 1, slot: k, shiftTop: s.top - slots[0].top, orderSn: s.orderSn, tracking: s.tracking });
+            pages.push({ index: i - 1, slot: k, shiftTop: s.top - top0, shiftLeft: s.colX - left0,
+                         orderSn: s.orderSn, tracking: s.tracking });
           });
         }
       }
@@ -484,6 +511,7 @@ function shopeeBuildJobs() {
         pdfIdx,
         pageIndex: p.index,
         shiftTop: p.shiftTop || 0,
+        shiftLeft: p.shiftLeft || 0,
         orderSn: p.orderSn || (order && order.orderSn) || "",
         tracking: p.tracking || (order && order.tracking) || "",
         order,
@@ -569,7 +597,6 @@ function renderShopeePreview() {
     // 對不到裝箱單 / 認不出品項的,清單上要有一個一眼看得到的驚嘆號,不能只靠底色
     const flag = r.miss ? "❗" : (r.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const key = shopeeJobKey(job);
-    const hide = shopeeNoInvoice.has(key);
     if (shopeeEditingUid === job.uid) {
       return "<div class=\"" + cls + " editing\">"
         + "<span class=\"shopee-pg\">" + tag + "</span>"
@@ -598,15 +625,7 @@ function renderShopeePreview() {
       +   (r.edited ? "✎ " : "") + escapeHtml(r.lines.join("　")) + "</span>"
       + "<button class=\"shopee-edit-btn\" title=\"手動改這一張要印的文字\""
       +   " onclick=\"startShopeeEdit('" + escapeHtml(job.uid) + "')\">編輯</button>"
-      + "<label class=\"shopee-noinv\" title=\"勾了這張就不印金額,改印「不印發票」\">"
-      +   "<input type=\"checkbox\" class=\"zoned-checkbox\"" + (hide ? " checked" : "")
-      +   " onchange=\"toggleShopeeNoInvoice('" + escapeHtml(key) + "', this.checked); renderShopeePreview();\">"
-      +   "不印發票"
-      + "</label>"
-      // 畫面上還是看得到金額(內部用),只是劃掉表示「這張不會印出來」——
-      // 直接顯示「不印發票」的話跟左邊的勾選字重複,也少了對帳用的數字
-      + "<span class=\"shopee-total" + (hide ? " muted" : "") + "\">"
-      +   (r.total ? "$" + r.total : "") + "</span>"
+      // 金額不印也不顯示(2026-10-19 起手寫,報表金額有蝦幣折抵對不上)
       + "<button class=\"shopee-del\" title=\"這張不印\""
       +   " onclick=\"removeShopeeJob('" + escapeHtml(job.uid) + "')\">✕</button>"
       + "</div>";
@@ -622,8 +641,7 @@ function renderShopeePreview() {
   if (nolabel) bits.push(nolabel + " 筆沒有熱感應標籤(改印物流單號)");
   if (miss) bits.push(miss + " 頁對不到裝箱單");
   if (unknown) bits.push(unknown + " 頁有認不出來的品項");
-  const hidden = jobs.filter(j => shopeeNoInvoice.has(shopeeJobKey(j))).length;
-  if (hidden) bits.push(hidden + " 張不印發票");
+
   if (shopeeRemoved.size) bits.push("已拿掉 " + shopeeRemoved.size + " 頁");
   const editedCount = jobs.filter(j => shopeeEdited.has(j.uid)).length;
   if (editedCount) bits.push(editedCount + " 張手改過文字");
@@ -718,12 +736,14 @@ async function generateShopeeLabels() {
           // 裁掉標籤以外的空白(boundingBox 用來源頁的左下角座標系,所以 top/bottom 要翻)。
           // shiftTop:一頁塞了不只一張標籤時,第 2+ 張要往下位移對應的距離才裁得到自己
           // (見 extractShopeeLabelSlots),第一張 shiftTop=0,行為跟以前完全一樣
+          // shiftLeft:2×2 排法右邊那一欄要往右位移才裁得到(左欄是 0)
           const shift = job.shiftTop || 0;
+          const shiftX = job.shiftLeft || 0;
           const cropTop = Math.min(SHOPEE_SRC_LABEL.top + shift, sh);
           const cropBottom = Math.min(SHOPEE_SRC_LABEL.bottom + shift, sh);
           const crop = {
-            left:   SHOPEE_SRC_LABEL.left,
-            right:  Math.min(SHOPEE_SRC_LABEL.right, sw),
+            left:   Math.min(SHOPEE_SRC_LABEL.left + shiftX, sw),
+            right:  Math.min(SHOPEE_SRC_LABEL.right + shiftX, sw),
             bottom: sh - cropBottom,
             top:    sh - cropTop,
           };
@@ -750,11 +770,9 @@ async function generateShopeeLabels() {
           });
           y += size + SHOPEE_NOLABEL.gap;
         };
-        put(SHOPEE_NOLABEL.title, SHOPEE_NOLABEL.trackSize);
-        put("物流單號", SHOPEE_NOLABEL.labelSize);
-        put(job.tracking || "(裝箱單沒有物流單號)", SHOPEE_NOLABEL.trackSize);
+        // 對不上寄件單(沒有熱感應標籤)的:只寫訂單編號,品項在上半照印(使用者 2026-10-19 指定)
         put("訂單編號", SHOPEE_NOLABEL.labelSize);
-        put(job.orderSn || "", SHOPEE_NOLABEL.snSize);
+        put(job.orderSn || job.tracking || "", SHOPEE_NOLABEL.trackSize);
       }
 
       // ---- 上半部:明細 + 總金額 ----
@@ -777,15 +795,8 @@ async function generateShopeeLabels() {
         });
       });
 
-      // 「總金額」三個字不印,只留數字(使用者 2026-09-22 指定) —— 那個位置只會出現金額,
-      // 標題是廢話。勾了不印發票的就換成「不印發票」四個字,不是留白
-      const noInvoice = shopeeNoInvoice.has(shopeeJobKey(job));
-      const amount = sanitizeCode(noInvoice ? "不印發票" : String(detail.total || 0));
-      page.drawText(amount, {
-        x: SHOPEE_TOTAL.valueRight - font.widthOfTextAtSize(amount, SHOPEE_TOTAL.valueSize),
-        y: fromTop(SHOPEE_TOTAL.top + SHOPEE_TOTAL.valueSize),
-        size: SHOPEE_TOTAL.valueSize, font, color: PDFLib.rgb(0, 0, 0),
-      });
+      // 金額不印(使用者 2026-10-19):有人用蝦幣折抵,報表上的金額跟實付對不上,改成手寫。
+      // 金額那個位置留空給人寫,左邊的「蝦皮」照印
 
       // 平台註記:印在金額同一行的左邊(那裡本來空著,不會壓到品項)。
       // 官網訂單用同一種紙,不註記的話印出來分不出是哪個平台的單
