@@ -11,7 +11,13 @@
 // ===================================================================
 const PINKOI_TAG = "Pinkoi";
 const PINKOI_SENDER_NAME = "Pinkoi-泥研製所";   // 黑貓單上的寄件人,跟 LINE、官網分得開
+// Pinkoi 的配送方式(2026-10-19 使用者提供):黑貓宅配、7-11取貨、全家取貨、7-11 取貨付款、
+// 順豐速運、Pinkoi 跨境直送 - 特快型、中華郵政 - 國際航空包裹
+//   → 黑貓宅配 要產黑貓上傳表;順豐速運「寄往台灣」也改用黑貓寄(印黑貓單),寄國外的不印黑貓單
+//   → 超商取貨、跨境直送、國際包裹只印出貨單
 const PINKOI_BCAT_RE = /黑貓|宅配|宅急便/;       // 這些送貨方式要產黑貓上傳表
+const PINKOI_SF_RE = /順豐/;                      // 順豐:寄往台灣才改黑貓
+function pinkoiIsTaiwan(region) { return !region || /台灣|臺灣|taiwan/i.test(region); }
 let pinkoiOrders = [];
 let pinkoiFormat = "bcat";
 
@@ -85,6 +91,7 @@ function parsePinkoiRows(rows) {
         name: r["收件人姓名"] || "",
         phone: pinkoiPhone(r["收件人電話"]),
         address: r["收件人地址"] || "",
+        region: r["運送地區"] || "",
         store: pinkoiStore(r["收件人地址"] || ""),
         note: r["購買人備註"] || "",
         total: 0,
@@ -108,7 +115,11 @@ function parsePinkoiRows(rows) {
   const orders = [...map.values()];
   orders.forEach(o => {
     o.cod = WEB_COD_RE.test(o.ship) || WEB_COD_RE.test(o.payMethod);
-    o.isBcat = PINKOI_BCAT_RE.test(o.ship);
+    o.isBcat = PINKOI_BCAT_RE.test(o.ship) || (PINKOI_SF_RE.test(o.ship) && pinkoiIsTaiwan(o.region));
+    // 順豐寄台灣其實是用黑貓寄,出貨單上也要寫黑貓,不然包貨的人會以為要交給順豐
+    if (PINKOI_SF_RE.test(o.ship) && o.isBcat) o.ship = "黑貓宅配(原選順豐)";
+    // 寄國外的:門市那一行改印「寄往 香港」,包貨時一眼看出是國際件
+    if (!pinkoiIsTaiwan(o.region) && !o.store) o.store = "寄往 " + o.region;
     o.hideAmount = !!o.carrier;   // 有載具 → 不印金額
     o.blocked = o.refunded ? "已全額退款" : (/取消/.test(o.status) ? "訂單" + o.status : "");
     o.unknown = o.items.some(i => i.unknown);
@@ -126,6 +137,7 @@ async function onPinkoiFile(file) {
     const missing = need.filter(c => !(c in rows[0]));
     if (missing.length) throw new Error("這不像 Pinkoi 訂單報表,缺少欄位:" + missing.join("、"));
     pinkoiOrders = parsePinkoiRows(rows);
+    clearOrderEdits("pinkoi");
     const d = document.getElementById("pinkoiFileDisplay");
     d.textContent = file.name + "(" + pinkoiOrders.length + " 筆訂單)";
     d.classList.remove("empty"); d.classList.add("has-file");
@@ -147,14 +159,14 @@ function renderPinkoiPreview() {
   box.innerHTML = pinkoiOrders.map(o => {
     const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
     const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");
-    const codes = o.blocked ? "擋下:" + o.blocked + ",不印出貨單" : o.items.map(i => i.code).join("　");
+    const blockedText = o.blocked ? "擋下:" + o.blocked + ",不印出貨單" : "";
     const inv = [o.carrier ? "載具(不印金額)" : "", o.taxId ? "統編 " + o.taxId : ""].filter(Boolean).join("・");
     return "<div class=\"" + cls + "\">"
       + "<span class=\"shopee-flag\">" + flag + "</span>"
       + "<span class=\"shopee-sn\">" + escapeHtml(o.id) + "</span>"
       + "<span class=\"web-ship\">" + escapeHtml(o.ship) + "<br><small>" + escapeHtml(o.store || o.payMethod) + "</small></span>"
-      + "<span class=\"shopee-code\">" + escapeHtml(codes)
-      +   (inv ? "<br><small class=\"pk-inv\">" + escapeHtml(inv) + "</small>" : "") + "</span>"
+      + orderEditCell("pinkoi", o, blockedText)
+      + (inv ? "<small class=\"pk-inv\">" + escapeHtml(inv) + "</small>" : "")
       + "<span class=\"shopee-total" + (o.hideAmount ? " muted" : "") + "\">$" + o.total + "</span>"
       + "</div>";
   }).join("");
@@ -182,7 +194,7 @@ function downloadPinkoiBcat() {
     "收件人姓名": o.name,
     "收件人聯絡電話": o.phone,
     "配送地址": o.address,
-    "_備註": o.items.map(i => i.compact).join("、"),
+    "_備註": orderLines("pinkoi", o).join("、"),
     "_代收金額": o.cod ? o.total : "",
     "_類別": null,
   }));
@@ -204,7 +216,7 @@ async function generatePinkoiLabels() {
   if (!jobs.length) return;
   if (btn) { btn.disabled = true; btn.textContent = "產生中…"; }
   try {
-    const { bytes, overflow } = await buildOrderLabelsPdf(jobs, PINKOI_TAG, pinkoiFormat);
+    const { bytes, overflow } = await buildOrderLabelsPdf(withOrderEdits("pinkoi", jobs), PINKOI_TAG, pinkoiFormat);
     const name = "Pinkoi出貨單_" + (pinkoiFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     const skipped = pinkoiOrders.length - jobs.length;

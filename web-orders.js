@@ -138,6 +138,7 @@ async function onWebFile(file) {
     const missing = need.filter(c => !(c in rows[0]));
     if (missing.length) throw new Error("這不像官網訂單報表,缺少欄位:" + missing.join("、"));
     webOrders = parseWebRows(rows);
+    clearOrderEdits("web");
     webFileName = file.name;
     const d = document.getElementById("webFileDisplay");
     d.textContent = file.name + "(" + webOrders.length + " 筆訂單)";
@@ -166,13 +167,12 @@ function renderWebPreview() {
     const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
     const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const pay = o.payMethod + (o.cod ? "" : "(" + o.payStatus + ")");
-    const codes = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單、不印出貨單"
-                            : o.items.map(i => i.code).join("　");
+    const blockedText = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單、不印出貨單" : "";
     return "<div class=\"" + cls + "\">"
       + "<span class=\"shopee-flag\">" + flag + "</span>"
       + "<span class=\"shopee-sn\">" + escapeHtml(o.id) + "</span>"
       + "<span class=\"web-ship\">" + escapeHtml(o.ship) + "<br><small>" + escapeHtml(pay) + "</small></span>"
-      + "<span class=\"shopee-code\">" + escapeHtml(codes) + "</span>"
+      + orderEditCell("web", o, blockedText)
       + "<span class=\"shopee-total\">$" + o.total + "</span>"
       + "</div>";
   }).join("");
@@ -193,7 +193,7 @@ function downloadWebBcat() {
     "收件人姓名": o.name,
     "收件人聯絡電話": o.phone,
     "配送地址": o.address,
-    "_備註": o.items.map(i => i.compact).join("、"),   // 品項裡已經有空白(… x1),改用頓號分隔才分得清
+    "_備註": orderLines("web", o).join("、"),   // 手改過就用手改的;品項裡已經有空白(… x1),用頓號分隔
     "_代收金額": o.cod ? o.total : "",
     "_類別": null,
   }));
@@ -341,7 +341,7 @@ async function generateWebLabels() {
   if (!jobs.length) return;
   if (btn) { btn.disabled = true; btn.textContent = "產生中…"; }
   try {
-    const { bytes, overflow } = await buildOrderLabelsPdf(jobs, WEB_PLATFORM_TAG, webFormat);
+    const { bytes, overflow } = await buildOrderLabelsPdf(withOrderEdits("web", jobs), WEB_PLATFORM_TAG, webFormat);
     const name = "官網出貨單_" + (webFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     const skipped = webOrders.length - jobs.length;
