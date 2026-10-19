@@ -42,6 +42,7 @@ const GC_KEY = "guideCatLastAck";
 
 const GC_CALL_SKIP_KEY = "guideCatCallSkip";   // 按「今天先不打」的日期
 const GC_CALL_NOTIFIED_KEY = "guideCatCallNotified";   // 今天的打電話通知跳過了沒(一天只跳一次)
+const GC_PLATFORM_CHECK_KEY = "guideCatPlatformCheck";   // 今天已經「已檢查」的平台 id({date, ids:[...]}),隔天自動重置
 let gcCalls = 0;                                  // 今天還要打幾筆
 let gcTip = -1;
 let gcReminding = false;
@@ -165,6 +166,28 @@ function gcCallSkippedToday() {
   try { return localStorage.getItem(GC_CALL_SKIP_KEY) === gcTodayKey(); } catch (e) { return false; }
 }
 
+// 平台檢查清單:每天要把 PLATFORMS 裡每個平台都點過「已檢查」,隔天自動重新全部變成未檢查
+function gcCheckedPlatformIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GC_PLATFORM_CHECK_KEY) || "null");
+    if (raw && raw.date === gcTodayKey() && Array.isArray(raw.ids)) return new Set(raw.ids);
+  } catch (e) {}
+  return new Set();
+}
+function gcSetPlatformChecked(id) {
+  const ids = gcCheckedPlatformIds();
+  ids.add(id);
+  try { localStorage.setItem(GC_PLATFORM_CHECK_KEY, JSON.stringify({ date: gcTodayKey(), ids: [...ids] })); } catch (e) {}
+}
+function gcUncheckedPlatforms() {
+  const checked = gcCheckedPlatformIds();
+  return PLATFORMS.filter(p => !checked.has(p.id));
+}
+function gcTogglePlatformChecked(id) {
+  gcSetPlatformChecked(id);
+  gcIdle();
+}
+
 function gcIdle() {
   gcReminding = false;
   const el = document.getElementById("guideCat");
@@ -173,6 +196,7 @@ function gcIdle() {
   // 蝦皮提醒優先;沒有的話,今天還有退貨要打電話就講這個
   if (gcCalls > 0 && !gcCallSkippedToday() && gcCanRemind()) {
     el.classList.add("call");
+    el.classList.remove("platcheck");
     gcSay(`<b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
       <span class="gc-btns">
         <button type="button" class="gc-btn" onclick="gcGoReturns()">去包裹退貨</button>
@@ -181,6 +205,15 @@ function gcIdle() {
     return;
   }
   el.classList.remove("call");
+  // 打電話的沒有的話,看看今天還有哪些平台沒點「已檢查」
+  const unchecked = gcUncheckedPlatforms();
+  if (unchecked.length > 0 && gcCanRemind()) {
+    el.classList.add("platcheck");
+    gcSay(`<b class="gc-remind-title">檢查新訂單</b>還沒檢查的平台:
+      <span class="gc-plat-list">${unchecked.map(p => `<button type="button" class="gc-plat-chip" onclick="gcTogglePlatformChecked('${p.id}')">☐ ${escapeHtml(p.name)}</button>`).join("")}</span>`);
+    return;
+  }
+  el.classList.remove("platcheck");
   gcSay('我是出貨小助手<br>點我看小提醒');
 }
 
@@ -260,19 +293,30 @@ function gcTestCall() {
   gcIdle();
 }
 
+// 測試用:網址後面加 #test-platcheck,假裝今天所有平台都還沒檢查
+function gcTestPlatCheck() {
+  gcTestMode = true;
+  try { localStorage.removeItem(GC_PLATFORM_CHECK_KEY); } catch (e) {}
+  gcCalls = 0;
+  gcReminding = false;
+  gcIdle();
+}
+
 // 每分鐘跑一次。下班時間:還亮著的提醒安靜收掉(不算「看過了」,所以隔天 9:00 一上班就會提醒);
 // 上班時間:最近一個提醒時段之後還沒人按過「看過了」就提醒;打電話的泡泡也在 9:00 一到就出現
 function gcCheck() {
+  const el = document.getElementById("guideCat");
   if (!gcCanRemind()) {
-    if (gcReminding || document.getElementById("guideCat").classList.contains("call")) gcIdle();
+    if (gcReminding || el.classList.contains("call") || el.classList.contains("platcheck")) gcIdle();
     return;
   }
   const slot = gcCurrentSlot();
   if (slot && gcLastAck() < slot.getTime()) gcRemind();
   else if (!gcReminding) {
-    // 只有打電話泡泡該出現/該消失時才重畫,不然會把正在看的小提醒洗掉
-    const want = gcCalls > 0 && !gcCallSkippedToday();
-    if (want !== document.getElementById("guideCat").classList.contains("call")) gcIdle();
+    // 只有泡泡該出現/該消失時才重畫,不然會把正在看的小提醒洗掉
+    const wantCall = gcCalls > 0 && !gcCallSkippedToday();
+    const wantPlat = !wantCall && gcUncheckedPlatforms().length > 0;
+    if (wantCall !== el.classList.contains("call") || wantPlat !== el.classList.contains("platcheck")) gcIdle();
     gcNotifyCalls();
   }
 }
@@ -299,8 +343,9 @@ function setupGuideCat() {
     if (location.hash === "#test-remind") gcTestRemind();
     else if (location.hash === "#test-call") gcTestCall();
     else if (location.hash === "#test-notify") gcTestNotify();
+    else if (location.hash === "#test-platcheck") gcTestPlatCheck();
   };
-  if (["#test-remind", "#test-call", "#test-notify"].includes(location.hash)) runTest();
+  if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck"].includes(location.hash)) runTest();
   else gcCheck();
   setInterval(gcCheck, 60 * 1000);
   window.addEventListener("hashchange", runTest);
