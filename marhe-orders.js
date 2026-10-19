@@ -137,7 +137,8 @@ function downloadMarheBcat() {
     "收件人姓名": o.name,
     "收件人聯絡電話": o.phone,
     "配送地址": o.address,
-    "_備註": orderLines("marhe", o).join("、") + (o.note ? "・" + o.note : ""),
+    // 使用者 2026-10-19 指定:黑貓單的備註只放品項,不要把客人寫的訂單備註(生日禮物…)也印上去
+    "_備註": orderLines("marhe", o).join("、"),
     "_代收金額": "",   // 這份報表沒看到貨到付款的資訊,先留空;真的遇到再補
     "_類別": null,
   }));
