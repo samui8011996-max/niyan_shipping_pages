@@ -2173,6 +2173,12 @@
         <span class="stats-title">逐頁預覽(列印前先看一下代號對不對)</span>
         <button id="shopeeRestoreBtn" class="btn btn-secondary btn-small"
                 style="display: none; margin-left: 12px;" onclick="restoreShopeeJobs()">復原</button>
+        <label style="display: flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; user-select: none; font-size: 13px;"
+               title="送禮的客人不想讓收禮的人看到價錢時勾起來,金額那格會印「不印發票」">
+          <input type="checkbox" id="shopeeNoInvoiceAll" class="zoned-checkbox"
+                 onchange="toggleShopeeNoInvoiceAll(this.checked)">
+          全部不印發票
+        </label>
       </div>
       <div id="shopeePreview" class="problem-list"></div>
 

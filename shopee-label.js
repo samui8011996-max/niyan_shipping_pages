@@ -38,7 +38,7 @@ const SHOPEE_PAGE = { w: 95 * MM, h: 193 * MM };          // 269.3 x 547.1 pt
 const SHOPEE_ITEMS = {
   x1: 26.1, x2: 150.0, colW: 93.2,
   fullW: 243.2 - 26.1,           // 排成一欄時可以用滿整個寬度
-  top: 18, maxBottom: 140,
+  top: 24, maxBottom: 140,   // 最上面留一行給訂單編號(2026-10-19)
   size: 12, lineRatio: 19.6 / 12, minSize: 5,
 };
 
@@ -625,7 +625,12 @@ function renderShopeePreview() {
       +   (r.edited ? "✎ " : "") + escapeHtml(r.lines.join("　")) + "</span>"
       + "<button class=\"shopee-edit-btn\" title=\"手動改這一張要印的文字\""
       +   " onclick=\"startShopeeEdit('" + escapeHtml(job.uid) + "')\">編輯</button>"
-      // 金額不印也不顯示(2026-10-19 起手寫,報表金額有蝦幣折抵對不上)
+      + "<label class=\"shopee-noinv\" title=\"勾了這張,金額那格印「不印發票」\">"
+      +   "<input type=\"checkbox\" class=\"zoned-checkbox\"" + (shopeeNoInvoice.has(key) ? " checked" : "")
+      +   " onchange=\"toggleShopeeNoInvoice('" + escapeHtml(key) + "', this.checked); renderShopeePreview();\">"
+      +   "不印發票"
+      + "</label>"
+      // 金額不顯示也不印(2026-10-19 起手寫,報表金額有蝦幣折抵對不上)
       + "<button class=\"shopee-del\" title=\"這張不印\""
       +   " onclick=\"removeShopeeJob('" + escapeHtml(job.uid) + "')\">✕</button>"
       + "</div>";
@@ -638,10 +643,12 @@ function renderShopeePreview() {
   if (btn) btn.disabled = !jobs.length;
 
   const bits = [jobs.length + " 頁"];
-  if (nolabel) bits.push(nolabel + " 筆沒有熱感應標籤(改印物流單號)");
+  if (nolabel) bits.push(nolabel + " 筆對不上寄件單(只印訂單編號)");
   if (miss) bits.push(miss + " 頁對不到裝箱單");
   if (unknown) bits.push(unknown + " 頁有認不出來的品項");
 
+  const noInvCount = jobs.filter(j => shopeeNoInvoice.has(shopeeJobKey(j))).length;
+  if (noInvCount) bits.push(noInvCount + " 張不印發票");
   if (shopeeRemoved.size) bits.push("已拿掉 " + shopeeRemoved.size + " 頁");
   const editedCount = jobs.filter(j => shopeeEdited.has(j.uid)).length;
   if (editedCount) bits.push(editedCount + " 張手改過文字");
@@ -726,6 +733,12 @@ async function generateShopeeLabels() {
         page.drawText(sanitizeCode(job.orderSn || job.tracking || ""), {
           x: SHOPEE_ITEMS.x1, y: fromTop(26 + 16), size: 16, font, color: PDFLib.rgb(0, 0, 0),
         });
+      } else if (job.kind === "label") {
+        // 黑貓熱感應紙:有寄件單的也在最上面印訂單編號(使用者 2026-10-19 指定),小字一行,品項接在下面。
+        // 沒寄件單的那種下半部本來就有大字訂單編號,不重複印
+        page.drawText(sanitizeCode("訂單編號 " + (job.orderSn || job.tracking || "")), {
+          x: SHOPEE_ITEMS.x1, y: fromTop(6 + 10), size: 10, font, color: PDFLib.rgb(0, 0, 0),
+        });
       }
 
       // ---- 下半部(4x6 是第 2 張):有標籤就貼標籤,沒有就印大字物流單號 ----
@@ -796,7 +809,15 @@ async function generateShopeeLabels() {
       });
 
       // 金額不印(使用者 2026-10-19):有人用蝦幣折抵,報表上的金額跟實付對不上,改成手寫。
-      // 金額那個位置留空給人寫,左邊的「蝦皮」照印
+      // 金額那個位置平常留空給人寫;勾了「不印發票」的印「不印發票」四個字
+      if (shopeeNoInvoice.has(shopeeJobKey(job))) {
+        const noInv = sanitizeCode("不印發票");
+        page.drawText(noInv, {
+          x: SHOPEE_TOTAL.valueRight - font.widthOfTextAtSize(noInv, SHOPEE_TOTAL.valueSize),
+          y: fromTop(SHOPEE_TOTAL.top + SHOPEE_TOTAL.valueSize),
+          size: SHOPEE_TOTAL.valueSize, font, color: PDFLib.rgb(0, 0, 0),
+        });
+      }
 
       // 平台註記:印在金額同一行的左邊(那裡本來空著,不會壓到品項)。
       // 官網訂單用同一種紙,不註記的話印出來分不出是哪個平台的單
