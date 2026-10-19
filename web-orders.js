@@ -272,8 +272,9 @@ async function buildOrderLabelsPdf(orders, tag, fmt) {
     put(ship, y, shipSize);
     y += shipSize + 8;
 
-    // 付款方式一樣拿掉「C2C」:「全家 C2C 取貨付款」→「全家 取貨付款」
-    const pay = sanitizeCode(webNorm(o.payMethod).replace(/\s*C2C\s*/i, " ").trim());
+    // 付款:已經付過的(Apple Pay、信用卡、轉帳…)一律寫「已付款」,不用管是哪一種(使用者 2026-10-19 指定);
+    // 只有取貨付款/貨到付款才寫實際方式(要收錢)。一樣拿掉「C2C」:「全家 C2C 取貨付款」→「全家 取貨付款」
+    const pay = sanitizeCode(o.cod ? webNorm(o.payMethod).replace(/\s*C2C\s*/i, " ").trim() : "已付款");
     put(pay, y, webFitSize(font, pay, W, L.paySize, 10));
     y += L.paySize + 6;
 
