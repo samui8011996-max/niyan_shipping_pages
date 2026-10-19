@@ -42,13 +42,14 @@ function webSize(sz, style) {
 const WEB_SKU_RULES = [
   // 胖胖招財招福貓(三個賣場的貨號前綴不同,規則一樣)
   [/^(?:FAT|FATCAT|FATCATF)-([A-Z]+)-(S|M|L|XL)-(GOLD|FU|PAIR)$/,
-    m => ["胖胖貓" + webSize(m[2], m[3]), WEB_COLORS[m[1]] + WEB_STYLES[m[3]]]],
+    // 同色一對寫「胖胖貓(小)黃一對」(使用者 2026-10-19 指定,跟蝦皮、Pinkoi 一致)
+    m => ["胖胖貓" + webSize(m[2]), WEB_COLORS[m[1]] + (m[3] === "PAIR" ? "一對" : WEB_STYLES[m[3]])]],
   // 巨物胖胖貓(15cm)
   [/^GIANT-CHUBBY-([A-Z]+)-(GOLD|FORTUNE)$/,
     m => ["胖胖貓(巨)", WEB_COLORS[m[1]] + WEB_STYLES[m[2]]]],
   // 好運成對:第一個顏色是金運那隻、第二個是招福那隻,含木片底座
   [/^FATPAIR-(M|L)-([A-Z]+)-([A-Z]+)$/,
-    m => ["胖胖貓" + webSize(m[1], "PAIR"), WEB_COLORS[m[2]] + "金+" + WEB_COLORS[m[3]] + "福", "+木"]],
+    m => ["胖胖貓" + webSize(m[1]), WEB_COLORS[m[2]] + "金+" + WEB_COLORS[m[3]] + "福", "+木"]],   // 兩隻不同色,要分金/福
   // 好運禮盒:小胖胖貓 + 護手霜 / + 精油(含木片底座)
   [/^GIFT-CREAM-([A-Z]+)-(GOLD|FU)$/,
     m => ["胖胖貓(小)", WEB_COLORS[m[1]] + WEB_STYLES[m[2]], "+霜"]],
