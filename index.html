@@ -737,6 +737,7 @@
   .fmt-pill.active { background: var(--accent); color: #fff; font-weight: 600; }
   .web-ship { flex: 0 0 150px; font-size: 13px; color: var(--text); line-height: 1.4; }
   .web-ship small { color: var(--text-dim); font-size: 12px; }
+  .pk-inv { color: var(--warn); font-weight: 700; font-size: 12px; }
   .shopee-flag {
     flex: 0 0 18px; font-size: 14px; line-height: 1;
   }
@@ -2183,6 +2184,47 @@
 
     </div>
 
+    <!-- ================ Pinkoi 出貨單(pinkoi-orders.js) ================ -->
+    <div id="tab-pinkoi" class="tab-panel">
+
+      <section class="card">
+        <div class="card-label">Pinkoi 訂單報表</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          丟 Pinkoi 後台匯出的訂單報表(例如 20261019-0901-cement-niyan.csv)。<br>
+          <strong style="color: var(--text);">有電子發票載具的不印金額;有統編的會把統編印上去。</strong>已全額退款的不印。<br>
+          宅配(黑貓)的訂單可以下載黑貓出貨表,貨到付款會自動填代收金額。
+        </p>
+        <div class="file-row">
+          <div id="pinkoiFileDisplay" class="file-display empty">尚未選擇檔案…</div>
+          <input type="file" id="pinkoiInput" class="file-input-hidden" accept=".csv,.tsv,.txt">
+          <button class="btn btn-secondary" onclick="document.getElementById('pinkoiInput').click()">
+            選擇檔案…
+          </button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button id="pinkoiBcatBtn" class="btn btn-primary" disabled onclick="downloadPinkoiBcat()">
+          下載黑貓出貨表
+        </button>
+        <button id="pinkoiLabelBtn" class="btn btn-lavender" disabled onclick="generatePinkoiLabels()">
+          產生出貨單 PDF
+        </button>
+        <select id="pinkoiFormatPills" class="fmt-select" aria-label="紙張格式" title="紙張格式" onchange="setPinkoiFormat(this.value)">
+          <option value="bcat">黑貓熱感應 95×193</option>
+          <option value="4x6">4×6</option>
+        </select>
+      </div>
+
+      <div id="pinkoiStatus" class="status">把 Pinkoi 訂單報表丟進來…</div>
+
+      <div class="stats-header" style="margin-top: 18px;">
+        <span class="stats-title">訂單預覽(⛔ 擋下來的不會印)</span>
+      </div>
+      <div id="pinkoiPreview" class="problem-list"></div>
+
+    </div>
+
     <!-- ================ Tab 4: 官網訂單 ================ -->
     <div id="tab-web" class="tab-panel">
 
@@ -2295,6 +2337,7 @@
 <script src="shopee-label.js"></script>
 <script src="web-shortcode.js"></script>
 <script src="web-orders.js"></script>
+<script src="pinkoi-orders.js"></script>
 <script src="abbr-tool.js"></script>
 <script src="split-button.js"></script>
 <script src="guide-cat.js"></script>

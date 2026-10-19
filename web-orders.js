@@ -229,94 +229,119 @@ function webWrap(font, text, size, maxW) {
   return lines;
 }
 
+// ===================================================================
+// 熱感應出貨單(官網、Pinkoi 共用同一個版面)
+//   orders: [{ id, ship, payMethod, cod, store, total, note, items:[{compact}],
+//              hideAmount?, taxId?, taxTitle? }]
+//   tag   : 送貨方式前面的平台名(官網 / Pinkoi)
+//   fmt   : "bcat"(黑貓熱感應 95x193) / "4x6"
+// hideAmount:有電子發票載具的單不印金額(Pinkoi);taxId:有統編就印在金額上面
+// ===================================================================
+async function buildOrderLabelsPdf(orders, tag, fmt) {
+  await ensureShopeeLibs();
+  const out = await PDFLib.PDFDocument.create();
+  out.registerFontkit(window.fontkit);
+  const font = await out.embedFont(await ensureShopeeFont(), { subset: false });   // 原因見 shopee-label.js
+  const L = WEB_FORMATS[fmt] || WEB_FORMATS.bcat;
+  const W = L.right - L.x;
+  const black = PDFLib.rgb(0, 0, 0);
+  let overflow = 0;
+
+  for (const o of orders) {
+    const page = out.addPage([L.pageW, L.pageH]);
+    const fromTop = y => L.pageH - y;
+    const put = (text, top, size) => {
+      page.drawText(text, { x: L.x, y: fromTop(top + size), size, font, color: black });
+    };
+
+    // ---- 上半:訂單編號 → 送貨方式(最大)→ 付款方式 → 門市 ----
+    // 黑貓紙:全部要擠在中間印刷區(SHOPEE_GAP.top=185)以上,最多的情況(超商取貨付款)約排到 172
+    let y = L.top;
+    put(sanitizeCode("訂單編號"), y, L.snLabelSize);
+    y += L.snLabelSize + 3;
+    const sn = sanitizeCode(o.id);
+    const snSize = webFitSize(font, sn, W, L.snSize, 10);
+    put(sn, y + (L.snSize - snSize), snSize);   // 縮小的話底部對齊
+    y += L.snSize + 8;
+
+    // 「黑貓-常溫」只寫「黑貓」(常溫是預設,寫了只是佔位置);貨到付款那種保留括號。
+    // 超商的「(C2C)」也拿掉:「全家 取貨付款 (C2C)」→「全家 取貨付款」
+    const ship = sanitizeCode(tag + " "
+      + webNorm(o.ship).replace(/-常溫/, "").replace(/\s*\(C2C\)/i, ""));
+    const shipSize = webFitSize(font, ship, W, L.shipSize, 12);
+    put(ship, y, shipSize);
+    y += shipSize + 8;
+
+    // 付款方式一樣拿掉「C2C」:「全家 C2C 取貨付款」→「全家 取貨付款」
+    const pay = sanitizeCode(webNorm(o.payMethod).replace(/\s*C2C\s*/i, " ").trim());
+    put(pay, y, webFitSize(font, pay, W, L.paySize, 10));
+    y += L.paySize + 6;
+
+    // 超商取貨印門市名稱,現場分袋比較好認
+    if (o.store) {
+      const st = sanitizeCode(webNorm(o.store));
+      put(st, y, webFitSize(font, st, W, L.storeSize, 8));
+      y += L.storeSize + 6;
+    }
+
+    // 黑貓紙:SHOPEE_GAP(中間印刷區)刻意留白,品項從印刷區下面開始;4x6 直接接著排
+    const itemsTop = L.itemsTop ?? (y + 14);
+
+    // ---- 下半:品項簡稱 →(往下)… 訂單備註 → 統編 → 金額(固定右下角) ----
+    // 金額固定在右下角、字不要太大(使用者 2026-10-15 指定),備註寫在金額上面。
+    // 貨到付款/取貨付款寫「代收金額」—— 要收的錢跟訂單金額是同一個數字,不重複印兩行
+    let bottomTop = L.bottom;   // 往上堆:金額 → 統編 → 備註
+    if (!o.hideAmount) {
+      const amount = sanitizeCode((o.cod ? "代收金額 $" : "訂單金額 $") + o.total);
+      page.drawText(amount, {
+        x: L.right - font.widthOfTextAtSize(amount, L.totalSize),
+        y: fromTop(L.bottom), size: L.totalSize, font, color: black,
+      });
+      bottomTop = L.bottom - L.totalSize - 8;
+    }
+    // 有統編:印在金額上面、靠右(開發票要用,一眼要看得到)
+    if (o.taxId) {
+      const tax = sanitizeCode("統編 " + o.taxId + (o.taxTitle ? " " + webNorm(o.taxTitle) : ""));
+      const tSize = webFitSize(font, tax, W, L.totalSize, 9);
+      page.drawText(tax, {
+        x: L.right - font.widthOfTextAtSize(tax, tSize),
+        y: fromTop(bottomTop), size: tSize, font, color: black,
+      });
+      bottomTop -= tSize + 8;
+    }
+
+    const note = o.note ? sanitizeCode("備註:" + webNorm(o.note)) : "";
+    const noteLines = note ? webWrap(font, note, L.noteSize, W) : [];
+    const noteH = noteLines.length * L.noteSize * 1.4;
+    const noteTop = bottomTop - noteH;
+    let ny = noteTop;
+    noteLines.forEach(t => { put(t, ny, L.noteSize); ny += L.noteSize * 1.4; });
+
+    const itemsBottom = Math.min(L.itemsBottom, noteTop - 8);
+    const lines = o.items.map(i => sanitizeCode(i.compact));
+    const avail = itemsBottom - itemsTop;
+    let size = L.itemSize;
+    while (size > L.itemMin && (lines.length * size * L.lineRatio > avail
+           || lines.some(t => font.widthOfTextAtSize(t, size) > W))) size -= 0.25;
+    const lh = size * L.lineRatio;
+    if (lines.length * lh > avail) overflow++;
+    lines.forEach((t, i) => {
+      const top = itemsTop + lh * i;
+      if (top + lh > itemsBottom + 0.5) return;
+      put(t, top, size);
+    });
+  }
+
+  return { bytes: await out.save(), overflow };
+}
+
 async function generateWebLabels() {
   const btn = document.getElementById("webLabelBtn");
   const jobs = webOrders.filter(o => !o.blocked);
   if (!jobs.length) return;
   if (btn) { btn.disabled = true; btn.textContent = "產生中…"; }
   try {
-    await ensureShopeeLibs();
-    const out = await PDFLib.PDFDocument.create();
-    out.registerFontkit(window.fontkit);
-    const font = await out.embedFont(await ensureShopeeFont(), { subset: false });   // 原因見 shopee-label.js
-    const L = WEB_LABEL;
-    const W = L.right - L.x;
-    const black = PDFLib.rgb(0, 0, 0);
-    let overflow = 0;
-
-    for (const o of jobs) {
-      const page = out.addPage([L.pageW, L.pageH]);
-      const fromTop = y => L.pageH - y;
-      const put = (text, top, size) => {
-        page.drawText(text, { x: L.x, y: fromTop(top + size), size, font, color: black });
-      };
-
-      // ---- 上半:訂單編號 → 送貨方式(最大)→ 付款方式 → 門市 → 金額(獨立一行) ----
-      // 黑貓紙:全部要擠在中間印刷區(SHOPEE_GAP.top=185)以上,最多的情況(超商取貨付款)約排到 172
-      let y = L.top;
-      put(sanitizeCode("訂單編號"), y, L.snLabelSize);
-      y += L.snLabelSize + 3;
-      const sn = sanitizeCode(o.id);
-      const snSize = webFitSize(font, sn, W, L.snSize, 10);
-      put(sn, y + (L.snSize - snSize), snSize);   // 縮小的話底部對齊
-      y += L.snSize + 8;
-
-      // 「黑貓-常溫」只寫「黑貓」(常溫是預設,寫了只是佔位置);貨到付款那種保留括號。
-      // 超商的「(C2C)」也拿掉:「全家 取貨付款 (C2C)」→「全家 取貨付款」
-      const ship = sanitizeCode(WEB_PLATFORM_TAG + " "
-        + webNorm(o.ship).replace(/-常溫/, "").replace(/\s*\(C2C\)/i, ""));
-      const shipSize = webFitSize(font, ship, W, L.shipSize, 12);
-      put(ship, y, shipSize);
-      y += shipSize + 8;
-
-      // 付款方式一樣拿掉「C2C」:「全家 C2C 取貨付款」→「全家 取貨付款」
-      const pay = sanitizeCode(webNorm(o.payMethod).replace(/\s*C2C\s*/i, " ").trim());
-      put(pay, y, webFitSize(font, pay, W, L.paySize, 10));
-      y += L.paySize + 6;
-
-      // 超商取貨印門市名稱,現場分袋比較好認
-      if (o.store) {
-        const st = sanitizeCode(webNorm(o.store));
-        put(st, y, webFitSize(font, st, W, L.storeSize, 8));
-        y += L.storeSize + 6;
-      }
-
-      // 黑貓紙:SHOPEE_GAP(中間印刷區)刻意留白,品項從印刷區下面開始;4x6 直接接著排
-      const itemsTop = L.itemsTop ?? (y + 14);
-
-      // ---- 下半:品項簡稱 →(往下)… 訂單備註 → 金額(固定右下角) ----
-      // 金額固定在右下角、字不要太大(使用者 2026-10-15 指定),備註寫在金額上面。
-      // 貨到付款/取貨付款寫「代收金額」—— 要收的錢跟訂單金額是同一個數字,不重複印兩行
-      const amount = sanitizeCode((o.cod ? "代收金額 $" : "訂單金額 $") + o.total);
-      const amountTop = L.bottom - L.totalSize;
-      page.drawText(amount, {
-        x: L.right - font.widthOfTextAtSize(amount, L.totalSize),
-        y: fromTop(L.bottom), size: L.totalSize, font, color: black,
-      });
-
-      const note = o.note ? sanitizeCode("備註:" + webNorm(o.note)) : "";
-      const noteLines = note ? webWrap(font, note, L.noteSize, W) : [];
-      const noteH = noteLines.length * L.noteSize * 1.4;
-      const noteTop = amountTop - 8 - noteH;
-      let ny = noteTop;
-      noteLines.forEach(t => { put(t, ny, L.noteSize); ny += L.noteSize * 1.4; });
-
-      const itemsBottom = Math.min(L.itemsBottom, noteTop - 8);
-      const lines = o.items.map(i => sanitizeCode(i.compact));
-      const avail = itemsBottom - itemsTop;
-      let size = L.itemSize;
-      while (size > L.itemMin && (lines.length * size * L.lineRatio > avail
-             || lines.some(t => font.widthOfTextAtSize(t, size) > W))) size -= 0.25;
-      const lh = size * L.lineRatio;
-      if (lines.length * lh > avail) overflow++;
-      lines.forEach((t, i) => {
-        const top = itemsTop + lh * i;
-        if (top + lh > itemsBottom + 0.5) return;
-        put(t, top, size);
-      });
-    }
-
-    const bytes = await out.save();
+    const { bytes, overflow } = await buildOrderLabelsPdf(jobs, WEB_PLATFORM_TAG, webFormat);
     const name = "官網出貨單_" + (webFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
     downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
     const skipped = webOrders.length - jobs.length;

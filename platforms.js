@@ -22,7 +22,7 @@ const PLATFORMS = [
       { id: "zoned",     name: "分區列印", beta: true },
     ] },
   { id: "shopee", name: "蝦皮", url: "https://seller.shopee.tw/", invoice: true, panel: "shopee" },
-  { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true },   // 自動印單還沒做
+  { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true, panel: "pinkoi" },   // 2026-10-19 起可以印出貨單(pinkoi-orders.js)
   // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
   { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
   { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true },   // 自動印單還沒做

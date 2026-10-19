@@ -338,7 +338,11 @@ function buildShortCode(row) {
     const oil = SC_OILS.find(([re]) => re.test(spec)) || SC_OILS.find(([re]) => re.test(name));
     seg.push((oil ? oil[1] : "?") + "精油");
   } else {
-    seg.push(item + (rule && rule.size !== undefined ? rule.size : scSize(name)));
+    let size = (rule && rule.size !== undefined) ? rule.size : scSize(name);
+    // Pinkoi 把「一對」寫在規格裡(招財黃-一對、招財黃-招財招福貓一對),品名只有 (小)/(大):
+    // 尺寸要補成 (小一對),不然看起來像只出一隻
+    if (item === "胖胖貓" && /一對/.test(spec) && /^\((小|中|大)\)$/.test(size)) size = size.replace(")", "一對)");
+    seg.push(item + size);
   }
 
   // 一對雷雕會把兩隻的顏色分開寫成「金運: 招財黃, 招福: 健康綠」,兩隻都要印
@@ -351,7 +355,9 @@ function buildShortCode(row) {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
-    const style = (rule && rule.style) || scStyle(spec, name);
+    // 一對 = 金運+招福各一隻;規格只寫「一對」沒寫款式時印「金福」
+    const style = (rule && rule.style) || scStyle(spec, name)
+      || (item === "胖胖貓" && /一對/.test(spec) ? "金福" : "");
     // 組合商品的規格是買家挑的那一隻,要跟固定那隻區隔開,所以前面掛 +,
     // 尺寸(通常是「小」)只有品名的第二項看得到,規格欄沒有,要從 setParts 補回來
     if (color || style) {

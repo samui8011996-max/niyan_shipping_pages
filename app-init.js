@@ -30,6 +30,9 @@ renderAbbr();
   if (s) setShopeeFormat(s);
   if (w) setWebFormat(w);
   if (o) setOffshoreFormat(o);
+  let p = null;
+  try { p = localStorage.getItem("pinkoiFormat"); } catch (e) {}
+  if (p) setPinkoiFormat(p);
 })();
 
 document.getElementById("fileInput").addEventListener("change", (e) => {
@@ -78,6 +81,9 @@ document.getElementById("shopeeInput").addEventListener("change", (e) => {
 document.getElementById("webInput").addEventListener("change", (e) => {
   onWebFile(e.target.files[0]);
 });
+document.getElementById("pinkoiInput").addEventListener("change", (e) => {
+  onPinkoiFile(e.target.files[0]);
+});
 
 // ---------------------------------------------------------------
 // 拖曳上傳:每個檔案欄位所在的整張卡片都能放。
@@ -92,6 +98,7 @@ const DROP_ZONES = [
   { input: "bcDetailInput",     accept: [".xlsx", ".xls"], status: "logisticsStatus" },
   { input: "shopeeInput",       accept: [".xlsx", ".xls", ".pdf"], status: "shopeeStatus" },
   { input: "webInput",          accept: [".xls", ".xlsx"], status: "webStatus" },
+  { input: "pinkoiInput",       accept: [".csv", ".tsv", ".txt"], status: "pinkoiStatus" },
 ];
 
 DROP_ZONES.forEach(({ input, accept, status }) => {
