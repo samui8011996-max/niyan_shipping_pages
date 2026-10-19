@@ -519,9 +519,25 @@ function shopeeBuildJobs() {
     });
   });
 
+  // PDF 裡只有撿貨單 / 商品列表、沒有寄件單標籤的訂單:一樣出一張,只有品項+訂單編號(使用者 2026-10-19)
+  shopeePdfs.forEach(pdf => {
+    (pdf.items || new Map()).forEach((items, sn) => {
+      if (usedOrders.has(sn)) return;
+      usedOrders.add(sn);
+      jobs.push({
+        uid: "N" + sn,
+        kind: "nolabel",
+        orderSn: sn,
+        tracking: "",
+        order: { orderSn: sn, tracking: "", items },
+      });
+    });
+  });
+
   shopeePacks.forEach(pk => {
     pk.orders.forEach(o => {
       if (usedOrders.has(o.orderSn)) return;
+      usedOrders.add(o.orderSn);
       jobs.push({
         uid: "N" + o.orderSn,
         kind: "nolabel",
