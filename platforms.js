@@ -25,7 +25,7 @@ const PLATFORMS = [
   { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true, panel: "pinkoi" },   // 2026-10-19 起可以印出貨單(pinkoi-orders.js)
   // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
   { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
-  { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true },   // 自動印單還沒做
+  { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true, panel: "marais" },   // 2026-10-19 起可以產黑貓出貨表 + 物流回填(marhe-orders.js)
   { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, gmail: true },
   { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false, gmail: true },
   // 使用者給的是 Coupang 登入頁的完整網址,但裡面的 state 是一次性的登入參數,放久了會失效;

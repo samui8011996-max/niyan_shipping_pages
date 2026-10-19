@@ -84,6 +84,12 @@ document.getElementById("webInput").addEventListener("change", (e) => {
 document.getElementById("pinkoiInput").addEventListener("change", (e) => {
   onPinkoiFile(e.target.files[0]);
 });
+document.getElementById("marheInput").addEventListener("change", (e) => {
+  onMarheFile(e.target.files[0]);
+});
+document.getElementById("marheBcDetailInput").addEventListener("change", (e) => {
+  onMarheBcDetail(e.target.files[0]);
+});
 
 // ---------------------------------------------------------------
 // 拖曳上傳:每個檔案欄位所在的整張卡片都能放。
@@ -99,6 +105,8 @@ const DROP_ZONES = [
   { input: "shopeeInput",       accept: [".xlsx", ".xls", ".pdf"], status: "shopeeStatus" },
   { input: "webInput",          accept: [".xls", ".xlsx"], status: "webStatus" },
   { input: "pinkoiInput",       accept: [".csv", ".tsv", ".txt"], status: "pinkoiStatus" },
+  { input: "marheInput",        accept: [".xls", ".xlsx"], status: "marheStatus" },
+  { input: "marheBcDetailInput", accept: [".xls", ".xlsx"], status: "marheTrackStatus" },
 ];
 
 DROP_ZONES.forEach(({ input, accept, status }) => {

@@ -2267,6 +2267,63 @@
         <span class="stats-title">訂單預覽(擋下來的不會出)</span>
       </div>
       <div id="webPreview" class="problem-list"></div>
+    </div>
+
+    <div id="tab-marais" class="tab-panel">
+
+      <section class="card">
+        <div class="card-label">瑪黑家居「下載訂單」報表 (.xlsx)</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          丟後台「下載訂單」匯出的報表。這份報表沒有配送方式欄位,目前匯出的都當黑貓單處理。<br>
+          品名裡沒寫「招福」兩字的「胖胖招財貓」算金運、沒寫「招財」兩字的「胖胖招福貓」算招福,
+          兩個字都有就是泛稱 —— 認不出來的會照品名印,標 ⚠ 讓你看一眼。
+        </p>
+        <div class="file-row">
+          <div id="marheFileDisplay" class="file-display empty">尚未選擇檔案…</div>
+          <input type="file" id="marheInput" class="file-input-hidden" accept=".xls,.xlsx">
+          <button class="btn btn-secondary" onclick="document.getElementById('marheInput').click()">
+            選擇檔案…
+          </button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button id="marheBcatBtn" class="btn btn-primary" disabled onclick="downloadMarheBcat()">
+          下載黑貓出貨表
+        </button>
+      </div>
+
+      <div id="marheStatus" class="status">把瑪黑家居的「下載訂單」報表丟進來…</div>
+
+      <div class="stats-header" style="margin-top: 18px;">
+        <span class="stats-title">訂單預覽(擋下來的不會出)</span>
+      </div>
+      <div id="marhePreview" class="problem-list"></div>
+
+      <section class="card" style="margin-top: 18px;">
+        <div class="card-label">物流單號回填</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          黑貓出貨後,把黑貓自己匯出的「出貨明細」(含訂單編號+託運單號)丟進來,
+          對照上面已經載入的瑪黑訂單,產生瑪黑要求格式的「批次填入物流單號」表 ——
+          同一張單的每個商品都填同一個託運單號。對不到的(還沒出貨)留空、排最後面、標紅,
+          不會悄悄漏掉;下載前記得先在上面載入這批訂單。
+        </p>
+        <div class="file-row">
+          <div id="marheBcDetailDisplay" class="file-display empty">尚未選擇檔案…</div>
+          <input type="file" id="marheBcDetailInput" class="file-input-hidden" accept=".xls,.xlsx">
+          <button class="btn btn-secondary" onclick="document.getElementById('marheBcDetailInput').click()">
+            選擇黑貓出貨明細…
+          </button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button id="marheTrackBtn" class="btn btn-primary" disabled onclick="downloadMarheTracking()">
+          下載瑪黑物流回填表
+        </button>
+      </div>
+
+      <div id="marheTrackStatus" class="status">先在上面載入瑪黑訂單,再把黑貓出貨明細丟進來…</div>
 
     </div>
 
@@ -2336,9 +2393,11 @@
 <script src="shopee-pack.js"></script>
 <script src="shopee-label.js"></script>
 <script src="web-shortcode.js"></script>
+<script src="marhe-shortcode.js"></script>
 <script src="order-edit.js"></script>
 <script src="web-orders.js"></script>
 <script src="pinkoi-orders.js"></script>
+<script src="marhe-orders.js"></script>
 <script src="abbr-tool.js"></script>
 <script src="split-button.js"></script>
 <script src="guide-cat.js"></script>

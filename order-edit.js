@@ -1,16 +1,17 @@
 // ===================================================================
-// 預覽清單「編輯品項」(官網、Pinkoi 共用;蝦皮的在 shopee-label.js 自己有一套)
+// 預覽清單「編輯品項」(官網、Pinkoi、瑪黑家居共用;蝦皮的在 shopee-label.js 自己有一套)
 // 自動簡稱總有規則想不到的時候(臨時換贈品、客人加註),讓人直接改要印的文字,
 // 改過的會用在出貨單 PDF,也會用在黑貓上傳表的備註。金額不跟著改。
 // 重新讀一份報表就全部清掉(換了一批訂單,舊的手改沒有意義)。
 // ===================================================================
-const ORDER_EDITS = { web: new Map(), pinkoi: new Map() };   // 平台 → (訂單編號 → [一行一個品項])
-const orderEditing = { web: null, pinkoi: null };             // 正在編輯哪一筆
+const ORDER_EDITS = { web: new Map(), pinkoi: new Map(), marhe: new Map() };   // 平台 → (訂單編號 → [一行一個品項])
+const orderEditing = { web: null, pinkoi: null, marhe: null };                 // 正在編輯哪一筆
 
 // 預覽列畫完要重畫用的函式(各平台自己的 render)
 function orderEditRerender(plat) {
   if (plat === "web") renderWebPreview();
   else if (plat === "pinkoi") renderPinkoiPreview();
+  else if (plat === "marhe") renderMarhePreview();
 }
 
 // 這筆訂單實際要印的品項文字(手改過就用手改的)
@@ -81,6 +82,7 @@ function saveOrderEdit(plat, id) {
   // 字型是切過的子集,打到不在裡面的字會印成 □ —— 當場講
   const bad = unsupportedChars(lines.join(""));
   if (bad.length) {
-    setStatus(plat === "web" ? "webStatus" : "pinkoiStatus", "warn", "這些字印不出來,紙上會變成 □:" + bad.join(" "));
+    const statusId = plat === "web" ? "webStatus" : (plat === "marhe" ? "marheStatus" : "pinkoiStatus");
+    setStatus(statusId, "warn", "這些字印不出來,紙上會變成 □:" + bad.join(" "));
   }
 }
