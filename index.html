@@ -553,9 +553,12 @@
   /* 三種提醒(蝦皮/打電話/檢查新訂單)同時出現時各自一張卡,由上往下排,不再互相蓋掉 */
   .gc-cards {
     display: flex; flex-direction: column; gap: 8px; width: 100%;
-    /* 三張卡疊起來很高,視窗矮(或筆電縮放 125%)時不要爆出畫面外,超過就讓這疊自己捲 */
+    /* 三張卡疊起來很高,視窗矮(或筆電縮放 125%)時不要爆出畫面外,超過就讓這疊自己捲;
+       平常只有一張卡不需要捲動,滑桿不要一直露在旁邊(使用者 2026-10-20) */
     max-height: calc(100vh - 170px); overflow: hidden auto; padding: 4px 4px 7px; margin: -4px -4px -7px;
+    scrollbar-width: none; -ms-overflow-style: none;
   }
+  .gc-cards::-webkit-scrollbar { display: none; width: 0; height: 0; }
   /* 尖角只畫在最下面那張(指著貓),中間那幾張不用 */
   .gc-bubble:last-child::after {
     content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px;
