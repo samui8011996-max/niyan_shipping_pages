@@ -27,6 +27,7 @@ const PLATFORMS = [
   { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
   { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true, panel: "marais" },   // 2026-10-19 起可以產黑貓出貨表 + 物流回填(marhe-orders.js)
   { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, gmail: true },
+  { id: "rakuten", name: "樂天", url: "https://rms.rakuten.com.tw/request_login", invoice: false, gmail: true },
   { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false, gmail: true },
   // 使用者給的是 Coupang 登入頁的完整網址,但裡面的 state 是一次性的登入參數,放久了會失效;
   // 改連登入後要去的那一頁(出貨管理),沒登入時 Coupang 會自己導去登入頁
