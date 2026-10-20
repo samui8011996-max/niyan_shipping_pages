@@ -1750,6 +1750,21 @@
         </div>
       </section>
 
+      <section class="card">
+        <div class="card-label"><span class="num">3</span>手動從表裡刪除訂單(選填)</div>
+        <p style="color: var(--text-dim); font-size: 12px; margin-bottom: 10px; line-height: 1.7;">
+          客人事後取消、這筆不出貨了?輸入訂單編號,匯出時這筆就不會出現在下載的物流單號表裡
+          (不管原本有沒有配對到託運單號)。
+        </p>
+        <div class="file-row">
+          <input type="text" id="manualDeleteInput" class="form-input" placeholder="輸入訂單編號"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addManualDeleteId();}">
+          <button class="btn btn-secondary" onclick="addManualDeleteId()">刪除這筆</button>
+        </div>
+        <div id="manualDeleteHint" style="color: var(--warn); font-size: 12px; margin-top: 6px;"></div>
+        <div id="manualDeleteList" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;"></div>
+      </section>
+
       <div class="actions">
         <button id="logisticsRunBtn" class="btn btn-primary" disabled onclick="generateLogistics()">
           下載 LINE 物流單號表

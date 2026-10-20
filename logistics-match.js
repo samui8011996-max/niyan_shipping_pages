@@ -23,6 +23,9 @@ async function handleLineTemplate(file) {
   unmatchedDeleteSet.clear();
   unmatchedManualMap.clear();
   renderUnmatchedSection();
+  // 換了一批新的 LINE 模板,昨天手動刪的訂單編號不該留著
+  manualDeleteIds.clear();
+  renderManualDeleteList();
   try {
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data, { type: "array", cellStyles: true });
@@ -215,6 +218,48 @@ function toggleAllUnmatched(checked) {
   renderUnmatchedSection();
 }
 
+// 手動輸入訂單編號刪除:不限「未配對」,已經配對到託運單號的訂單也能直接刪掉
+// (客人事後取消、這筆不出貨了)。manualDeleteIds 宣告在 state.js
+function addManualDeleteId() {
+  const input = document.getElementById("manualDeleteInput");
+  const id = input.value.trim();
+  if (!id) return;
+  manualDeleteIds.add(id);
+  input.value = "";
+  const hint = document.getElementById("manualDeleteHint");
+  hint.textContent = (lineTemplateData && !lineTemplateData.orders.some(o => o.orderId === id))
+    ? `⚠ 目前載入的 LINE 模板裡找不到「${id}」,留著沒關係,匯出時找到同編號一樣會刪掉`
+    : "";
+  renderManualDeleteList();
+  input.focus();
+}
+
+function removeManualDeleteId(id) {
+  manualDeleteIds.delete(id);
+  renderManualDeleteList();
+}
+
+function renderManualDeleteList() {
+  const box = document.getElementById("manualDeleteList");
+  if (!box) return;
+  if (manualDeleteIds.size === 0) {
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = [...manualDeleteIds].map(id => {
+    const safeId = escapeHtml(id);
+    return `
+      <div class="problem-item">
+        <div class="problem-item-main">
+          <div class="problem-item-row1"><span class="pi-id">${safeId}</span></div>
+        </div>
+        <div class="problem-item-btns">
+          <button class="pi-edit" data-order-id="${safeId}" onclick="removeManualDeleteId(this.dataset.orderId)">取消刪除</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
 function generateLogistics() {
   if (!lineTemplateData || !bcDetailData) return;
   setStatus("logisticsStatus", "loading", "產生 LINE 物流單號表中…");
@@ -230,8 +275,14 @@ function generateLogistics() {
       const matched = [];
       const unmatched = [];
       let deletedCount = 0;
+      let manualDeletedCount = 0;
       let manualCount = 0;
       orders.forEach(o => {
+        if (manualDeleteIds.has(o.orderId)) {
+          // 手動輸入訂單編號要刪除的,不管有沒有配對到託運單號都直接跳過
+          manualDeletedCount++;
+          return;
+        }
         const track = bcDetailData.get(o.orderId);
         const manual = track ? null : unmatchedManualMap.get(o.orderId);
         if (!track && unmatchedDeleteSet.has(o.orderId)) {
@@ -286,6 +337,7 @@ function generateLogistics() {
       let msg = `✓ 已下載:${filename}  (填入 ${matched.length} 筆${manualCount > 0 ? `,其中 ${manualCount} 筆手動填號` : ""})`;
       if (unmatched.length > 0) msg += `,另有 ${unmatched.length} 筆未對應(已紅色反白排在最下面)`;
       if (deletedCount > 0) msg += `,已刪除 ${deletedCount} 筆勾選的未配對訂單`;
+      if (manualDeletedCount > 0) msg += `,已刪除 ${manualDeletedCount} 筆手動輸入編號的訂單`;
       setStatus("logisticsStatus", "success", msg);
     } catch (e) {
       setStatus("logisticsStatus", "error", `✗ 匯出失敗:${e.message}`);
