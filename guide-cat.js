@@ -2,7 +2,10 @@
 // 出貨小助手貓(2026-10-16):畫面右邊一隻招福胖胖貓,給新人用。
 //   - 每次打開網站隨機一種顏色,偶爾換成金運款(平常是招福款)。六色:招財黃/戀愛粉/健康綠/炭錢黑/純淨白/清水灰,
 //     配色跟官網首頁「招財貓切換」那份一樣)
-//   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒
+//   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒(點了也不會蓋掉上面的提醒卡)
+//   - 三種提醒(看蝦皮訊息 / 打電話 / 檢查新訂單)各自一張卡,同時成立就由上往下並排
+//     (2026-10-20 使用者要求;以前是優先序只顯示最急的一張,另外兩張看不到)
+//   - 三種都有自己的桌面通知:蝦皮每個時段一次,打電話、檢查新訂單各一天一次
 //   - 定點提醒「看蝦皮聊聊訊息」:9:00、11:00、13:00、15:00、17:00(使用者 2026-10-16:
 //     改成定點,不要每人各自從打開網站開始算 2 小時)。按「我看過了」就算看過這一個時段
 //   - 只在上班時間(週一到週五 9:00~18:00)提醒,下班後完全不出現
@@ -43,6 +46,7 @@ const GC_KEY = "guideCatLastAck";
 const GC_CALL_SKIP_KEY = "guideCatCallSkip";   // 按「今天先不打」的日期
 const GC_CALL_NOTIFIED_KEY = "guideCatCallNotified";   // 今天的打電話通知跳過了沒(一天只跳一次)
 const GC_PLATFORM_CHECK_KEY = "guideCatPlatformCheck";   // 今天已經「已檢查」的平台 id({date, ids:[...]}),隔天自動重置
+const GC_PLAT_NOTIFIED_KEY = "guideCatPlatNotified";   // 今天的「檢查新訂單」通知跳過了沒(一天只跳一次)
 let gcCalls = 0;                                  // 今天還要打幾筆
 let gcTip = -1;
 let gcReminding = false;
@@ -154,8 +158,10 @@ function gcTestNotify() {
   else gcAskNotify();
 }
 
+// 畫一張普通的泡泡卡(測試訊息在用;平常的內容走 gcRender)
 function gcSay(html) {
-  document.getElementById("gcBubble").innerHTML = html;
+  const box = document.getElementById("gcCards");
+  if (box) box.innerHTML = `<div class="gc-bubble">${html}</div>`;
 }
 
 function gcTodayKey() {
@@ -185,42 +191,96 @@ function gcUncheckedPlatforms() {
 }
 function gcTogglePlatformChecked(id) {
   gcSetPlatformChecked(id);
-  gcIdle();
+  gcRender();   // 不用 gcIdle:勾平台不該把還亮著的蝦皮提醒一起收掉
 }
 
-function gcIdle() {
-  gcReminding = false;
-  const el = document.getElementById("guideCat");
-  el.classList.remove("remind");
-  document.title = gcTitle;
-  // 蝦皮提醒優先;沒有的話,今天還有退貨要打電話就講這個
-  if (gcCalls > 0 && !gcCallSkippedToday() && gcCanRemind()) {
-    el.classList.add("call");
-    el.classList.remove("platcheck");
-    gcSay(`<b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
+// ---- 泡泡:三種提醒各自一張卡,同時出現就由上往下排 ----
+// 2026-10-20 之前是優先序(蝦皮 > 打電話 > 檢查新訂單)只顯示最急的那一張,
+// 另外兩張整個被蓋掉 —— 同事就看不到今天還有電話沒打、還有平台沒檢查。
+// 現在幾個成立就畫幾張,顏色掛在卡片自己身上,最下面那張才有指著貓的尖角。
+function gcWantCall() { return gcCalls > 0 && !gcCallSkippedToday() && gcCanRemind(); }
+function gcWantPlat() { return gcCanRemind() && gcUncheckedPlatforms().length > 0; }
+
+function gcShopeeCard() {
+  const slot = gcCurrentSlot();
+  const at = slot ? slot.getHours() + ":00" : "";
+  return `<div class="gc-bubble is-shopee">
+      <b class="gc-remind-title">該看蝦皮訊息囉!</b>${at ? at + " " : ""}看訊息時間到了
+      <span class="gc-btns">
+        <a class="gc-btn" href="${GC_SHOPEE_CHAT}" target="_blank" rel="noopener noreferrer" onclick="gcAck()">開啟聊聊</a>
+        <button type="button" class="gc-btn ghost" onclick="gcAck()">我看過了</button>
+      </span>
+    </div>`;
+}
+
+function gcCallCard() {
+  return `<div class="gc-bubble is-call">
+      <b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
       <span class="gc-btns">
         <button type="button" class="gc-btn" onclick="gcGoReturns()">去包裹退貨</button>
         <button type="button" class="gc-btn ghost" onclick="gcSkipCalls()">今天先不打</button>
-      </span>`);
-    return;
-  }
-  el.classList.remove("call");
-  // 打電話的沒有的話,看看今天還有哪些平台沒點「已檢查」
+      </span>
+    </div>`;
+}
+
+function gcPlatCard() {
   const unchecked = gcUncheckedPlatforms();
-  if (unchecked.length > 0 && gcCanRemind()) {
-    el.classList.add("platcheck");
-    gcSay(`<b class="gc-remind-title">檢查新訂單</b>還沒檢查的平台:
-      <span class="gc-plat-list">${unchecked.map(p => `<button type="button" class="gc-plat-chip" onclick="gcTogglePlatformChecked('${p.id}')">☐ ${escapeHtml(p.name)}</button>`).join("")}</span>`);
-    return;
-  }
-  el.classList.remove("platcheck");
-  gcSay('我是出貨小助手<br>點我看小提醒');
+  return `<div class="gc-bubble is-plat">
+      <b class="gc-remind-title">檢查新訂單</b>還沒檢查的平台:
+      <span class="gc-plat-list">${unchecked.map(p =>
+        `<button type="button" class="gc-plat-chip" onclick="gcTogglePlatformChecked('${p.id}')">☐ ${escapeHtml(p.name)}</button>`).join("")}</span>
+    </div>`;
+}
+
+function gcTipCard() {
+  if (gcTip < 0) return `<div class="gc-bubble">我是出貨小助手<br>點我看小提醒</div>`;
+  return `<div class="gc-bubble"><span class="gc-n">${gcTip + 1}/${GC_TIPS.length}</span>${GC_TIPS[gcTip]}</div>`;
+}
+
+// 現在畫面上「應該」長怎樣。跟上次畫的一樣就不重畫,不然每分鐘一次的檢查會把
+// 閃爍動畫重頭跑、也會把同事正在看的小提醒洗掉
+function gcSig() {
+  return [
+    gcReminding,
+    gcWantCall() ? gcCalls : 0,
+    gcWantPlat() ? gcUncheckedPlatforms().map(p => p.id).join(",") : "",
+    gcTip,
+  ].join("|");
+}
+let gcLastSig = null;
+
+function gcRender() {
+  const el = document.getElementById("guideCat");
+  const box = document.getElementById("gcCards");
+  if (!el || !box) return;
+  const call = gcWantCall(), plat = gcWantPlat();
+
+  const cards = [];
+  if (gcReminding) cards.push(gcShopeeCard());
+  if (call) cards.push(gcCallCard());
+  if (plat) cards.push(gcPlatCard());
+  // 沒有任何提醒就顯示平常那句;有提醒時只有點過貓(看小提醒)才多掛一張在最下面
+  if (cards.length === 0 || gcTip >= 0) cards.push(gcTipCard());
+  box.innerHTML = cards.join("");
+
+  // 貓本身的動畫速度還是看狀態(class 留著,gcCheck 也沒在看了,但樣式有用到)
+  el.classList.toggle("remind", gcReminding);
+  el.classList.toggle("call", call);
+  el.classList.toggle("platcheck", plat);
+  document.title = gcReminding ? "【看蝦皮訊息】" + gcTitle : gcTitle;   // 分頁在背景也看得到
+  gcLastSig = gcSig();
+}
+
+// 收掉蝦皮提醒(按過「我看過了」或下班)後重畫
+function gcIdle() {
+  gcReminding = false;
+  gcRender();
 }
 
 // returns.js 每次讀到退貨資料都會叫這支
 function gcUpdateReturnCalls() {
   gcCalls = (typeof returnsToCallToday === "function") ? returnsToCallToday().length : 0;
-  if (!gcReminding) gcIdle();
+  gcRender();
   gcNotifyCalls();
 }
 
@@ -234,6 +294,17 @@ function gcNotifyCalls() {
   try { localStorage.setItem(GC_CALL_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
 }
 
+// 「檢查新訂單」的桌面通知:一天只跳一次(這三種提醒以前只有這個沒有桌面通知)
+function gcNotifyPlatCheck() {
+  if (!gcWantPlat()) return;
+  let done = false;
+  try { done = localStorage.getItem(GC_PLAT_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
+  if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
+  const names = gcUncheckedPlatforms().map(p => p.name).join("、");
+  gcNotify("檢查新訂單", `今天還沒檢查:${names}`, "gc-platcheck");
+  try { localStorage.setItem(GC_PLAT_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
+}
+
 function gcGoReturns() {
   switchTab("returns");
   const radio = document.querySelector('input[name="returnPlatform"][value="line禮物"]');
@@ -245,29 +316,22 @@ function gcGoReturns() {
 
 function gcSkipCalls() {
   try { localStorage.setItem(GC_CALL_SKIP_KEY, gcTodayKey()); } catch (e) {}
-  gcIdle();
+  gcRender();   // 同上:只收掉打電話那張
 }
 
+// 點貓:小提醒多掛一張卡在最下面,上面的提醒卡照樣留著(以前會被整個蓋掉)
 function gcNextTip() {
-  if (gcReminding) return;
-  document.getElementById("guideCat").classList.remove("call");
   gcTip = (gcTip + 1) % GC_TIPS.length;
-  gcSay(`<span class="gc-n">${gcTip + 1}/${GC_TIPS.length}</span>${GC_TIPS[gcTip]}`);
+  gcRender();
 }
 
-// 時間到:右邊泡泡整個變成蝦皮橘、一閃一閃,不按按鈕不會變回來(使用者 2026-10-16:不要正中間跳窗,變色就好)
+// 時間到:蝦皮那張卡變橘色、一閃一閃,不按按鈕不會變回來(使用者 2026-10-16:不要正中間跳窗,變色就好)
 function gcRemind() {
   if (gcReminding || !gcCanRemind()) return;
   gcReminding = true;
-  document.getElementById("guideCat").classList.add("remind");
-  document.title = "【看蝦皮訊息】" + gcTitle;   // 分頁在背景也看得到
+  gcRender();
   const slot = gcCurrentSlot();
   const at = slot ? slot.getHours() + ":00" : "";
-  gcSay(`<b class="gc-remind-title">該看蝦皮訊息囉!</b>${at ? at + " " : ""}看訊息時間到了
-    <span class="gc-btns">
-      <a class="gc-btn" href="${GC_SHOPEE_CHAT}" target="_blank" rel="noopener noreferrer" onclick="gcAck()">開啟聊聊</a>
-      <button type="button" class="gc-btn ghost" onclick="gcAck()">我看過了</button>
-    </span>`);
   // 同一次提醒只跳一則(gcReminding 擋住重複),按了「我看過了」就等下一個時段
   gcNotify("該看蝦皮訊息囉!", `${at ? at + " " : ""}看訊息時間到了,去蝦皮聊聊看看有沒有客人在問。`, "gc-shopee");
 }
@@ -302,23 +366,30 @@ function gcTestPlatCheck() {
   gcIdle();
 }
 
+// 測試用:網址後面加 #test-all,三種提醒一起出現(看並排的樣子)
+function gcTestAll() {
+  gcTestMode = true;
+  try {
+    localStorage.removeItem(GC_CALL_SKIP_KEY);
+    localStorage.removeItem(GC_PLATFORM_CHECK_KEY);
+  } catch (e) {}
+  gcCalls = 3;
+  gcReminding = false;
+  gcRemind();
+}
+
 // 每分鐘跑一次。下班時間:還亮著的提醒安靜收掉(不算「看過了」,所以隔天 9:00 一上班就會提醒);
 // 上班時間:最近一個提醒時段之後還沒人按過「看過了」就提醒;打電話的泡泡也在 9:00 一到就出現
 function gcCheck() {
-  const el = document.getElementById("guideCat");
   if (!gcCanRemind()) {
-    if (gcReminding || el.classList.contains("call") || el.classList.contains("platcheck")) gcIdle();
+    if (gcReminding || gcSig() !== gcLastSig) gcIdle();   // 下班:提醒安靜收掉
     return;
   }
   const slot = gcCurrentSlot();
   if (slot && gcLastAck() < slot.getTime()) gcRemind();
-  else if (!gcReminding) {
-    // 只有泡泡該出現/該消失時才重畫,不然會把正在看的小提醒洗掉
-    const wantCall = gcCalls > 0 && !gcCallSkippedToday();
-    const wantPlat = !wantCall && gcUncheckedPlatforms().length > 0;
-    if (wantCall !== el.classList.contains("call") || wantPlat !== el.classList.contains("platcheck")) gcIdle();
-    gcNotifyCalls();
-  }
+  else if (gcSig() !== gcLastSig) gcRender();   // 該出現/該消失的才重畫
+  gcNotifyCalls();
+  gcNotifyPlatCheck();
 }
 
 function setupGuideCat() {
@@ -331,21 +402,22 @@ function setupGuideCat() {
   el.setAttribute("aria-live", "polite");
   el.innerHTML = `
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">${GC_SYMBOL}${GC_SYMBOL_GOLD}</svg>
-    <div id="gcBubble" class="gc-bubble"></div>
+    <div id="gcCards" class="gc-cards"></div>
     <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看小提醒" onclick="gcNextTip()">
       <svg class="gc-cat" viewBox="0 0 418 462" style="${c.css}" aria-hidden="true"><use href="#${gold ? "gc-cat-gold" : "gc-cat-fu"}"/></svg>
     </button>
     <div id="gcNotify" class="gc-notify"></div>`;
   document.body.appendChild(el);
-  gcIdle();
+  gcRender();
   gcRenderNotifyBtn();
   const runTest = () => {
     if (location.hash === "#test-remind") gcTestRemind();
     else if (location.hash === "#test-call") gcTestCall();
     else if (location.hash === "#test-notify") gcTestNotify();
     else if (location.hash === "#test-platcheck") gcTestPlatCheck();
+    else if (location.hash === "#test-all") gcTestAll();
   };
-  if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck"].includes(location.hash)) runTest();
+  if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck", "#test-all"].includes(location.hash)) runTest();
   else gcCheck();
   setInterval(gcCheck, 60 * 1000);
   window.addEventListener("hashchange", runTest);
