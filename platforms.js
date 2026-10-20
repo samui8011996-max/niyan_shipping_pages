@@ -35,7 +35,7 @@ const PLATFORMS = [
 ];
 
 // 不屬於任何平台的共用工具分頁(沒有平台資訊列)
-const TOOL_TABS = ["problems", "returns", "abbr"];
+const TOOL_TABS = ["problems", "returns", "abbr", "invoice"];
 
 const LINE_SUB_IDS = PLATFORMS.find(p => p.id === "line").subs.map(s => s.id);
 let lineSub = "shipping";   // LINE禮物 上次看的子功能,切回來時接著看
