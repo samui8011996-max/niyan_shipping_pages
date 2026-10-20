@@ -392,6 +392,59 @@ function gcCheck() {
   gcNotifyPlatCheck();
 }
 
+// ---- 拖曳:貓咪小助手可以拖到畫面任何地方,位置記在 localStorage,重新整理、換頁都還在原位 ----
+// 使用者 2026-10-20 要求。拖的手把是貓本身那顆按鈕(本來點一下是「看小提醒」),
+// 用 Pointer Events 分辨「點一下」跟「拖曳」:移動超過 4px 才算拖曳,拖完那一下
+// 放開滑鼠要擋掉接下來那個 click,不然放開的瞬間會順便觸發一次「看小提醒」。
+const GC_POS_KEY = "guideCatPos";
+function gcSavePos(left, top) {
+  try { localStorage.setItem(GC_POS_KEY, JSON.stringify({ left, top })); } catch (e) {}
+}
+function gcLoadPos() {
+  try { return JSON.parse(localStorage.getItem(GC_POS_KEY) || "null"); } catch (e) { return null; }
+}
+// 套用位置,順便夾在視窗範圍內(拖到螢幕外、或換了更小的視窗都不會不見)
+function gcApplyPos(el, left, top) {
+  const w = el.offsetWidth || 118, h = el.offsetHeight || 200;
+  left = Math.max(4, Math.min(left, window.innerWidth - w - 4));
+  top = Math.max(4, Math.min(top, window.innerHeight - h - 4));
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+  el.style.right = "auto";
+  el.style.bottom = "auto";
+  el.style.transform = "none";
+  return { left, top };
+}
+function gcSetupDrag(el) {
+  const handle = el.querySelector(".gc-cat-btn");
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0, moved = false;
+  const onMove = (e) => {
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) < 4) return;
+    if (!moved) { moved = true; el.classList.add("dragging"); }
+    const pos = gcApplyPos(el, startLeft + dx, startTop + dy);
+    gcSavePos(pos.left, pos.top);
+  };
+  const onUp = () => {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    if (moved) {
+      el.classList.remove("dragging");
+      // 拖完放開那一下不要順便觸發貓的 onclick(看小提醒)
+      handle.addEventListener("click", (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+    }
+  };
+  handle.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;   // 只認滑鼠左鍵(觸控 button 是 0)
+    const rect = el.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    moved = false;
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
+}
+
 function setupGuideCat() {
   const c = GC_COLORS[Math.floor(Math.random() * GC_COLORS.length)];
   const gold = Math.random() < GC_GOLD_CHANCE;
@@ -408,6 +461,15 @@ function setupGuideCat() {
     </button>
     <div id="gcNotify" class="gc-notify"></div>`;
   document.body.appendChild(el);
+  const savedPos = gcLoadPos();
+  if (savedPos) gcApplyPos(el, savedPos.left, savedPos.top);
+  gcSetupDrag(el);
+  window.addEventListener("resize", () => {
+    const p = gcLoadPos();
+    if (!p) return;
+    const clamped = gcApplyPos(el, p.left, p.top);
+    gcSavePos(clamped.left, clamped.top);
+  });
   gcRender();
   gcRenderNotifyBtn();
   const runTest = () => {

@@ -575,7 +575,9 @@
   }
   .gc-btn.ghost { background: none; color: #7F6C50; border: 1px solid #BCA17F; font-weight: 500; }
   .gc-btn:hover { opacity: 0.88; }
-  .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; }
+  .gc-cat-btn { background: none; border: 0; padding: 0; cursor: grab; touch-action: none; }
+  .guide-cat.dragging .gc-cat-btn { cursor: grabbing; }
+  .guide-cat.dragging { opacity: 0.85; }
   .gc-notify:empty { display: none; }
 
   /* 設定:桌面通知開關 */
