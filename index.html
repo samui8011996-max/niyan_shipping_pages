@@ -260,8 +260,10 @@
   .tab.tab-tool.active { border-color: var(--accent); background: var(--bg-input); color: var(--accent); }
   @media (max-width: 700px) { .tool-tabs { grid-template-columns: repeat(2, 1fr); } }
 
-  /* 表頭常用連結 */
-  .quick-links { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  /* 表頭常用連結:固定 4 欄,換行時每排都是整整齊齊的 4 個(不要像 flex-wrap 那樣
+     最後一排只剩落單 1 個) */
+  .quick-links { margin-top: 14px; display: grid; grid-template-columns: repeat(4, max-content); gap: 10px; justify-content: center; }
+  @media (max-width: 700px) { .quick-links { grid-template-columns: repeat(2, max-content); } }
   .quick-link {
     display: inline-block; padding: 7px 16px; border-radius: 999px;
     border: 1px solid var(--border); background: var(--bg-card);
