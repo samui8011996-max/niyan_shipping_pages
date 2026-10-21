@@ -64,6 +64,7 @@ export async function onRequestPost(context) {
       // 雷雕訂單：純 D1，給雷雕網站(niyan-laser-pages)直接讀，2026-10-21 起不再寫雷雕試算表
       case 'addLaserOrders':    return await handleAddLaserOrders(env, body);
       case 'getLaserOrders':    return await handleGetLaserOrders(env);
+      case 'updateLaserOrder':  return await handleUpdateLaserOrder(env, body);   // 雷雕網站的訂單列表改品項/刻印文字
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
       default:                  return json(await callGas(env, body));
     }
@@ -762,11 +763,25 @@ async function handleGetLaserOrders(env) {
   await ensureLaserTable(DB);
   const purged = await purgeOldLaser(DB);
   const rs = await DB.prepare(
-    'SELECT "訂單編號","品項","類型","刻印文字","日期","建立時間" FROM laser_orders ORDER BY "建立時間", "鍵值"'
+    'SELECT "鍵值","訂單編號","品項","類型","刻印文字","日期","建立時間" FROM laser_orders ORDER BY "建立時間", "鍵值"'
   ).all();
   const orders = (rs.results || []).map(row => ({
-    orderId: row['訂單編號'] || '', item: row['品項'] || '', type: row['類型'] || '',
+    key: row['鍵值'] || '', orderId: row['訂單編號'] || '', item: row['品項'] || '', type: row['類型'] || '',
     text: row['刻印文字'] || '', date: row['日期'] || '', created: row['建立時間'] || '',
   }));
   return json({ ok: true, orders, purged, keepDays: LASER_KEEP_DAYS });
+}
+
+// 雷雕網站在訂單列表上改一筆:品項(完整備註)、刻印文字、類型。只改這三欄,日期/建立時間不動
+// (不然改一下就會被當成新資料、14 天重新算)
+async function handleUpdateLaserOrder(env, body) {
+  const DB = requireDb(env);
+  await ensureLaserTable(DB);
+  const key = String(body.key || '').trim();
+  if (!key) return json({ ok: false, error: '缺少鍵值' });
+  const r = await DB.prepare(
+    'UPDATE laser_orders SET "品項"=?, "刻印文字"=?, "類型"=? WHERE "鍵值"=?'
+  ).bind(String(body.item || ''), String(body.text || ''), String(body.type || ''), key).run();
+  const changed = (r.meta && r.meta.changes) || 0;
+  return json(changed ? { ok: true } : { ok: false, error: '找不到這筆(可能已超過 14 天被刪掉了)' });
 }
