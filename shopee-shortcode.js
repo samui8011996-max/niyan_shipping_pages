@@ -260,6 +260,7 @@ function scSize(name) {
   if (/[(（]\s*大\s*[)）]|貓\s*[(（]大/.test(name)) size = "大";
   else if (/[(（]\s*中\s*[)）]/.test(name)) size = "中";
   else if (/[(（]\s*小\s*[)）]/.test(name)) size = "小";
+  else if (/[(（]\s*巨(?:貓)?\s*[)）]/.test(name)) size = "巨";   // 「(巨貓)」「(巨)」(使用者 2026-10-21)
   if (/一對/.test(name)) size += "一對";   // 「中對」容易看成「中等款式對」,寫成「中一對」才清楚是一次兩隻
   return size ? "(" + size + ")" : "";
 }
