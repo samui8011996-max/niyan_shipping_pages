@@ -73,7 +73,7 @@ const WEB_SKU_RULES = [
   [/^SLIMCAT8-([A-Z]+)-(R|L|PAIR)$/,
     m => ["招財貓招福貓", WEB_COLORS[m[1]] + { R: "金", L: "福", PAIR: "金福" }[m[2]]]],
   [/^DOG-([A-Z]+)-(CAI|FU)$/, m => [(m[2] === "CAI" ? "財" : "富") + "犬", WEB_COLORS[m[1]]]],
-  [/^DRAGON-([A-Z]+)-(\d+)CM$/, m => ["龍寶寶" + m[2], WEB_COLORS[m[1]]]],
+  [/^DRAGON-([A-Z]+)-(\d+)CM$/, m => ["龍寶寶" + m[2] + "公分", WEB_COLORS[m[1]]]],
   [/^TETRAPOD-(S|M|L)$/, m => ["消波塊" + { S: "4.5", M: "8", L: "12" }[m[1]] + "cm"]],
   [/^RABBIT-(S|L)$/, m => ["可愛兔" + (m[1] === "S" ? "4.5cm" : "8cm")]],   // 你要我多可愛…兔兔公仔
   [/^MOONRABBIT-([A-Z]+)$/, m => ["發財兔", WEB_COLORS[m[1]]]],   // 中秋發財兔
