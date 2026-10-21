@@ -539,46 +539,47 @@
   }
   .shopee-row:last-child { border-bottom: none; }
 
-  /* 出貨小助手貓(guide-cat.js):固定在畫面最上方的布告欄(2026-10-21 改版,使用者覺得
-     飄在畫面右邊可以拖曳的貓手機版太擠、想要可以整個關掉,改成這樣;手機版直接不顯示,
-     見下面 @media) */
+  /* 出貨小助手貓(guide-cat.js):固定在畫面右邊中間,內容區外面 */
   .guide-cat {
-    position: sticky; top: 0; z-index: 45;
-    display: flex; align-items: center; gap: 14px;
-    width: 100%; padding: 8px 16px;
-    background: #FFFDF8; border-bottom: 1.5px solid #BCA17F;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    /* 放在內容(最寬 1040px)右邊那塊空白的正中間 */
+    position: fixed; top: 50%; transform: translateY(-50%); z-index: 40;
+    right: max(6px, calc((100vw - 1040px) / 4 - 59px));
+    width: 118px; display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
-  .gc-brand { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-  .gc-brand-text { font-size: 13px; font-weight: 700; color: #7F6C50; white-space: nowrap; }
-  .gc-cat-btn { background: none; border: 0; padding: 0; cursor: pointer; flex: 0 0 auto; }
-  .gc-cat { display: block; width: 34px; height: auto; animation: gc-bob 2.4s ease-in-out infinite; }
-  @keyframes gc-bob { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-3deg); } }
-  .guide-cat.remind .gc-cat { animation-duration: 0.9s; }
-  /* 三種提醒(蝦皮/打電話/檢查新訂單)同時出現時各自一張小卡,由左往右排、擠不下就換行 */
-  .gc-cards { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
   .gc-bubble {
-    padding: 6px 12px; border-radius: 10px;
-    background: rgba(188, 161, 127, 0.12); border: 1px solid #BCA17F;
-    color: #4A3F30; font-size: 12px; line-height: 1.6; letter-spacing: 0.2px;
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    position: relative; width: 100%; padding: 10px 10px;
+    background: #FFFDF8; color: #4A3F30; border: 1.5px solid #BCA17F; border-radius: 14px;
+    font-size: 12px; line-height: 1.6; letter-spacing: 0.3px; text-align: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  }
+  /* 三種提醒(蝦皮/打電話/檢查新訂單)同時出現時各自一張卡,由上往下排,不再互相蓋掉 */
+  .gc-cards {
+    display: flex; flex-direction: column; gap: 8px; width: 100%;
+    /* 三張卡疊起來很高,視窗矮(或筆電縮放 125%)時不要爆出畫面外,超過就讓這疊自己捲;
+       平常只有一張卡不需要捲動,滑桿不要一直露在旁邊(使用者 2026-10-20) */
+    max-height: calc(100vh - 170px); overflow: hidden auto; padding: 4px 4px 7px; margin: -4px -4px -7px;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .gc-cards::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  /* 尖角只畫在最下面那張(指著貓),中間那幾張不用 */
+  .gc-bubble:last-child::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px;
+    background: #FFFDF8; border-right: 1.5px solid #BCA17F; border-bottom: 1.5px solid #BCA17F;
+    transform: rotate(45deg);
   }
   .gc-bubble b { color: #7F6C50; }
-  .gc-n { font-size: 11px; color: #B5A58A; }
-  .gc-btns { display: flex; flex-direction: row; gap: 6px; }
+  .gc-n { display: block; font-size: 11px; color: #B5A58A; margin-bottom: 2px; }
+  .gc-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
   .gc-btn {
-    display: inline-block; padding: 4px 12px; border-radius: 999px; border: 0; cursor: pointer;
+    display: block; padding: 6px 12px; border-radius: 999px; border: 0; cursor: pointer;
     background: #EE4D2D; color: #fff; font: inherit; font-size: 12px; font-weight: 700;
-    text-decoration: none; letter-spacing: 1px; white-space: nowrap;
+    text-decoration: none; letter-spacing: 1px;
   }
   .gc-btn.ghost { background: none; color: #7F6C50; border: 1px solid #BCA17F; font-weight: 500; }
   .gc-btn:hover { opacity: 0.88; }
-  .gc-close {
-    flex: 0 0 auto; background: none; border: 0; cursor: pointer;
-    font-size: 20px; line-height: 1; color: #B5A58A; padding: 2px 8px; border-radius: 6px;
-  }
-  .gc-close:hover { color: #4A3F30; background: rgba(188, 161, 127, 0.18); }
-  .gc-notify { flex: 0 0 auto; }
+  .gc-cat-btn { background: none; border: 0; padding: 0; cursor: grab; touch-action: none; }
+  .guide-cat.dragging .gc-cat-btn { cursor: grabbing; }
+  .guide-cat.dragging { opacity: 0.85; }
   .gc-notify:empty { display: none; }
 
   /* 設定:桌面通知開關 */
@@ -614,20 +615,26 @@
   }
   .gc-notify-btn:hover { border-color: var(--accent); color: var(--accent); }
   .gc-notify-off { display: block; font-size: 11px; line-height: 1.5; color: var(--text-dim); text-align: center; }
-  /* 提醒卡:蝦皮橘、白字、一閃一閃。顏色掛在卡片自己身上,三張卡同時出現才各自是各自的顏色 */
+  .gc-cat { display: block; width: 88px; height: auto; animation: gc-bob 2.4s ease-in-out infinite; }
+  @keyframes gc-bob { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-5px) rotate(-3deg); } }
+  /* 提醒卡:蝦皮橘、白字、一閃一閃;貓跳快一點。
+     顏色掛在卡片自己身上(以前掛在 .guide-cat),三張卡同時出現才各自是各自的顏色 */
   .gc-bubble.is-shopee {
     background: #EE4D2D; color: #fff; border-color: #EE4D2D;
     animation: gc-flash 1.2s ease-in-out infinite;
   }
+  .gc-bubble.is-shopee:last-child::after { background: #EE4D2D; border-color: #EE4D2D; }
   .gc-bubble.is-shopee b { color: #fff; }
-  .gc-remind-title { font-size: 13px; }
+  .gc-remind-title { display: block; font-size: 15px; margin-bottom: 2px; }
   .gc-bubble.is-shopee .gc-btn { background: #fff; color: #EE4D2D; }
   .gc-bubble.is-shopee .gc-btn.ghost { background: none; color: #fff; border-color: rgba(255, 255, 255, 0.7); }
+  .guide-cat.remind .gc-cat { animation-duration: 0.9s; }
   /* 打電話提醒:跟蝦皮的橘色分開,用深綠 */
   .gc-bubble.is-call {
     background: #2F7D5B; color: #fff; border-color: #2F7D5B;
     animation: gc-flash-call 1.6s ease-in-out infinite;
   }
+  .gc-bubble.is-call:last-child::after { background: #2F7D5B; border-color: #2F7D5B; }
   .gc-bubble.is-call b { color: #fff; }
   .gc-bubble.is-call .gc-btn { background: #fff; color: #2F7D5B; }
   .gc-bubble.is-call .gc-btn.ghost { background: none; color: #fff; border-color: rgba(255, 255, 255, 0.7); }
@@ -638,11 +645,12 @@
   /* 貓咪小助手:平台檢查清單(每天要把每個平台都點過「已檢查」)。沒有打電話提醒急,
      所以不閃爍,只是換個底色提醒還有沒檢查的平台 */
   .gc-bubble.is-plat { background: #EAF2F8; color: #1F3A52; border-color: #6FA8C9; }
+  .gc-bubble.is-plat:last-child::after { background: #EAF2F8; border-color: #6FA8C9; }
   .gc-bubble.is-plat b { color: #2E6B91; }
-  .gc-plat-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .gc-plat-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
   .gc-plat-chip {
-    display: inline-block; padding: 3px 9px; border-radius: 999px; border: 1px solid #6FA8C9;
-    background: #fff; color: #2E6B91; font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap;
+    display: block; width: 100%; padding: 4px 8px; border-radius: 10px; border: 1px solid #6FA8C9;
+    background: #fff; color: #2E6B91; font: inherit; font-size: 11px; text-align: left; cursor: pointer;
   }
   .gc-plat-chip:hover { background: #EAF2F8; }
   /* 包裹退貨:原因預設選項(顏色照 Notion 那份)、搜尋 */
@@ -691,9 +699,10 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(238, 77, 45, 0.55), 0 6px 18px rgba(0, 0, 0, 0.15); }
     50%      { box-shadow: 0 0 0 10px rgba(238, 77, 45, 0), 0 6px 18px rgba(0, 0, 0, 0.15); }
   }
-  /* 手機版不顯示(使用者 2026-10-21 要求,版面太窄擠不下) */
-  @media (max-width: 700px) {
-    .guide-cat { display: none; }
+  /* 視窗不夠寬(會蓋到內容)就縮到右下角 */
+  @media (max-width: 1280px) {
+    .guide-cat { top: auto; bottom: 16px; right: 16px; transform: none; width: 160px; }
+    .gc-cat { width: 72px; }
   }
   @media (prefers-reduced-motion: reduce) { .gc-cat { animation: none; } }
 

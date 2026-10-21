@@ -233,8 +233,7 @@ function gcPlatCard() {
 }
 
 function gcTipCard() {
-  // 品牌字樣已經在布告欄左邊了,這裡不用再講一次「我是出貨小助手」
-  if (gcTip < 0) return `<div class="gc-bubble">點我看小提醒</div>`;
+  if (gcTip < 0) return `<div class="gc-bubble">我是出貨小助手<br>點我看小提醒</div>`;
   return `<div class="gc-bubble"><span class="gc-n">${gcTip + 1}/${GC_TIPS.length}</span>${GC_TIPS[gcTip]}</div>`;
 }
 
@@ -291,11 +290,7 @@ function gcNotifyCalls() {
   let done = false;
   try { done = localStorage.getItem(GC_CALL_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
   if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
-  // 使用者 2026-10-21 要求:通知要寫訂單編號,不然看到通知還是得點進去才知道是哪幾筆
-  const items = (typeof returnsToCallToday === "function") ? returnsToCallToday() : [];
-  const ids = items.map(r => r.orderId || r.trackingNo || "?");
-  const shown = ids.length > 5 ? ids.slice(0, 5).join("、") + "…等" : ids.join("、");
-  gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物):${shown}`, "gc-call");
+  gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物)`, "gc-call");
   try { localStorage.setItem(GC_CALL_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
 }
 
@@ -397,15 +392,57 @@ function gcCheck() {
   gcNotifyPlatCheck();
 }
 
-// 畫面上方布告欄右邊的 X:整個貓咪小助手關掉,直到重新整理/關掉重開才會再出現
-// (使用者 2026-10-21 要求;不存 localStorage,刻意讓它只是「這次先不看」而不是永久關掉)
-let gcCheckIntervalId = null;
-let gcReturnIntervalId = null;
-function gcClose() {
-  const el = document.getElementById("guideCat");
-  if (el) el.remove();
-  if (gcCheckIntervalId) clearInterval(gcCheckIntervalId);
-  if (gcReturnIntervalId) clearInterval(gcReturnIntervalId);
+// ---- 拖曳:貓咪小助手可以拖到畫面任何地方,位置記在 localStorage,重新整理、換頁都還在原位 ----
+// 使用者 2026-10-20 要求。拖的手把是貓本身那顆按鈕(本來點一下是「看小提醒」),
+// 用 Pointer Events 分辨「點一下」跟「拖曳」:移動超過 4px 才算拖曳,拖完那一下
+// 放開滑鼠要擋掉接下來那個 click,不然放開的瞬間會順便觸發一次「看小提醒」。
+const GC_POS_KEY = "guideCatPos";
+function gcSavePos(left, top) {
+  try { localStorage.setItem(GC_POS_KEY, JSON.stringify({ left, top })); } catch (e) {}
+}
+function gcLoadPos() {
+  try { return JSON.parse(localStorage.getItem(GC_POS_KEY) || "null"); } catch (e) { return null; }
+}
+// 套用位置,順便夾在視窗範圍內(拖到螢幕外、或換了更小的視窗都不會不見)
+function gcApplyPos(el, left, top) {
+  const w = el.offsetWidth || 118, h = el.offsetHeight || 200;
+  left = Math.max(4, Math.min(left, window.innerWidth - w - 4));
+  top = Math.max(4, Math.min(top, window.innerHeight - h - 4));
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+  el.style.right = "auto";
+  el.style.bottom = "auto";
+  el.style.transform = "none";
+  return { left, top };
+}
+function gcSetupDrag(el) {
+  const handle = el.querySelector(".gc-cat-btn");
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0, moved = false;
+  const onMove = (e) => {
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) < 4) return;
+    if (!moved) { moved = true; el.classList.add("dragging"); }
+    const pos = gcApplyPos(el, startLeft + dx, startTop + dy);
+    gcSavePos(pos.left, pos.top);
+  };
+  const onUp = () => {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    if (moved) {
+      el.classList.remove("dragging");
+      // 拖完放開那一下不要順便觸發貓的 onclick(看小提醒)
+      handle.addEventListener("click", (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+    }
+  };
+  handle.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;   // 只認滑鼠左鍵(觸控 button 是 0)
+    const rect = el.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    moved = false;
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
 }
 
 function setupGuideCat() {
@@ -418,17 +455,21 @@ function setupGuideCat() {
   el.setAttribute("aria-live", "polite");
   el.innerHTML = `
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">${GC_SYMBOL}${GC_SYMBOL_GOLD}</svg>
-    <div class="gc-brand">
-      <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看小提醒" onclick="gcNextTip()">
-        <svg class="gc-cat" viewBox="0 0 418 462" style="${c.css}" aria-hidden="true"><use href="#${gold ? "gc-cat-gold" : "gc-cat-fu"}"/></svg>
-      </button>
-      <span class="gc-brand-text">出貨小助手</span>
-    </div>
     <div id="gcCards" class="gc-cards"></div>
-    <div id="gcNotify" class="gc-notify"></div>
-    <button type="button" class="gc-close" title="關閉(重新整理就會再出現)" onclick="gcClose()">×</button>`;
-  // 放在 body 最前面,布告欄才能貼齊畫面最上方、把其他內容往下推
-  document.body.insertBefore(el, document.body.firstChild);
+    <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看小提醒" onclick="gcNextTip()">
+      <svg class="gc-cat" viewBox="0 0 418 462" style="${c.css}" aria-hidden="true"><use href="#${gold ? "gc-cat-gold" : "gc-cat-fu"}"/></svg>
+    </button>
+    <div id="gcNotify" class="gc-notify"></div>`;
+  document.body.appendChild(el);
+  const savedPos = gcLoadPos();
+  if (savedPos) gcApplyPos(el, savedPos.left, savedPos.top);
+  gcSetupDrag(el);
+  window.addEventListener("resize", () => {
+    const p = gcLoadPos();
+    if (!p) return;
+    const clamped = gcApplyPos(el, p.left, p.top);
+    gcSavePos(clamped.left, clamped.top);
+  });
   gcRender();
   gcRenderNotifyBtn();
   const runTest = () => {
@@ -440,12 +481,12 @@ function setupGuideCat() {
   };
   if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck", "#test-all"].includes(location.hash)) runTest();
   else gcCheck();
-  gcCheckIntervalId = setInterval(gcCheck, 60 * 1000);
+  setInterval(gcCheck, 60 * 1000);
   window.addEventListener("hashchange", runTest);
 
   // 打電話提醒:開網站先讀一次退貨,之後每小時再讀(過了半夜也會換成新的一天)
   if (location.hash !== "#test-call" && typeof loadReturnsQuietly === "function") {
     loadReturnsQuietly();
-    gcReturnIntervalId = setInterval(loadReturnsQuietly, 60 * 60 * 1000);
+    setInterval(loadReturnsQuietly, 60 * 60 * 1000);
   }
 }
