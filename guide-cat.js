@@ -48,6 +48,7 @@ const GC_CALL_NOTIFIED_KEY = "guideCatCallNotified";   // 今天的打電話通�
 const GC_PLATFORM_CHECK_KEY = "guideCatPlatformCheck";   // 今天已經「已檢查」的平台 id({date, ids:[...]}),隔天自動重置
 const GC_PLAT_NOTIFIED_KEY = "guideCatPlatNotified";   // 今天的「檢查新訂單」通知跳過了沒(一天只跳一次)
 let gcCalls = 0;                                  // 今天還要打幾筆
+let gcCallItems = [];                             // 今天要打電話的那幾筆(拿訂單編號出來顯示用)
 let gcTip = -1;
 let gcReminding = false;
 const gcTitle = document.title;
@@ -213,9 +214,15 @@ function gcShopeeCard() {
     </div>`;
 }
 
+// 訂單編號、託運單號都沒有的話(理論上不會發生,退貨紀錄擇一必填)用 ? 頂著,不要讓整行空白看起來像壞掉
+function gcCallOrderIds() {
+  return gcCallItems.map(r => r.orderId || r.trackingNo || "?").join("、");
+}
+
 function gcCallCard() {
+  const ids = gcCallOrderIds();
   return `<div class="gc-bubble is-call">
-      <b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡
+      <b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡${ids ? ":" + ids : ""}
       <span class="gc-btns">
         <button type="button" class="gc-btn" onclick="gcGoReturns()">去包裹退貨</button>
         <button type="button" class="gc-btn ghost" onclick="gcSkipCalls()">今天先不打</button>
@@ -279,7 +286,8 @@ function gcIdle() {
 
 // returns.js 每次讀到退貨資料都會叫這支
 function gcUpdateReturnCalls() {
-  gcCalls = (typeof returnsToCallToday === "function") ? returnsToCallToday().length : 0;
+  gcCallItems = (typeof returnsToCallToday === "function") ? returnsToCallToday() : [];
+  gcCalls = gcCallItems.length;
   gcRender();
   gcNotifyCalls();
 }
@@ -290,7 +298,8 @@ function gcNotifyCalls() {
   let done = false;
   try { done = localStorage.getItem(GC_CALL_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
   if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
-  gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物)`, "gc-call");
+  const ids = gcCallOrderIds();
+  gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物)${ids ? ":" + ids : ""}`, "gc-call");
   try { localStorage.setItem(GC_CALL_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
 }
 
@@ -352,7 +361,8 @@ function gcTestRemind() {
 function gcTestCall() {
   gcTestMode = true;
   try { localStorage.removeItem(GC_CALL_SKIP_KEY); } catch (e) {}
-  gcCalls = 3;
+  gcCallItems = [{ orderId: "#0002434" }, { orderId: "#0002441" }, { orderId: "#0002458" }];
+  gcCalls = gcCallItems.length;
   gcReminding = false;
   gcIdle();
 }
@@ -361,6 +371,7 @@ function gcTestCall() {
 function gcTestPlatCheck() {
   gcTestMode = true;
   try { localStorage.removeItem(GC_PLATFORM_CHECK_KEY); } catch (e) {}
+  gcCallItems = [];
   gcCalls = 0;
   gcReminding = false;
   gcIdle();
@@ -373,7 +384,8 @@ function gcTestAll() {
     localStorage.removeItem(GC_CALL_SKIP_KEY);
     localStorage.removeItem(GC_PLATFORM_CHECK_KEY);
   } catch (e) {}
-  gcCalls = 3;
+  gcCallItems = [{ orderId: "#0002434" }, { orderId: "#0002441" }, { orderId: "#0002458" }];
+  gcCalls = gcCallItems.length;
   gcReminding = false;
   gcRemind();
 }
