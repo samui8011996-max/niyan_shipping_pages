@@ -226,7 +226,7 @@ function gcCallOrderIdList() {
 }
 // 卡片用(HTML,要跳脫);桌面通知是純文字,直接用 gcCallOrderIdList() 的陣列就好,不要跳脫過的版本
 function gcCallOrderIds() {
-  return gcCallOrderIdList().map(escapeHtml).join("、");
+  return gcCallOrderIdList().map(id => `<span class="gc-call-id">${escapeHtml(id)}</span>`).join("、");
 }
 
 function gcCallCard() {

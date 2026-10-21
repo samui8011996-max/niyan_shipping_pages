@@ -552,9 +552,9 @@
     font-size: 12px; line-height: 1.6; letter-spacing: 0.3px; text-align: center;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   }
-  /* 退貨訂單編號本來就很長(例如 #202608130100002574),讓它能在數字中間自己換行,
-     不要撐爆這張窄窄的卡片(使用者 2026-10-21) */
-  .gc-call-ids { word-break: break-all; }
+  /* 退貨訂單編號:冒號後面換行,自己一行;一個編號不要從中間斷開,幾筆的話在「、」之間換行 */
+  .gc-call-ids { display: block; }
+  .gc-call-id { white-space: nowrap; }
   /* 三種提醒(蝦皮/打電話/檢查新訂單)同時出現時各自一張卡,由上往下排,不再互相蓋掉 */
   .gc-cards {
     display: flex; flex-direction: column; gap: 8px; width: 100%;
