@@ -95,7 +95,7 @@ const WEB_SKU_RULES = [
   [/^HIDE-HOUSE$/, () => ["躲避屋"]],
   [/^CARD-HOLDER-MOUNTAIN$/, () => ["名片座"]],
   [/^POT-TILE4$/, () => ["花磚盆"]],
-  [/^CANDLE-TULOU$/, () => ["蠟燭"]],
+  [/^CANDLE-TULOU$/, () => ["客家圓樓"]],
   [/^MAZU-Q-\d+$/, () => ["媽祖"]],
 ];
 
