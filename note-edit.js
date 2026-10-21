@@ -1,10 +1,9 @@
 // ===================================================================
-// LINE禮物:每一筆都能改備註(使用者 2026-10-21)
+// LINE禮物:每一筆都能改備註(使用者 2026-10-21)。一筆只有一格備註,沒有另外的刻印文字欄
 // 載入 LINE 訂單總表後,在「改備註」卡片搜尋訂單編號/收件人/品項,直接改那一筆的備註。
 // 改完的內容:
 //   - 下載黑貓出貨表、離島貼紙 → 用改過的「黑貓備註」(_備註)
-//   - 上傳廠商試算表 → 一般訂單也換成改過的備註;雷雕訂單另外改「刻印文字」,
-//     寫回 _備註完整 的「刻印文字: …」(雷雕網站靠這個欄位名抓字),再送進雷雕 D1
+//   - 上傳廠商試算表、雷雕 D1 → 也用改過的備註(雷雕網站從裡面的「刻印文字: …」抓字)
 // 偵測到的問題訂單會自動列在最上面。重新載入訂單檔就全部清掉(只存在這一次)。
 // ===================================================================
 let noteEditQuery = "";
@@ -78,8 +77,6 @@ function renderNoteEditor() {
         </div>
         <label class="form-label" for="ne-note-${i}">黑貓出貨表備註</label>
         <input id="ne-note-${i}" class="form-input" data-f="note" value="${escapeHtml(r["_備註"] ?? "")}">
-        ${laser ? `<label class="form-label" for="ne-text-${i}">刻印文字(雷雕網站用)</label>
-        <input id="ne-text-${i}" class="form-input" data-f="text" value="${escapeHtml(engravingTextOf(r["_備註完整"]))}" placeholder="沒填就是不刻字(換木片)">` : ""}
       </div>
       <div class="problem-item-btns">
         <button type="button" class="pi-edit" data-act="save">存</button>
@@ -94,13 +91,13 @@ function saveNoteEdit(i) {
   const card = document.querySelector(`.note-edit-item[data-i="${i}"]`);
   if (!r || !card) return;
   const note = card.querySelector('[data-f="note"]').value.trim();
-  const textEl = card.querySelector('[data-f="text"]');
   r["_備註"] = note;
-  if (noteEditIsLaser(r)) {
-    r["_備註完整"] = setEngravingText(r["_原備註完整"], textEl ? textEl.value.trim() : "");
-  } else {
-    r["_備註完整"] = note;   // 一般訂單:廠商試算表也看改過的
-  }
+  // 只有一格備註(使用者 2026-10-21:不用另外標刻印文字,整欄給我改就好)。
+  // 改過的備註也是廠商試算表/雷雕 D1 收到的內容;雷雕網站靠「刻印文字:」抓字,
+  // 有人只寫「文字: Amy」(簡寫那種)就幫它補成「刻印文字: Amy」
+  r["_備註完整"] = noteEditIsLaser(r) && !/刻印文字[:：]/.test(note)
+    ? note.replace(/(^|\s)文字[:：]\s*/, "$1刻印文字: ")
+    : note;
   r["_已改備註"] = note !== r["_原備註"] || r["_備註完整"] !== r["_原備註完整"];
   renderNoteEditor();
   setStatus("status", "success", `✓ 已改 ${r["訂單編號"] ?? ""} 的備註,下載黑貓出貨表、上傳都會用改過的`);
