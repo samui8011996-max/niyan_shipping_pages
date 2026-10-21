@@ -283,7 +283,7 @@ function scZodiac(spec, name) {
 function scAddons(spec, name, drop) {
   const out = [];
   if (/木片底座|＋?底座|\+底座/.test(spec) || /\+底座/.test(name)) out.push("木");
-  if (/元寶/.test(spec) || /元寶/.test(name)) out.push("寶");
+  if (/元寶/.test(spec) || /元寶/.test(name)) out.push("元寶");   // 使用者 2026-10-21:寫完整「元寶」,不要簡化成「寶」
   if (/護手霜/.test(name) || /護手霜/.test(spec)) out.push("霜");
   if (/精油組/.test(name)) out.push("油組");
   const oil = SC_OILS.find(([re]) => re.test(spec) || re.test(name));
