@@ -79,7 +79,7 @@ const WEB_SKU_RULES = [
   [/^MOONRABBIT-([A-Z]+)$/, m => ["發財兔", WEB_COLORS[m[1]]]],   // 中秋發財兔
   [/^TOAD-([A-Z]+)$/, m => ["蟾蜍", WEB_COLORS[m[1]]]],
   [/^GECKO-([A-Z]+)-(S|L)$/, m => ["守宮" + (m[2] === "S" ? "4.5" : "8"), WEB_COLORS[m[1]]]],
-  [/^TIGER-(L|R|PAIR)$/, m => ["老虎", { L: "左", R: "右", PAIR: "對" }[m[1]]]],
+  [/^TIGER-(L|R|PAIR)$/, m => ["老虎", { L: "左", R: "右", PAIR: "一對" }[m[1]]]],
   [/^OWL-TILT-(L|R|PAIR)$/, m => ["貓頭鷹", { L: "歪左", R: "歪右", PAIR: "一對" }[m[1]]]],
   [/^MOAI-S-([A-Z]+)-([A-Z0-9]+)$/, m => ["摩艾", WEB_COLORS[m[1]], WEB_MOAI[m[2]]]],
   [/^HORSECAT-([A-Z]+)$/, m => ["馬貓", "+" + WEB_OILS[m[1]]]],

@@ -378,7 +378,7 @@ function buildShortCode(row) {
 
   // 老虎只靠左右手分辨是哪一隻,沒有金運/招福這套款式系統,所以額外加這段
   if (item === "老虎") {
-    if (/一對/.test(spec)) seg.push("對");
+    if (/一對/.test(spec)) seg.push("一對");   // 老虎黑一對+元寶(使用者 2026-10-21)
     else if (/右手/.test(spec)) seg.push("右");
     else if (/左手/.test(spec)) seg.push("左");
   }
