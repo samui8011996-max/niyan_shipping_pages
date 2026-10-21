@@ -316,8 +316,9 @@ function buildShortCode(row) {
     const cm = all.match(/(\d+(?:\.\d+)?)\s*(?:cm|公分)/);
     seg.push(item + (cm ? cm[1] + "cm" : ""));
   } else if (item === "犬") {
-    const dog = all.match(/([財富])狗狗/);
-    seg.push((dog ? dog[1] : "") + "犬");
+    // 現場叫「財狗」「富狗」(使用者 2026-10-21);蝦皮規格寫「磨石白,財」,財/富單獨一格
+    const dog = all.match(/([財富])狗狗/) || spec.match(/(?:^|[,，、\s])([財富])(?=$|[,，、\s])/);
+    seg.push((dog ? dog[1] : "") + "狗");
   } else if (item === SC_SET_LABEL) {
     setParts = scSetParts(name);
     seg.push(SC_SET_LABEL + setParts.lead);
@@ -355,7 +356,7 @@ function buildShortCode(row) {
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
   // 馬貓沒有顏色可選,品名的「黑馬」會被當成顏色「黑」,所以也排除
-  } else if (item !== "消波塊" && item !== "可愛兔" && item !== "犬" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
+  } else if (item !== "消波塊" && item !== "可愛兔" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
