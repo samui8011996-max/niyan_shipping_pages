@@ -36,7 +36,7 @@ function isGiftBoxVariant(row) {
 // 不照商品/尺寸拆開 —— 這些訂單撿貨後都是送去同一個雷雕站,重點是「要不要雷雕」,不是雷雕的是什麼商品。
 // 判斷邏輯跟 SPECIAL_CATEGORIES 的「雷雕」關鍵字比對規則一致(見 categorizeAll)。
 function isLaserItem(row) {
-  const hs = [row["商品名稱"], row["規格設定"], row["客製刻印選項"], row["_備註"]]
+  const hs = [row["商品名稱"], row["規格設定"], row["客製刻印選項"], row["_備註"], row["_備註完整"]]
     .map(s => String(s ?? "")).join(" ");
   return hs.includes("雷雕");
 }

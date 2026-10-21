@@ -9,6 +9,7 @@ function categorizeAll(row) {
     row["規格設定"] ?? "",
     row["客製刻印選項"] ?? "",
     row["_備註"] ?? "",
+    row["_備註完整"] ?? "",
   ].map(String).join(" ");
   const matches = [];
   for (const cat of SPECIAL_CATEGORIES) {
@@ -203,7 +204,8 @@ async function handleFile(file, statusId = "status") {
     if (missing.length > 0) throw new Error(`缺少欄位:${missing.join("、")}`);
 
     rows.forEach(r => {
-      r["_備註"] = buildNote(r);
+      r["_備註"] = buildNote(r);           // 印在黑貓出貨表(LINE 個別商品有自己的寫法)
+      r["_備註完整"] = buildNoteFull(r);   // 原本寫法,上傳廠商試算表(雷雕網站靠它抓關鍵字)
       r["_類別列表"] = categorizeAll(r);
       r["_類別"] = r["_類別列表"][0] || null;
       r["_離島"] = extractOffshoreCounty(r["配送地址"]);

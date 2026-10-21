@@ -134,7 +134,127 @@ const REPLACE_PATTERNS = [
   ["戀愛粉", "粉"],
 ];
 
+// ---- LINE禮物個別商品的備註寫法(使用者 2026-10-21 在審核頁逐一決定)----
+// 用 LINE 的「商品編號」對應,沒列在這裡的商品一律照原本寫法(buildNoteFull)。
+//   short: true  → 改用跟蝦皮/官網同一套簡寫(shopee-shortcode.js 的 buildShortCode)
+//   title        → 照原本寫法,只是把又長又是行銷字的品名換成短的
+//   spec         → 規格裡要換掉的字 [[找, 換成], ...]
+//   giantLaser   → 雷雕巨物招財貓:【雷雕】胖胖貓(巨)黃金 文字:XXX;沒填文字印「未雷雕換木片」
+//   zodiacCat    → 星座貓 星座: 獅子座, 加購: 茶樹精油
+//   dog          → 狗 黑財 / 狗 黑富。dog 給顏色字就用那個顏色,給 true 就看規格的顏色;
+//                  財/富看規格「選擇狗狗: 財狗狗」「款式: 富」或品名的「(富)」;extra 接在最後
+const LINE_NOTE_RULES = {
+  "322027870": { short: true },   // 水泥咬幣金錢招福蟾蜍 → 蟾蜍灰
+  "322031898": { dog: "黑" },     // 金項鍊-好運旺旺招財犬 炭錢黑 → 狗 黑財 / 狗 黑富
+  "322381305": { dog: "黑", extra: "+檜木精油" },   // 旺旺芬芳好運組 招財犬 炭錢黑+檜木精油 → 狗 黑財+檜木精油
+  "322027872": { dog: true },     // 【狗狗有財】好運旺旺招財犬 (富) → 狗 灰富 / 狗 白富(顏色看規格)
+  "322301178": { short: true },   // 天后派對Q版媽祖公仔 → 媽祖
+  "322575749": { short: true },   // 【天赦日迎好運】胖胖招財招福貓(大) → 胖胖貓(大)
+  // 圓滾滾幸運貓團圓版 6 色 → 雙手貓(三入) 黃(使用者 2026-10-21)
+  "322209152": { title: "雙手貓(三入) 黃" },
+  "322234353": { title: "雙手貓(三入) 黑" },
+  "322234354": { title: "雙手貓(三入) 白" },
+  "322031897": { title: "雙手貓(三入) 綠" },
+  "322031895": { title: "雙手貓(三入) 灰" },
+  "322031896": { title: "雙手貓(三入) 粉" },
+  "322027860": { title: "可愛兔" },
+  "322027867": { title: "貓頭鷹", spec: [["歪左邊守護好運", "歪左邊"], ["歪右邊幸福滿滿", "歪右邊"], ["好運幸福一對", "一對"]] },
+  "322436662": { title: "馬貓+精油" },   // 【萬馬奔騰，馬上有錢】好運奔富黑馬招財貓+精油
+  "322031735": { title: "胖胖貓 (大) 白 金運" },
+  "322031883": { title: "胖胖貓(大)一對 黑" },
+  "322031755": { title: "胖胖貓(大) 白 招福" },
+  "322031750": { title: "胖胖貓(大) 黑 金運" },
+  "322031884": { title: "胖胖貓(大)一對 綠" },
+  "322031880": { title: "胖胖貓(大)一對 灰" },
+  "322031888": { title: "胖胖貓一對(小)" },
+  "322233703": { title: "【雷雕】胖胖貓 (大)", spec: [["雷雕(未填寫文字會換成木片)", "(未雷雕換木片)"]] },
+  "322329026": { title: "團圓美滿胖胖貓(大中小三入)" },
+  "322329751": { title: "永生花玻璃球【矢車藍】" },
+  "322346457": { title: "永生花玻璃球【櫻花粉】" },
+  "322384394": { title: "胖胖貓 (大金運+小招福)雙喵組" },
+  "322413765": { title: "【好運禮盒】消波塊4.5公分 +" },   // 接規格「精油: 佛手柑」→ …4.5公分 + 精油: 佛手柑
+  "322233451": { giantLaser: true },
+  "322095963": { title: "龍年寶寶" },
+  "322125174": { title: "福氣黃龍寶寶" },
+  "322194001": { title: "胖胖招福貓 黃 招福 (大)" },
+  "322579026": { title: "星座貓X永生花玻璃球" },
+};
+
+const LINE_COLOR_CHAR = { "招財黃": "黃", "炭錢黑": "黑", "純淨白": "白", "健康綠": "綠", "清水灰": "灰", "戀愛粉": "粉" };
+
+// 星座貓(…座開運胖胖貓、可選星座的星座開運胖胖貓,有沒有「+元寶」都算)全部統一成
+// 「星座貓 星座: 獅子座, 加購: 茶樹精油」(使用者 2026-10-21)。用品名判斷,每個月新開的星座賣場也會套到;
+// 雷雕星座貓、星座永生花是別的商品,不算
+function isLineZodiacCat(name) {
+  return /開運胖胖貓/.test(name) && !/雷雕|永生花/.test(name);
+}
+
+function lineRuleFor(row) {
+  const byId = LINE_NOTE_RULES[String(row["商品編號"] ?? "").trim()];
+  if (byId) return byId;
+  if (isLineZodiacCat(String(row["商品名稱"] ?? ""))) return { zodiacCat: true };
+  return null;
+}
+
+// 加購一律寫成「, 加購: 茶樹精油」(使用者 2026-10-21)。LINE 的規格有好幾種寫法:
+// 「+加購精油: 茶樹」「+加購單方精油: 茶樹」「+250天然精油: 茶樹」(+250 拿掉後剩「天然精油: 茶樹」)、
+// 「加購: +金元寶」。精油組/好運禮盒裡的「精油: 佛手柑」是禮盒本來就有、客人挑的,不是加購,不動。
+function lineNormalizeAddons(note) {
+  return note
+    .replace(/[,，]?\s*\+?(?:加購(?:單方)?精油|天然精油)[:：]\s*([^\s,，]+)/g, ", 加購: $1精油")
+    .replace(/[,，]?\s*加購[:：]\s*\+?/g, ", 加購: ")
+    .replace(/^,\s*/, "")
+    .replace(/\s+/g, " ").trim();
+}
+
+// 黑貓出貨表/分區列印/離島標籤用的備註
 function buildNote(row) {
+  return lineNormalizeAddons(buildNoteRaw(row));
+}
+
+function buildNoteRaw(row) {
+  const rule = lineRuleFor(row);
+  if (!rule) return buildNoteFull(row);
+  const qty = row["數量"] ?? 1;
+  if (rule.short && typeof buildShortCode === "function") {
+    const r = buildShortCode({ "商品名稱": row["商品名稱"], "規格設定": row["規格設定"], "數量": qty });
+    if (!r.unknown) return r.compact;
+    return buildNoteFull(row);
+  }
+  if (rule.giantLaser) {
+    const spec = String(row["規格設定"] ?? "");
+    const color = (spec.match(/招財黃|炭錢黑|純淨白|健康綠|清水灰|戀愛粉/) || [])[0];
+    const style = /金運/.test(spec) ? "金" : (/招福/.test(spec) ? "福" : "");
+    const text = (String(row["客製刻印選項"] ?? "").match(/刻印文字[:：]\s*(.+)$/) || [])[1]?.trim();
+    return `【雷雕】胖胖貓(巨)${color ? LINE_COLOR_CHAR[color] : ""}${style} ${text ? "文字:" + text : "未雷雕換木片"} x${qty}`;
+  }
+  if (rule.dog) {
+    const spec = String(row["規格設定"] ?? ""), name = String(row["商品名稱"] ?? "");
+    const color = typeof rule.dog === "string" ? rule.dog
+      : ((spec.match(/(清水灰|磨石白|純淨白|備長炭黑|炭錢黑|灰|白|黑)/) || [])[1] || "").replace(/清水|磨石|純淨|備長炭|炭錢/, "");
+    const pick = (spec.match(/([財富])狗狗/) || spec.match(/款式[:：]\s*([財富])/) || name.match(/[(（]([財富])[)）]/) || [])[1] || "";
+    return `狗 ${color}${pick}${rule.extra || ""} x${qty}`;
+  }
+  if (rule.zodiacCat) {
+    const spec = String(row["規格設定"] ?? "");
+    // 可選星座的賣場看規格;一個星座一個賣場的,星座寫在品名「巨蟹座開運胖胖貓」(不是前面行銷用的【天秤座生日快樂】)
+    const name = String(row["商品名稱"] ?? "");
+    const sign = (spec.match(/星座[:：]\s*([^,，(（【]+)/) || [])[1]?.trim()
+      || (name.match(new RegExp("(" + ZODIAC_NAMES.join("|") + ")開運胖胖貓")) || [])[1];
+    const oil = (spec.match(/加購(?:單方)?精油[:：]\s*([^,，【\s]+)/) || spec.match(/加購[:：]\s*([^,，【\s]+?)精油/) || [])[1];
+    const segs = [sign && "星座: " + sign, oil && oil !== "不加購" && "加購: " + oil + "精油"].filter(Boolean);
+    return `星座貓${segs.length ? " " + segs.join(", ") : ""} x${qty}`;
+  }
+  let spec = String(row["規格設定"] ?? "");
+  for (const [find, repl] of (rule.spec || [])) spec = spec.split(find).join(repl);
+  const note = buildNoteFull({ ...row, "商品名稱": rule.title || row["商品名稱"], "規格設定": spec });
+  return note.replace(/\s+-\s*(?=x\d+$)/, " ").replace(/\s+/g, " ").trim();   // 空的刻印欄留下的「 - 」拿掉
+}
+
+// 原本的完整寫法(保留「顏色:」「星座:」「刻印文字:」「金運:/招福:」這些欄位名)。
+// 上傳廠商試算表一定要用這個 —— 雷雕網站(niyan_Laser)是從雷雕試算表的備註欄
+// 用這些欄位名抓星座、顏色、刻印文字的,換掉它就抓不到了。
+function buildNoteFull(row) {
   // 規格/刻印欄已經寫了客人挑的星座,標題上那些就只是當月的行銷字樣,拿掉(見 stripPromoZodiac)
   const pickedZodiac = hasZodiacName(row["規格設定"]) || hasZodiacName(row["客製刻印選項"]);
   const parts = [];
