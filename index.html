@@ -247,9 +247,9 @@
   }
   .plat-name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
   @media (max-width: 700px) { .plat-grid { grid-template-columns: repeat(2, 1fr); } }
-  /* 共用工具:跟上面平台按鈕同一組 4 欄格線,左邊對齊 LINE禮物/蝦皮 */
+  /* 共用工具:3 個按鈕,跟上面平台按鈕同一組 3 欄格線,左右剛好對齊上面的寬度 */
   .tool-tabs {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;
   }
   .tab.tab-tool {
     padding: 11px 16px; border-radius: 12px; text-align: center;
@@ -258,7 +258,6 @@
   }
   .tab.tab-tool:hover { border-color: var(--accent); color: var(--text); }
   .tab.tab-tool.active { border-color: var(--accent); background: var(--bg-input); color: var(--accent); }
-  @media (max-width: 700px) { .tool-tabs { grid-template-columns: repeat(2, 1fr); } }
 
   /* 表頭常用連結:固定 4 欄,換行時每排都是整整齊齊的 4 個(不要像 flex-wrap 那樣
      最後一排只剩落單 1 個) */
@@ -1624,7 +1623,6 @@
       <button class="tab tab-tool" data-tab="problems" onclick="switchTab('problems')">問題訂單</button>
       <button class="tab tab-tool" data-tab="returns" onclick="switchTab('returns')">包裹退貨</button>
       <button class="tab tab-tool" data-tab="abbr" onclick="switchTab('abbr')">品項簡寫</button>
-      <button class="tab tab-tool" data-tab="invoice" onclick="switchTab('invoice')">發票放大</button>
     </div>
 
     <!-- 平台資訊列(後台連結、發票提醒、LINE 的子功能切換),內容由 platforms.js 畫 -->
@@ -1920,22 +1918,6 @@
         </div>
       </section>
       <div id="abbrResult" class="problem-list"></div>
-    </div>
-
-    <!-- ================ 發票放大(暫時頁面,invoice-tool.js) ================ -->
-    <div id="tab-invoice" class="tab-panel">
-      <section class="card">
-        <div class="card-label">電子發票證明聯 PDF</div>
-        <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          丟進電子發票證明聯 PDF,會重新排版成「主要 QRcode(左邊那個)放大」的新 PDF,可直接下載。檔案只在這台電腦處理,不會上傳。
-        </p>
-        <div id="invDrop" style="border: 2px dashed var(--border, #ccc); border-radius: 10px; padding: 18px; text-align: center;">
-          <input type="file" id="invFile" accept="application/pdf,.pdf" multiple onchange="handleInvoiceFiles(this.files)">
-          <div style="margin-top: 8px; font-size: 12px; color: var(--text-dim);">也可以把 PDF 直接拖到這裡</div>
-        </div>
-        <div id="invStatus" style="margin-top: 8px; font-size: 13px; color: var(--text-dim);"></div>
-      </section>
-      <div id="invResult"></div>
     </div>
 
     <div id="tab-returns" class="tab-panel">
@@ -2459,7 +2441,6 @@
 <script src="pinkoi-orders.js"></script>
 <script src="marhe-orders.js"></script>
 <script src="abbr-tool.js"></script>
-<script src="invoice-tool.js"></script>
 <script src="split-button.js"></script>
 <script src="guide-cat.js"></script>
 <script src="app-init.js"></script>
