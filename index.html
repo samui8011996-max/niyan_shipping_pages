@@ -704,6 +704,10 @@
     .guide-cat { top: auto; bottom: 16px; right: 16px; transform: none; width: 160px; }
     .gc-cat { width: 72px; }
   }
+  /* 手機版不顯示(使用者 2026-10-21 要求,版面太窄擠不下,拖曳也不好用) */
+  @media (max-width: 700px) {
+    .guide-cat { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) { .gc-cat { animation: none; } }
 
   /* 分割按鈕:[ 印單 | ⌄ ],箭頭點開選紙張(split-button.js) */
