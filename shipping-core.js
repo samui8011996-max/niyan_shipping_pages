@@ -274,6 +274,9 @@ rows.sort((a, b) => {
     updateZonedStats(rows);
     setStatus(statusId, "success", `✓ 已載入 ${rows.length} 筆資料,可執行匯出`);
 
+    // 改備註:記下原本的值、清掉上一個檔的修改(note-edit.js)
+    if (typeof initNoteEdits === "function") initNoteEdits(rows);
+
     // 載入完成後比對問題訂單清單
     checkProblemOrdersAgainstLoaded();
   } catch (e) {
@@ -286,6 +289,8 @@ rows.sort((a, b) => {
     resetShippingStats();
     resetZonedStats();
     hideProblemAlert();
+    const ne = document.getElementById("noteEditCard");
+    if (ne) ne.hidden = true;
   }
 }
 

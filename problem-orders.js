@@ -226,6 +226,8 @@ function doProblemMatch() {
     `;
   }).join("");
   document.getElementById("problemAlert").style.display = "block";
+  // 問題訂單清單是非同步讀進來的,讀到之後改備註卡片要重畫,問題訂單才會自動列在上面
+  if (typeof renderNoteEditor === "function") renderNoteEditor();
 }
 
 function hideProblemAlert() {

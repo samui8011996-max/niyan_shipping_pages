@@ -1684,6 +1684,14 @@
         <div id="problemAlertList" class="problem-alert-list"></div>
       </div>
 
+      <!-- 改備註(note-edit.js):載入訂單後每一筆都能改,改完的備註下載黑貓出貨表、上傳都會用 -->
+      <section id="noteEditCard" class="card" hidden>
+        <div class="card-label">改備註</div>
+        <input type="search" id="noteEditSearch" class="form-input" placeholder="輸入訂單編號、收件人或品項搜尋,例如 202610210130004154">
+        <div id="noteEditHint" class="stats-hint" style="margin:8px 0"></div>
+        <div id="noteEditList" class="problem-list"></div>
+      </section>
+
       <div class="stats-header">
         <span class="stats-title">今日訂單統計</span>
         <span id="statsHint" class="stats-hint"></span>
@@ -2426,6 +2434,7 @@
 <script src="offshore-label.js"></script>
 <script src="sheet-sync.js"></script>
 <script src="laser-sync.js"></script>
+<script src="note-edit.js"></script>
 <script src="logistics-match.js"></script>
 <script src="problem-orders.js"></script>
 <script src="returns.js"></script>
