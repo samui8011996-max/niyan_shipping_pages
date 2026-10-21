@@ -215,12 +215,13 @@ function gcShopeeCard() {
 }
 
 // 訂單編號、託運單號都沒有的話(理論上不會發生,退貨紀錄擇一必填)用 ? 頂著,不要讓整行空白看起來像壞掉。
-// 使用者 2026-10-21:前面加「#」比較好認;原始編號本來就很長(例如 202608130100002574),
-// 卡片那邊用 gc-call-ids 這個 class 讓它能在數字中間自己換行,不要撐爆這張窄窄的卡片。
+// 使用者 2026-10-21:原始編號很長(例如 202608130100002574),簡寫成後六碼、前面加「#」
+// 比較好認也不占空間(例如 #002574)。
 function gcCallOrderIdList() {
   return gcCallItems.map(r => {
-    const id = String(r.orderId || r.trackingNo || "?").trim();
-    return id.startsWith("#") ? id : "#" + id;
+    const id = String(r.orderId || r.trackingNo || "").trim();
+    if (!id) return "?";
+    return "#" + (id.length > 6 ? id.slice(-6) : id);
   });
 }
 // 卡片用(HTML,要跳脫);桌面通知是純文字,直接用 gcCallOrderIdList() 的陣列就好,不要跳脫過的版本
