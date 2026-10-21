@@ -67,12 +67,12 @@ function renderNoteEditor() {
     const i = loadedRows.indexOf(r);
     const laser = noteEditIsLaser(r);
     const isProblem = problems.has(String(r["訂單編號"] ?? "").trim());
-    return `<div class="problem-item note-edit-item${r["_已改備註"] ? " editing" : ""}" data-i="${i}">
+    return `<div class="problem-item note-edit-item${isProblem ? " is-problem" : ""}${r["_已改備註"] ? " editing" : ""}" data-i="${i}">
       <div class="problem-item-main">
         <div class="problem-item-row1">
           <span class="pi-id">${escapeHtml(r["訂單編號"] ?? "")}</span>
           <span class="pi-time">${escapeHtml(r["收件人姓名"] ?? "")}</span>
-          ${isProblem ? '<span class="pi-type">問題訂單</span>' : ""}
+          ${isProblem ? '<span class="pi-type ne-problem-tag">問題訂單</span>' : ""}
           ${laser ? '<span class="pi-type">雷雕</span>' : ""}
           ${r["_已改備註"] ? '<span class="pi-type">已改</span>' : ""}
         </div>

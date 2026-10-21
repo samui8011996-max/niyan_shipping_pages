@@ -691,6 +691,9 @@
   .return-edit-banner button { margin-left: auto; }
   .return-form.editing #returnSubmitBtn { background: #E8833A; }
   .problem-item.editing { border: 2px solid #E8833A; background: color-mix(in srgb, #E8833A 8%, var(--bg-card)); }
+  /* 改備註:問題訂單用紅色(使用者 2026-10-21),改過之後也還是紅框,看得出是問題單 */
+  .note-edit-item.is-problem { border: 2px solid var(--cat-red-border); background: var(--cat-red-bg); }
+  .problem-item.note-edit-item .pi-type.ne-problem-tag { background: var(--cat-red-border); color: #fff; border-color: var(--cat-red-border); }
 
   /* 退貨清單上「今天要打第 N 次電話」 */
   .pi-call {
