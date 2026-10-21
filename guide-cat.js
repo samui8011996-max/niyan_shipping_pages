@@ -214,15 +214,24 @@ function gcShopeeCard() {
     </div>`;
 }
 
-// 訂單編號、託運單號都沒有的話(理論上不會發生,退貨紀錄擇一必填)用 ? 頂著,不要讓整行空白看起來像壞掉
+// 訂單編號、託運單號都沒有的話(理論上不會發生,退貨紀錄擇一必填)用 ? 頂著,不要讓整行空白看起來像壞掉。
+// 使用者 2026-10-21:前面加「#」比較好認;原始編號本來就很長(例如 202608130100002574),
+// 卡片那邊用 gc-call-ids 這個 class 讓它能在數字中間自己換行,不要撐爆這張窄窄的卡片。
+function gcCallOrderIdList() {
+  return gcCallItems.map(r => {
+    const id = String(r.orderId || r.trackingNo || "?").trim();
+    return id.startsWith("#") ? id : "#" + id;
+  });
+}
+// 卡片用(HTML,要跳脫);桌面通知是純文字,直接用 gcCallOrderIdList() 的陣列就好,不要跳脫過的版本
 function gcCallOrderIds() {
-  return gcCallItems.map(r => r.orderId || r.trackingNo || "?").join("、");
+  return gcCallOrderIdList().map(escapeHtml).join("、");
 }
 
 function gcCallCard() {
   const ids = gcCallOrderIds();
   return `<div class="gc-bubble is-call">
-      <b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡${ids ? ":" + ids : ""}
+      <b class="gc-remind-title">要打電話囉!</b>今天還有 ${gcCalls} 筆退貨要聯絡${ids ? `:<span class="gc-call-ids">${ids}</span>` : ""}
       <span class="gc-btns">
         <button type="button" class="gc-btn" onclick="gcGoReturns()">去包裹退貨</button>
         <button type="button" class="gc-btn ghost" onclick="gcSkipCalls()">今天先不打</button>
@@ -298,7 +307,7 @@ function gcNotifyCalls() {
   let done = false;
   try { done = localStorage.getItem(GC_CALL_NOTIFIED_KEY) === gcTodayKey(); } catch (e) {}
   if (done || !gcNotifySupported() || Notification.permission !== "granted") return;
-  const ids = gcCallOrderIds();
+  const ids = gcCallOrderIdList().join("、");
   gcNotify("要打電話囉!", `今天還有 ${gcCalls} 筆退貨要聯絡(LINE禮物)${ids ? ":" + ids : ""}`, "gc-call");
   try { localStorage.setItem(GC_CALL_NOTIFIED_KEY, gcTodayKey()); } catch (e) {}
 }
