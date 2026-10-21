@@ -52,7 +52,9 @@ async function handleLineTemplate(file) {
       orders.push({ rowIdx: i, orderId: oid, product });
     }
 
-    lineTemplateData = { wb, sheetName, orders, carrierCol, trackingCol };
+    // 留一份原始內容:匯出會把 wb 裡的分頁換成重新排序過的版本,
+    // 再匯出一次時若從 wb 重讀,rowIdx 就會指到別筆訂單(單號錯位)
+    lineTemplateData = { wb, sheetName, orders, carrierCol, trackingCol, origAoa: aoa, origCols: ws["!cols"] };
     document.getElementById("stat-line-total").textContent = orders.length;
     checkBothLoaded();
     setStatus("logisticsStatus", "success", `✓ LINE 模板已載入 ${orders.length} 筆`);
@@ -266,9 +268,7 @@ function generateLogistics() {
 
   setTimeout(() => {
     try {
-      const { wb, sheetName, orders, carrierCol, trackingCol } = lineTemplateData;
-      const origWs = wb.Sheets[sheetName];
-      const aoa = XLSX.utils.sheet_to_json(origWs, { header: 1, defval: "" });
+      const { wb, sheetName, orders, carrierCol, trackingCol, origAoa: aoa, origCols } = lineTemplateData;
       const headerRow = aoa[0];
       const colCount = headerRow.length;
 
@@ -326,7 +326,7 @@ function generateLogistics() {
         }
       }
 
-      if (origWs["!cols"]) newWs["!cols"] = origWs["!cols"];
+      if (origCols) newWs["!cols"] = origCols;
       newWs["!freeze"] = { xSplit: 0, ySplit: 1 };
       wb.Sheets[sheetName] = newWs;
 
