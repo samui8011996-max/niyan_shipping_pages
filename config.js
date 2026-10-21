@@ -40,8 +40,9 @@ const SPECIAL_CATEGORIES = [
   { keys: ["雷雕"],       name: "雷雕",       bg: "BDBDBD", fg: "000000", priority: 1, uiId: "stat-laser" },
 ];
 
-// 要上傳到 Google Sheet 的分類
-const UPLOAD_CATEGORIES = ["雷雕", "黑熊", "永生花", "注意品項", "盆景公仔組"];
+// 要上傳到 Google Sheet 的分類。
+// 雷雕 2026-10-21 起不寫試算表,改送 D1 給雷雕網站直接讀(laser-sync.js)
+const UPLOAD_CATEGORIES = ["黑熊", "永生花", "注意品項", "盆景公仔組"];
 
 // 離島•郵局:地址含以下關鍵字 → 不用黑貓寄,改用郵局寄,另外上傳到「離島包裹」試算表
 // 澎湖/金門/連江(馬祖)是縣級離島;綠島/蘭嶼(台東縣)、琉球(屏東縣小琉球)是鄉鎮級離島,

@@ -61,3 +61,16 @@ CREATE TABLE IF NOT EXISTS shipping_returns (
 -- 所以做成「訂單編號不是空的才唯一」的部分索引,不然那幾列會互相擋住匯不進來。
 CREATE UNIQUE INDEX IF NOT EXISTS idx_shipping_returns_key
   ON shipping_returns("平台","訂單編號") WHERE "訂單編號" <> '';
+
+-- 雷雕訂單:2026-10-21 起取代「雷雕試算表」。出貨小幫手上傳時寫入,雷雕網站(niyan-laser-pages)直接讀。
+-- 只存做圖需要的欄位,不存姓名/電話/地址。鍵值 = LINE「商品訂單編號」,重複上傳是更新。
+-- 超過 14 天的資料由 api.js 在每次讀寫時刪掉。程式會 CREATE TABLE IF NOT EXISTS 就地建表。
+CREATE TABLE IF NOT EXISTS laser_orders (
+  "鍵值" TEXT PRIMARY KEY,
+  "訂單編號" TEXT,
+  "品項" TEXT,      -- 完整備註(雷雕網站從這裡抓星座/顏色/刻印圖案)
+  "類型" TEXT,      -- 【一對小】【星座貓雷雕】【辦公室一對(中)】…
+  "刻印文字" TEXT,
+  "日期" TEXT,      -- 上傳日期 YYYY/MM/DD,雷雕網站「只生成指定日期」用
+  "建立時間" TEXT NOT NULL
+);

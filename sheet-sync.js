@@ -3,9 +3,9 @@
 // 這些只是給統計字卡「點擊 → 開啟試算表」用的,實際寫入是後端 Apps Script 在做。
 // 問題訂單 2026-09-17 起、包裹退貨 2026-09-23 起改存 D1,所以這裡已經沒有它們了。
 // ===================================================================
+// 雷雕 2026-10-21 起不寫試算表,改送 D1 給雷雕網站直接讀(laser-sync.js),所以這裡拿掉雷雕
 const SHEET_URLS = {
-  "雷雕":       "https://docs.google.com/spreadsheets/d/1yWvDnbI9w1ukexlaZWNAOyPHUS7JKMgGIDPV83wlSQ8/edit",
-  "黑熊":       "https://docs.google.com/spreadsheets/d/1SVuzdacjbJrX82pIRkkdB7B1kD3pF9nggkynzxzUTII/edit",
+  "黑熊":      "https://docs.google.com/spreadsheets/d/1SVuzdacjbJrX82pIRkkdB7B1kD3pF9nggkynzxzUTII/edit",
   "永生花":     "https://docs.google.com/spreadsheets/d/1ihfosKQwK8B9IA1768tHEACykPxHuTgzqd26kkA2YwM/edit",
   "注意品項":   "https://docs.google.com/spreadsheets/d/1dPGbWNIcslooHOkYtwIPc-moh88z1UR0aA1gTwZ-prU/edit",
   "盆景公仔組": "https://docs.google.com/spreadsheets/d/1hhx_HqK9m9XUxKQlGXcRYdY20Qpfg_zN9vTJW1U44Ts/edit",
@@ -103,6 +103,9 @@ function uploadAllToSheet() {
   const targets = {};
   let totalCount = 0;
 
+  // 雷雕:不寫試算表,直接送 D1 給雷雕網站(跟下面的試算表上傳同時跑,失敗互不影響)
+  const laserP = uploadLaserOrders(buildLaserRows(loadedRows, today));
+
   UPLOAD_CATEGORIES.forEach(cat => {
     // 用完整命中清單比對,一筆訂單如果同時符合兩個分類(例如巨物+雷雕),
     // 兩邊廠商試算表都要收到這筆
@@ -154,8 +157,11 @@ function uploadAllToSheet() {
   }
 
 if (totalCount === 0) {
-  // 沒有分類訂單，但還是要上傳一般訂單數
-  uploadLineRegular();
+  // 沒有要寫試算表的分類訂單，但雷雕(D1)跟一般訂單數還是要上傳
+  laserP.then(laserMsg => {
+    if (laserMsg) setStatus("status", /失敗/.test(laserMsg) ? "error" : "success", (/失敗/.test(laserMsg) ? "✗ " : "✓ ") + laserMsg);
+    uploadLineRegular(laserMsg ? laserMsg + " · " : "");
+  });
   return;
 }
 
@@ -174,15 +180,17 @@ if (totalCount === 0) {
     }),
   })
     .then(r => r.json())
-.then(data => {
+.then(async data => {
       console.log("[一鍵上傳回應]", data);   // 出問題時 F12 主控台看得到後端原始回報
       // 包貨字卡跟試算表是兩套系統,分開回報:試算表掛了不代表字卡沒進去(反之亦然)
       const packing = describeOffshoreSync(data);
+      const laserMsg = await laserP;
+      const laserPart = laserMsg ? ` · ${laserMsg}` : "";
       if (data.ok) {
         const breakdown = Object.entries(data.results || {})
           .map(([c, r]) => (r.ok ? `${c} ${r.count}` : `${c} 試算表失敗(${r.error || "未知錯誤"})`))
           .join(" · ");
-        const summary = `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${packing}`;
+        const summary = `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${laserPart}${packing}`;
         setStatus("status", "success", summary);
         // 把這段當前綴傳下去 —— 不然 Line禮物 那行馬上就把它蓋掉,
         // 離島字卡到底有沒有進去、試算表哪一類失敗,全都看不到
@@ -190,7 +198,7 @@ if (totalCount === 0) {
       } else {
         // 試算表整包失敗也要繼續送 Line禮物件數 —— 那張卡根本不經過試算表,
         // 以前一起卡住,包貨看板就整天缺一塊
-        const msg = `✗ 試算表上傳失敗:${data.error || "未知錯誤"}${packing}`;
+        const msg = `✗ 試算表上傳失敗:${data.error || "未知錯誤"}${laserPart}${packing}`;
         setStatus("status", "error", msg);
         uploadLineRegular(msg + " · ");
       }

@@ -61,6 +61,9 @@ export async function onRequestPost(context) {
       case 'addReturn':         return await handleAddReturn(env, body);
       case 'getReturns':        return await handleGetReturns(env);
       case 'removeReturn':      return await handleRemoveReturn(env, body);
+      // 雷雕訂單：純 D1，給雷雕網站(niyan-laser-pages)直接讀，2026-10-21 起不再寫雷雕試算表
+      case 'addLaserOrders':    return await handleAddLaserOrders(env, body);
+      case 'getLaserOrders':    return await handleGetLaserOrders(env);
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
       default:                  return json(await callGas(env, body));
     }
@@ -706,4 +709,64 @@ async function upsertPlatform(DB, p, mode) {
   await DB.prepare(`UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=?${pickingSql} WHERE id=?`)
     .bind(...binds).run();
   return { updated: true, total, id: existing.id };
+}
+
+/* ---------- 雷雕訂單（2026-10-21 起取代雷雕試算表）---------- */
+// 出貨小幫手按「上傳」時寫進來，雷雕網站打開時讀出去做圖。
+// 只存做圖需要的：訂單編號、品項(完整備註，雷雕網站從裡面抓星座/顏色/刻印圖案)、
+// 類型(【一對小】【星座貓雷雕】…)、刻印文字。姓名、電話、地址都不存。
+// 鍵值 = LINE 的「商品訂單編號」(一張訂單可能有好幾個品項)，重複按上傳是更新不是新增。
+// 超過 14 天的資料，每次讀寫時順手刪掉(使用者 2026-10-21：每 14 天刪一次雷雕資料)。
+const LASER_KEEP_DAYS = 14;
+let _laserReady = false;
+
+async function ensureLaserTable(DB) {
+  if (_laserReady) return;
+  await DB.prepare(
+    'CREATE TABLE IF NOT EXISTS laser_orders (' +
+    '"鍵值" TEXT PRIMARY KEY, "訂單編號" TEXT, "品項" TEXT, "類型" TEXT, "刻印文字" TEXT, ' +
+    '"日期" TEXT, "建立時間" TEXT NOT NULL)'
+  ).run();
+  _laserReady = true;
+}
+
+async function purgeOldLaser(DB) {
+  const r = await DB.prepare(
+    `DELETE FROM laser_orders WHERE "建立時間" < datetime('now', '-${LASER_KEEP_DAYS} days')`
+  ).run();
+  return (r.meta && r.meta.changes) || 0;
+}
+
+async function handleAddLaserOrders(env, body) {
+  const DB = requireDb(env);
+  await ensureLaserTable(DB);
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const stmts = [];
+  for (const r of rows) {
+    const key = String(r.key || '').trim();
+    if (!key) continue;
+    stmts.push(DB.prepare(
+      'INSERT INTO laser_orders ("鍵值","訂單編號","品項","類型","刻印文字","日期","建立時間") ' +
+      "VALUES (?,?,?,?,?,?,datetime('now')) " +
+      'ON CONFLICT("鍵值") DO UPDATE SET "訂單編號"=excluded."訂單編號", "品項"=excluded."品項", ' +
+      '"類型"=excluded."類型", "刻印文字"=excluded."刻印文字"'
+    ).bind(key, String(r.orderId || ''), String(r.item || ''), String(r.type || ''), String(r.text || ''), String(r.date || '')));
+  }
+  if (stmts.length) await DB.batch(stmts);
+  const purged = await purgeOldLaser(DB);
+  return json({ ok: true, count: stmts.length, purged });
+}
+
+async function handleGetLaserOrders(env) {
+  const DB = requireDb(env);
+  await ensureLaserTable(DB);
+  const purged = await purgeOldLaser(DB);
+  const rs = await DB.prepare(
+    'SELECT "訂單編號","品項","類型","刻印文字","日期","建立時間" FROM laser_orders ORDER BY "建立時間", "鍵值"'
+  ).all();
+  const orders = (rs.results || []).map(row => ({
+    orderId: row['訂單編號'] || '', item: row['品項'] || '', type: row['類型'] || '',
+    text: row['刻印文字'] || '', date: row['日期'] || '', created: row['建立時間'] || '',
+  }));
+  return json({ ok: true, orders, purged, keepDays: LASER_KEEP_DAYS });
 }
