@@ -248,7 +248,7 @@ function buildNoteRaw(row) {
   let spec = String(row["規格設定"] ?? "");
   for (const [find, repl] of (rule.spec || [])) spec = spec.split(find).join(repl);
   const note = buildNoteFull({ ...row, "商品名稱": rule.title || row["商品名稱"], "規格設定": spec });
-  return note.replace(/\s+-\s*(?=x\d+$)/, " ").replace(/\s+/g, " ").trim();   // 空的刻印欄留下的「 - 」拿掉
+  return note.replace(/\s+/g, " ").trim();   // 空刻印欄留下的「 - 」已經在 buildNoteFull 清掉了
 }
 
 // 原本的完整寫法(保留「顏色:」「星座:」「刻印文字:」「金運:/招福:」這些欄位名)。
@@ -273,6 +273,10 @@ function buildNoteFull(row) {
   for (const pat of REMOVE_PATTERNS) note = note.split(pat).join("");
   for (const re of REMOVE_REGEX_PATTERNS) note = note.replace(re, "");
   note = note.replace(/[,、]\s*(?=x\d)/g, " ");
+  // 規格/刻印欄是空的時候會留下一個孤零零的「-」,數量一律寫成「 x數量」,不要印成「 - x1」
+  // (使用者 2026-10-22;本來只有「有對照規則」的商品在 buildNoteRaw 尾端清,沒規則的就漏掉了,
+  //  黑貓出貨表上一半以上的備註都是「… - x1」)
+  note = note.replace(/[\s,，、]*[-－–—]+\s*(?=x\d+\s*$)/, " ");
   return note.replace(/\s+/g, " ").trim();
 }
 
