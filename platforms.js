@@ -8,6 +8,7 @@
 //   invoice : 要不要印發票(蝦皮、Pinkoi、官網要印,其他不印)
 //   note    : 資訊列上的補充說明(選填)
 //   gmail   : 新訂單會寄信通知,資訊列多一條「新訂單請檢查 Gmail」
+//   selfCheck: 平台不寄通知信,資訊列改提醒「要自己登入後台看新訂單」
 // ===================================================================
 
 const INVOICE_URL = "https://web2.einvoice.com.tw/einv/Login/index.action";
@@ -26,7 +27,8 @@ const PLATFORMS = [
   // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
   { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
   { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true, panel: "marais" },   // 2026-10-19 起可以產黑貓出貨表 + 物流回填(marhe-orders.js)
-  { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, gmail: true },
+  // MO+ 2026-10-22 起不再寄新訂單通知信了,改成提醒自己登入後台看(使用者告知)
+  { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, selfCheck: true },
   { id: "rakuten", name: "樂天", url: "https://rms.rakuten.com.tw/request_login", invoice: false, gmail: true },
   { id: "books", name: "博客來", url: "https://ec-supplier.books.com.tw/", invoice: false, gmail: true },
   // 使用者給的是 Coupang 登入頁的完整網址,但裡面的 state 是一次性的登入參數,放久了會失效;
@@ -100,6 +102,11 @@ function renderPlatformBar(top) {
         <strong>新訂單請檢查 Gmail</strong>
         <span>這個平台有新訂單會寄信通知。</span>
         <a class="pb-gmail-link" href="${GMAIL_URL}" target="_blank" rel="noopener noreferrer">開啟 Gmail ↗</a>
+      </div>` : ""}
+    ${p.selfCheck ? `<div class="pb-gmail">
+        <strong>新訂單要自己登入看</strong>
+        <span>這個平台不會寄通知信,請自己開後台確認有沒有新訂單。</span>
+        <a class="pb-gmail-link" href="${p.url}" target="_blank" rel="noopener noreferrer">開啟 ${escapeHtml(p.name)} 後台 ↗</a>
       </div>` : ""}
     ${p.note ? `<p class="pb-note">${escapeHtml(p.note)}</p>` : ""}
     ${subs}`;
