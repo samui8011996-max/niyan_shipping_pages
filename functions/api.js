@@ -65,6 +65,7 @@ export async function onRequestPost(context) {
       case 'addLaserOrders':    return await handleAddLaserOrders(env, body);
       case 'getLaserOrders':    return await handleGetLaserOrders(env);
       case 'updateLaserOrder':  return await handleUpdateLaserOrder(env, body);   // 雷雕網站的訂單列表改品項/刻印文字
+      case 'deleteLaserOrder':  return await handleDeleteLaserOrder(env, body);   // 雷雕網站的訂單列表刪一筆
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
       default:                  return json(await callGas(env, body));
     }
@@ -772,16 +773,28 @@ async function handleGetLaserOrders(env) {
   return json({ ok: true, orders, purged, keepDays: LASER_KEEP_DAYS });
 }
 
-// 雷雕網站在訂單列表上改一筆:品項(完整備註)、刻印文字、類型。只改這三欄,日期/建立時間不動
-// (不然改一下就會被當成新資料、14 天重新算)
+// 雷雕網站在訂單列表上改一筆:品項(完整備註)、刻印文字、類型。
+// 改過的那筆日期改成今天(使用者 2026-10-22:改過的日期變今天),檔名、日期篩選都用新日期;
+// 14 天也從今天重新算,不然今天改的明天就可能被刪掉
 async function handleUpdateLaserOrder(env, body) {
   const DB = requireDb(env);
   await ensureLaserTable(DB);
   const key = String(body.key || '').trim();
   if (!key) return json({ ok: false, error: '缺少鍵值' });
+  const today = tw(10).replace(/-/g, '/');   // 台灣時間 2026/10/22,跟上傳時的日期格式一樣
   const r = await DB.prepare(
-    'UPDATE laser_orders SET "品項"=?, "刻印文字"=?, "類型"=? WHERE "鍵值"=?'
-  ).bind(String(body.item || ''), String(body.text || ''), String(body.type || ''), key).run();
+    `UPDATE laser_orders SET "品項"=?, "刻印文字"=?, "類型"=?, "日期"=?, "建立時間"=datetime('now') WHERE "鍵值"=?`
+  ).bind(String(body.item || ''), String(body.text || ''), String(body.type || ''), today, key).run();
   const changed = (r.meta && r.meta.changes) || 0;
-  return json(changed ? { ok: true } : { ok: false, error: '找不到這筆(可能已超過 14 天被刪掉了)' });
+  return json(changed ? { ok: true, date: today } : { ok: false, error: '找不到這筆(可能已超過 14 天被刪掉了)' });
+}
+
+// 雷雕網站在訂單列表上刪一筆(使用者 2026-10-22)
+async function handleDeleteLaserOrder(env, body) {
+  const DB = requireDb(env);
+  await ensureLaserTable(DB);
+  const key = String(body.key || '').trim();
+  if (!key) return json({ ok: false, error: '缺少鍵值' });
+  await DB.prepare('DELETE FROM laser_orders WHERE "鍵值"=?').bind(key).run();
+  return json({ ok: true });
 }
