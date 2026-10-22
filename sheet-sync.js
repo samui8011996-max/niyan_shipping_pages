@@ -293,6 +293,35 @@ function buildRegularItems() {
 // 離島那批:逐筆送「訂單編號 + 品項 + 件數」,不先加總。
 // 後端要靠訂單編號去重(同一天同一張單重複上傳只算一次),所以明細也得跟著訂單編號走,
 // 不然重複上傳時件數沒加、明細卻又加一次,兩邊會對不起來。
+// 重算今天字卡:把今天的 Line禮物／離島•郵局 兩張卡歸零、清掉去重登記,
+// 再按一次上傳就會拿現在這份訂單表整批重新算。
+// 預設的逐列去重是為了「同一批訂單不要被灌兩次」,所以重算要明確按這顆,不自動發生。
+function resetTodayCards() {
+  const msg = [
+    "要把今天的「Line禮物」和「離島•郵局」字卡歸零嗎?",
+    "",
+    "歸零之後請再按一次「上傳包貨平台與試算表」,整份訂單表會重新算一次。",
+    "包貨那邊的備註和完成狀態不會動。",
+  ].join("\n");
+  if (!confirm(msg)) return;
+  const btn = document.getElementById("resetCardBtn");
+  if (btn) btn.disabled = true;
+  setStatus("status", "loading", "重算中…");
+  fetch(getGsUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "resetTodayCards", date: todayStr("-") }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { setStatus("status", "error", `✗ 重算失敗:${d.error || "未知錯誤"}`); return; }
+      console.log("[重算今天字卡]", d);
+      setStatus("status", "success", "✓ 今天的字卡已歸零,請再按一次「上傳包貨平台與試算表」");
+    })
+    .catch(e => setStatus("status", "error", `✗ 重算失敗:${e.message}`))
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
 // 離島 → 包貨「離島•郵局」字卡。不經試算表、不帶個資,失敗也不擋其他上傳。
 function syncOffshoreCard(items) {
   if (!items || !items.length) return Promise.resolve("");

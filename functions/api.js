@@ -49,6 +49,8 @@ export async function onRequestPost(context) {
       case 'uploadLineRegular': return await handleUploadLineRegular(env, body);
       // 離島 2026-10-22 起不寫試算表了,改用這支直接填包貨「離島•郵局」字卡(只收訂單編號/品項/件數)
       case 'syncOffshore':      return await handleSyncOffshore(env, body);
+      // 把今天的字卡歸零 + 清掉去重登記,讓同一份訂單表可以整批重算一次
+      case 'resetTodayCards':   return await handleResetTodayCards(env, body);
       // 分類訂單 → 廠商試算表（Apps Script），離島那批順便填包貨「離島•郵局(郵局)」字卡
       case 'append':            return await handleAppend(env, body);
       // 只補「離島•郵局」字卡，完全不碰試算表：
@@ -353,6 +355,37 @@ async function syncOffshoreToCard(env, rows, items) {
   }
 
   return { ...r, added: qty, duplicated: skipped, verify };
+}
+
+/* ---------- 重算今天的字卡 ---------- */
+// 逐列去重是為了「同一批訂單不要被灌兩次」(2026-09-23 踩過:同事一天上傳兩次,
+// 早上那批被重算,卡片變兩倍)。但測試完、或數字改錯要整批重來時,去重會擋住 ——
+// 這支就是給那種時候用的:字卡的件數/明細歸零、今天的去重登記清掉,
+// 然後再按一次上傳,整份訂單表會重新算一次。備註和完成狀態不動。
+const RESET_PLATFORMS = [LINE_REGULAR_PLATFORM, OFFSHORE_PLATFORM];
+
+async function handleResetTodayCards(env, body) {
+  const DB = requireDb(env);
+  const date = String(body.date || todayTw()).trim();
+  await ensureSyncTables(DB);
+  await ensureNoticeColumn(DB);
+  const result = {};
+  for (const platform of RESET_PLATFORMS) {
+    const row = await getCardRow(DB, date, platform);
+    if (row) {
+      await DB.prepare(
+        'UPDATE platform_orders SET "明細"=?,"總件數"=0,"撿貨明細"=NULL,"注意明細"=NULL,"更新時間"=? WHERE id=?'
+      ).bind('[]', now(), row.id).run();
+    }
+    const del = await DB.prepare(
+      'DELETE FROM shipping_card_synced WHERE "日期"=? AND "平台"=?'
+    ).bind(date, platform).run();
+    if (platform === OFFSHORE_PLATFORM) {
+      await DB.prepare('DELETE FROM shipping_offshore_synced WHERE "日期"=?').bind(date).run().catch(() => {});
+    }
+    result[platform] = { 歸零: !!row, 清掉登記: (del.meta && del.meta.changes) || 0 };
+  }
+  return json({ ok: true, date, result });
 }
 
 /* ---------- 離島 → 包貨「離島•郵局」字卡(不經試算表) ---------- */

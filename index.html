@@ -1683,6 +1683,10 @@
         <button id="uploadBtn" class="btn btn-gsheet" disabled onclick="uploadAllToSheet()">
           上傳包貨平台與試算表
         </button>
+        <!-- 同一批訂單預設只會算一次(逐列去重)。要整批重算時按這顆,字卡歸零後再按一次上傳 -->
+        <button id="resetCardBtn" class="btn btn-secondary" onclick="resetTodayCards()" title="把今天的 Line禮物／離島•郵局 字卡歸零,再按一次上傳就會整批重算">
+          重算今天字卡
+        </button>
 
       </div>
 
