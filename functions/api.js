@@ -47,6 +47,8 @@ export async function onRequestPost(context) {
     switch (action) {
       // 一般訂單筆數 → 包貨系統「Line禮物(黑貓)」字卡：純 D1，不碰試算表
       case 'uploadLineRegular': return await handleUploadLineRegular(env, body);
+      // 離島 2026-10-22 起不寫試算表了,改用這支直接填包貨「離島•郵局」字卡(只收訂單編號/品項/件數)
+      case 'syncOffshore':      return await handleSyncOffshore(env, body);
       // 分類訂單 → 廠商試算表（Apps Script），離島那批順便填包貨「離島•郵局(郵局)」字卡
       case 'append':            return await handleAppend(env, body);
       // 只補「離島•郵局」字卡，完全不碰試算表：
@@ -353,6 +355,21 @@ async function syncOffshoreToCard(env, rows, items) {
   return { ...r, added: qty, duplicated: skipped, verify };
 }
 
+/* ---------- 離島 → 包貨「離島•郵局」字卡(不經試算表) ---------- */
+// 2026-10-22:離島訂單不再寫 Google 試算表,前端只送「訂單編號 / 品項 / 件數」過來,
+// 姓名地址電話完全不出瀏覽器(郵局貼紙還是在前端自己做)。去重邏輯跟原本走 append 時一樣。
+async function handleSyncOffshore(env, body) {
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!items.length) return json({ ok: true, skipped: true, total: 0 });
+  const rows = items.map(it => ({
+    orderId: String(it['訂單編號'] || '').trim(),
+    qty: Number(it['件數']) || 1,
+  })).filter(r => r.orderId);
+  if (!rows.length) return json({ ok: true, skipped: true, total: 0 });
+  const r = await syncOffshoreToCard(env, rows, items);
+  return json({ ok: true, ...r });
+}
+
 /* ---------- 一般訂單筆數 → 包貨「Line禮物」字卡 ---------- */
 async function handleUploadLineRegular(env, body) {
   const date = String(body.date || '').trim();
@@ -400,9 +417,36 @@ async function handleUploadLineRegular(env, body) {
   const r = await upsertPlatform(DB, {
     日期: date, 平台: LINE_REGULAR_PLATFORM, 物流: LINE_REGULAR_LOGI, 件數: qty,
     撿貨明細: tallyItems(fresh),
+    注意明細: noticeRows(fresh),
   }, mode);
 
   return json({ ok: true, updated: !!r.updated, total: r.total || 0, added: qty, duplicated, mode });
+}
+
+// 注意品項:前端在逐列明細上標 注意=1,這裡挑出來存進字卡的「注意明細」欄。
+// 只留訂單編號 / 品項 / 件數 —— 包貨那邊用橘色標出來,不需要也不該拿到個資。
+function noticeRows(fresh) {
+  const out = [];
+  (fresh || []).forEach(f => {
+    const it = f.item || {};
+    if (!it['注意']) return;
+    const sn = String(it['訂單編號'] || '').trim();
+    if (!sn) return;
+    out.push({ 訂單編號: sn, 品項: String(it['品項'] || '').trim(), 件數: Number(it['數量']) || 1 });
+  });
+  return out;
+}
+
+// platform_orders 的「注意明細」是 2026-10-22 才加的,舊資料庫沒有這一欄就補上。
+// (跟 shipping_returns 的「重寄託運單號」同一個做法,不另外跑 migration)
+let _noticeColReady = false;
+async function ensureNoticeColumn(DB) {
+  if (_noticeColReady) return;
+  const cols = await DB.prepare('PRAGMA table_info(platform_orders)').all();
+  if (!(cols.results || []).some(c => c.name === '注意明細')) {
+    await DB.prepare('ALTER TABLE platform_orders ADD COLUMN "注意明細" TEXT').run();
+  }
+  _noticeColReady = true;
 }
 
 /* ---------- 問題訂單（D1 shipping_problems）---------- */
@@ -658,14 +702,18 @@ async function upsertPlatform(DB, p, mode) {
 
   // 撿貨分組明細(分區列印算出來的),給包貨系統點字卡時看。沒帶就整欄不動
   const picking = Array.isArray(p['撿貨明細']) ? p['撿貨明細'] : null;
+  // 注意品項逐筆清單(2026-10-22 起),沒帶就整欄不動
+  const notice = Array.isArray(p['注意明細']) ? p['注意明細'] : null;
+  if (notice) await ensureNoticeColumn(DB);
 
   if (!existing) {
     const id = newId('L'), n = now();
     const detail = logi ? [{ 物流: logi, 件數: qty }] : [];
     await DB.prepare(
-      'INSERT INTO platform_orders (id,"日期","平台","明細","總件數","已完成","完成日期","備註","建立時間","更新時間","來源平台","完成物流","撿貨明細") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      'INSERT INTO platform_orders (id,"日期","平台","明細","總件數","已完成","完成日期","備註","建立時間","更新時間","來源平台","完成物流","撿貨明細","注意明細") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
     ).bind(id, date, platform, JSON.stringify(detail), qty, '', '', '', n, n, '', '',
-           picking ? JSON.stringify(picking) : null).run();
+           picking ? JSON.stringify(picking) : null,
+           (notice && notice.length) ? JSON.stringify(notice) : null).run();
     return { updated: false, total: qty, id };
   }
 
@@ -706,9 +754,24 @@ async function upsertPlatform(DB, p, mode) {
     pickingSql = ',"撿貨明細"=?';
     binds.push(JSON.stringify(list));
   }
+  // 注意明細:一筆訂單一列,照訂單編號+品項去重後接在後面(set 模式整欄換掉)
+  let noticeSql = '';
+  if (notice) {
+    let list = notice;
+    if (!setMode) {
+      const seen = new Map();
+      jparse(existing['注意明細']).concat(notice).forEach(d => {
+        const k = String(d['訂單編號'] || '') + '|' + String(d['品項'] || '');
+        if (!seen.has(k)) seen.set(k, d);
+      });
+      list = [...seen.values()];
+    }
+    noticeSql = ',"注意明細"=?';
+    binds.push(JSON.stringify(list));
+  }
   binds.push(existing.id);
 
-  await DB.prepare(`UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=?${pickingSql} WHERE id=?`)
+  await DB.prepare(`UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=?${pickingSql}${noticeSql} WHERE id=?`)
     .bind(...binds).run();
   return { updated: true, total, id: existing.id };
 }

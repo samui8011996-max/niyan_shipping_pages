@@ -1048,6 +1048,23 @@
     transition: border-color 0.15s;
   }
   .modal textarea { font-family: inherit; min-height: 70px; resize: vertical; }
+  /* 注意品項 / 離島 清單小視窗:只有日期、訂單編號、品名備註,沒有個資 */
+  .attn-modal { max-width: 620px; width: 100%; }
+  .attn-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .attn-count { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-dim); }
+  .attn-list { max-height: 52vh; overflow-y: auto; margin: 14px 0 4px; border: 1px solid var(--border); border-radius: 8px; }
+  .attn-row { display: grid; grid-template-columns: 70px 150px 1fr; gap: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; border-bottom: 1px solid var(--border); }
+  .attn-row:last-child { border-bottom: 0; }
+  .attn-row:nth-child(odd) { background: var(--bg-input); }
+  .attn-date { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .attn-sn { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); overflow-wrap: anywhere; }
+  .attn-note { overflow-wrap: anywhere; }
+  .attn-empty { padding: 26px 12px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  .attn-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+  @media (max-width: 560px) {
+    .attn-row { grid-template-columns: 1fr; gap: 2px; }
+    .attn-date, .attn-sn { font-size: 11px; }
+  }
   .modal input[type="text"]:focus,
   .modal select:focus,
   .modal textarea:focus { border-color: var(--accent); }
@@ -1706,10 +1723,10 @@
           <div><span id="stat-regular" class="stat-number">—</span><span class="stat-unit">筆</span></div>
           <div class="stat-sub">含注意品項、雷雕、永生花、其他訂單</div>
         </div>
-        <div class="stat-card cyan clickable" onclick="openSheet('注意品項')" title="點我開啟注意品項試算表">
+        <div class="stat-card cyan clickable" onclick="openAttnList('notice')" title="點我看注意品項清單">
           <div class="stat-label">注意品項</div>
           <div><span id="stat-notice" class="stat-number">—</span><span class="stat-unit">筆</span></div>
-          <div class="stat-sub">點我 → 開啟試算表</div>
+          <div class="stat-sub">點我 → 看清單</div>
         </div>
         <div class="stat-card gray clickable" onclick="openLaserSite()" title="點我開啟雷雕網站(雷雕訂單上傳後直接在那邊看)">
           <div class="stat-label">雷雕</div>
@@ -1721,10 +1738,10 @@
           <div><span id="stat-bear" class="stat-number">—</span><span class="stat-unit">筆</span></div>
           <div class="stat-sub">點我 → 開啟試算表</div>
         </div>
-        <div class="stat-card lavender clickable" onclick="openSheet('離島•郵局')" title="點我開啟離島包裹試算表">
+        <div class="stat-card lavender clickable" onclick="openAttnList('offshore')" title="點我看離島清單">
           <div class="stat-label">離島•郵局</div>
           <div><span id="stat-offshore" class="stat-number">—</span><span class="stat-unit">筆</span></div>
-          <div class="stat-sub">改郵局寄 · 點我 → 開啟試算表</div>
+          <div class="stat-sub">改郵局寄 · 點我 → 看清單</div>
         </div>
         <div class="stat-card green clickable" onclick="openSheet('盆景公仔組')" title="點我開啟盆景試算表">
           <div class="stat-label">盆景公仔組</div>
@@ -2387,6 +2404,22 @@
   </div>
 
   <!-- Settings Modal -->
+  <!-- 注意品項 / 離島•郵局 清單(attn-list.js);不寫試算表、不放個資 -->
+  <div id="attnModal" class="modal-backdrop" onclick="if(event.target===this) closeAttnList()">
+    <div class="modal attn-modal">
+      <div class="attn-head">
+        <h2 id="attnTitle">注意品項</h2>
+        <span class="attn-count" id="attnCount"></span>
+      </div>
+      <p class="hint" id="attnHint"></p>
+      <div class="attn-list" id="attnBody"></div>
+      <div class="attn-foot">
+        <button type="button" class="btn btn-lavender" id="attnLabelBtn" hidden onclick="attnPrintOffshore()">列印離島貼紙</button>
+        <button type="button" class="btn btn-secondary" onclick="closeAttnList()">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <div id="settingsModal" class="modal-backdrop" onclick="if(event.target===this) closeSettings()">
     <div class="modal">
       <h2>外觀</h2>
@@ -2451,6 +2484,7 @@
 <script src="marhe-shortcode.js"></script>
 <script src="order-edit.js"></script>
 <script src="web-orders.js"></script>
+<script src="attn-list.js"></script>
 <script src="pinkoi-orders.js"></script>
 <script src="marhe-orders.js"></script>
 <script src="abbr-tool.js"></script>

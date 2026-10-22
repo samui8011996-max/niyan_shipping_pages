@@ -7,9 +7,7 @@
 const SHEET_URLS = {
   "黑熊":      "https://docs.google.com/spreadsheets/d/1SVuzdacjbJrX82pIRkkdB7B1kD3pF9nggkynzxzUTII/edit",
   "永生花":     "https://docs.google.com/spreadsheets/d/1ihfosKQwK8B9IA1768tHEACykPxHuTgzqd26kkA2YwM/edit",
-  "注意品項":   "https://docs.google.com/spreadsheets/d/1dPGbWNIcslooHOkYtwIPc-moh88z1UR0aA1gTwZ-prU/edit",
   "盆景公仔組": "https://docs.google.com/spreadsheets/d/1hhx_HqK9m9XUxKQlGXcRYdY20Qpfg_zN9vTJW1U44Ts/edit",
-  "離島•郵局":  OFFSHORE_SHEET_URL,
 };
 
 function getSheetUrl(category) {
@@ -140,27 +138,18 @@ function uploadAllToSheet() {
     }
   });
 
-  // 離島•郵局:地址含離島縣市的訂單,獨立於商品分類之外,額外上傳到離島包裹試算表
-  const offshoreRows = loadedRows.filter(r => r["_離島"]);
-  if (offshoreRows.length > 0) {
-    targets["離島•郵局"] = offshoreRows.map(r => ({
-      date: today,
-      name: r["收件人姓名"] ?? "",
-      address: r["配送地址"] ?? "",
-      phone: r["收件人聯絡電話"] ?? "",
-      note: "",
-      orderId: r["訂單編號"] ?? "",
-      qty: r["數量"] ?? 1,
-      island: r["_離島"],
-    }));
-    totalCount += offshoreRows.length;
-  }
+  // 離島•郵局:2026-10-22 起不寫試算表(使用者:試算表拿掉、個資拿掉),
+  // 只把「訂單編號 / 品項 / 件數」送去包貨的「離島•郵局」字卡,姓名地址電話不出瀏覽器。
+  // 郵局貼紙照舊 —— 那張要貼在包裹上,資料從這次載入的訂單表直接做,不經任何伺服器。
+  const offshoreP = syncOffshoreCard(buildOffshoreItems(loadedRows.filter(r => r["_離島"])));
 
 if (totalCount === 0) {
   // 沒有要寫試算表的分類訂單，但雷雕(D1)跟一般訂單數還是要上傳
-  laserP.then(laserMsg => {
-    if (laserMsg) setStatus("status", /失敗/.test(laserMsg) ? "error" : "success", (/失敗/.test(laserMsg) ? "✗ " : "✓ ") + laserMsg);
-    uploadLineRegular(laserMsg ? laserMsg + " · " : "");
+  Promise.all([laserP, offshoreP]).then(([laserMsg, offMsg]) => {
+    const parts = [laserMsg, offMsg].filter(Boolean);
+    const msg = parts.join(" · ");
+    if (msg) setStatus("status", /失敗/.test(msg) ? "error" : "success", (/失敗/.test(msg) ? "✗ " : "✓ ") + msg);
+    uploadLineRegular(msg ? msg + " · " : "");
   });
   return;
 }
@@ -172,18 +161,14 @@ if (totalCount === 0) {
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
-      action: "append",
-      targets,
-      // 離島那批逐筆的品項(含訂單編號,後端要拿來去重),一起送去包貨「離島•郵局」字卡
-      offshoreItems: buildOffshoreItems(offshoreRows),
-    }),
+    body: JSON.stringify({ action: "append", targets }),
   })
     .then(r => r.json())
 .then(async data => {
       console.log("[一鍵上傳回應]", data);   // 出問題時 F12 主控台看得到後端原始回報
       // 包貨字卡跟試算表是兩套系統,分開回報:試算表掛了不代表字卡沒進去(反之亦然)
-      const packing = describeOffshoreSync(data);
+      const offMsg = await offshoreP;
+      const packing = offMsg ? ` · ${offMsg}` : "";
       const laserMsg = await laserP;
       const laserPart = laserMsg ? ` · ${laserMsg}` : "";
       if (data.ok) {
@@ -292,7 +277,11 @@ function buildRegularItems() {
         seen.set(base, n);
         key = `${base}#${n}`;
       }
-      return { "鍵值": key, "品項": pickStatLabel(r), "數量": parseInt(r["數量"], 10) || 1 };
+      const item = { "鍵值": key, "品項": pickStatLabel(r), "數量": parseInt(r["數量"], 10) || 1,
+                     "訂單編號": String(r["訂單編號"] ?? "").trim() };
+      // 注意品項:2026-10-22 起不寫試算表,改成跟著字卡送過去,包貨那邊用橘色標出來
+      if ((r["_類別列表"] || []).includes("注意品項")) item["注意"] = 1;
+      return item;
     });
   } catch (e) {
     // 算不出來就退回舊行為(整批累加),不擋住上傳
@@ -304,6 +293,24 @@ function buildRegularItems() {
 // 離島那批:逐筆送「訂單編號 + 品項 + 件數」,不先加總。
 // 後端要靠訂單編號去重(同一天同一張單重複上傳只算一次),所以明細也得跟著訂單編號走,
 // 不然重複上傳時件數沒加、明細卻又加一次,兩邊會對不起來。
+// 離島 → 包貨「離島•郵局」字卡。不經試算表、不帶個資,失敗也不擋其他上傳。
+function syncOffshoreCard(items) {
+  if (!items || !items.length) return Promise.resolve("");
+  return fetch(getGsUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "syncOffshore", items }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) return `離島字卡失敗(${d.error || "未知錯誤"})`;
+      if (d.skipped) return `離島字卡:今天都同步過了`;
+      const dup = d.duplicated ? `,另 ${d.duplicated} 張已同步過` : "";
+      return `離島字卡 +${d.added || 0}(今日 ${d.total || 0})${dup}`;
+    })
+    .catch(e => `離島字卡失敗(${e.message})`);
+}
+
 function buildOffshoreItems(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   try {
@@ -316,23 +323,6 @@ function buildOffshoreItems(rows) {
     console.warn("離島品項統計計算失敗,這次不送明細:", e);
     return null;
   }
-}
-
-// 把後端回報的「離島字卡同步結果」翻成一句人看得懂的話。
-// 正常就一句話帶過;寫入沒生效(讀不回來)才把驗證細節攤出來 —— 平常沒人想看那串數字,
-// 但真的出事時那串是唯一線索,所以留著不刪,只是平常不顯示(F12 主控台一樣看得到完整回報)。
-function describeOffshoreSync(data) {
-  const ps = data && data.packingSync;
-  if (!ps) return "";
-  if (!ps.ok) return ` · ✗ 離島字卡沒進去:${ps.error || "未知錯誤"}`;
-
-  const v = ps.verify;
-  if (v && (v.error || v.found === false)) {
-    return ` · 離島字卡可能沒寫進去[${v.error || `讀回=沒有 · 平台單 ${v.pf} 列`}]`;
-  }
-  if (ps.skipped) return ` · 離島字卡:今天已同步過`;
-  const dup = ps.duplicated ? `,另 ${ps.duplicated} 張已同步過` : "";
-  return ` · 離島字卡 +${ps.added || 0}(今日 ${ps.total || 0})${dup}`;
 }
 
   function uploadLineRegular(prefix) {
