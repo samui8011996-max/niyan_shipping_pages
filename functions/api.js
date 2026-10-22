@@ -704,7 +704,10 @@ async function upsertPlatform(DB, p, mode) {
   const picking = Array.isArray(p['撿貨明細']) ? p['撿貨明細'] : null;
   // 注意品項逐筆清單(2026-10-22 起),沒帶就整欄不動
   const notice = Array.isArray(p['注意明細']) ? p['注意明細'] : null;
-  if (notice) await ensureNoticeColumn(DB);
+  // 不管這次有沒有帶注意明細都要先確認欄位在 —— 下面的 INSERT 一律會寫到這一欄,
+  // 只在「有帶」時才補欄位的話,離島(不帶注意明細)就會踩到
+  // 「table platform_orders has no column named 注意明細」而整張卡沒進去(2026-10-22 實際踩到)
+  await ensureNoticeColumn(DB);
 
   if (!existing) {
     const id = newId('L'), n = now();
