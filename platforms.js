@@ -11,7 +11,7 @@
 //   selfCheck: 平台不寄通知信,資訊列改提醒「要自己登入後台看新訂單」
 // ===================================================================
 
-const INVOICE_URL = "https://web2.einvoice.com.tw/einv/Login/index.action";
+const INVOICE_URL = "https://web3.einvoice.com.tw/login";
 const GMAIL_URL = "https://mail.google.com/";
 const PACKING_URL = "https://niyan-packing-pages.pages.dev/";
 
