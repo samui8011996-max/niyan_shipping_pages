@@ -39,12 +39,20 @@ function marheStyleFromName(name) {
 //   「胖胖招福貓-招財黃」「胖胖金運貓」「胖胖金運招福貓」(=一對)「15公分-招福貓」「一對招財招福貓」
 // 蝦皮的 scStyle 認不得「胖胖招福貓」這種寫法,而且「-招福」會被當成款式再印一次(變「福福」),
 // 所以先換成蝦皮認得的寫法再丟進去
+// 「15公分水泥擴香招財貓招福貓」現場叫瘦貓,15公分就是(巨)(使用者 2026-10-27),
+// 跟蝦皮「巨大炭錢夠招財」同一隻 —— 品名換成蝦皮那個,直接用蝦皮的瘦貓規則印 瘦貓(巨)金
+function marheIsSlimCat(name) {
+  return /15\s*公分.*招財貓招福貓/.test(name);
+}
+
 function marheNormalizeSpec(spec, name) {
   let s = spec.replace(/[-－]/g, " ");
   // 狗狗規格寫「來財-備長炭黑」「來富-清水灰」,換成蝦皮認得的「狗來財」(品名兩個字都有,只看品名會一律變富狗)
   if (/狗/.test(name)) s = s.replace(/來([財富])/, "狗來$1");
   // 消波塊規格只寫 小/中/大,蝦皮那套看的是公分;對法跟官網 TETRAPOD-S/M/L 一樣
   if (/消波塊/.test(name) && /^[小中大]$/.test(s.trim())) return { 小: "4.5公分", 中: "8公分", 大: "12公分" }[s.trim()];
+  // 15公分那組是瘦貓,規格「一對招財招福貓」要留著「一對」給瘦貓規則看
+  if (marheIsSlimCat(name)) return s.trim();
   // 8/15公分「招財貓招福貓」那組的款式由 shopee-shortcode 自己看規格欄的 招財貓/招福貓,不用換
   if (/招財貓招福貓/.test(name)) return s.replace(/一對招財招福貓/, "招財貓招福貓").trim();
   if (/胖胖金運招福貓/.test(s)) return s.replace(/胖胖金運招福貓/, "一對").trim();
@@ -71,7 +79,8 @@ function buildMarheShortCode(row) {
     return { code: name + " x" + qty, compact: name + " x" + qty, qty, unknown: true };
   }
   // 「巨物胖胖招財貓」品名沒寫 (巨),scSize 抓不到尺寸 —— 補上,印成 胖胖貓(巨)黃金(使用者 2026-10-27)
-  const codeName = /巨物/.test(name) && !/[(（]\s*巨/.test(name) ? name + " (巨)" : name;
+  const codeName = marheIsSlimCat(name) ? "巨大炭錢夠招財 15公分"
+    : /巨物/.test(name) && !/[(（]\s*巨/.test(name) ? name + " (巨)" : name;
   const r = buildShortCode({ "商品名稱": codeName, "規格設定": spec, "數量": qty });
   return { code: r.code, compact: r.compact, qty, unknown: r.unknown };
 }
