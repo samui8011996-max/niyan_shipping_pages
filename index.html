@@ -2279,6 +2279,7 @@
           <option value="bcat">黑貓熱感應 95×193</option>
           <option value="4x6">4×6</option>
         </select>
+        <button class="help-btn" onclick="openHelp('shopee')" title="使用教學" aria-label="使用教學">?</button>
       </div>
 
       <div id="shopeeStatus" class="status">還差裝箱單…</div>
@@ -2452,6 +2453,41 @@
   </div>
   <script>
     const HELP_CONTENT = {
+      shopee: {
+        title: "蝦皮出貨 怎麼做?",
+        html: `
+          <div class="help-step">
+            <div class="help-step-title">第一步:進入批次出貨</div>
+            <div class="help-step-text">蝦皮賣家中心 <b>我的銷售 → 待出貨</b>,按右邊的 <b>批次出貨</b>。</div>
+            <img src="help/shopee-batch-btn.png" alt="蝦皮:我的銷售 → 待出貨 → 批次出貨">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第二步:下載寄件單 + 裝箱單</div>
+            <div class="help-step-text">切到 <b>下載出貨文件</b>,訂單狀態選 <b>已處理</b>,物流方式選有數字的那一種,勾選訂單。右邊勾 <b>寄件單</b>(一般列印)和 <b>裝箱單</b>(PDF),按 <b>下載所選文件</b>。</div>
+            <img src="help/shopee-download-docs.png" alt="蝦皮批次出貨:下載出貨文件 → 勾寄件單、裝箱單 → 下載所選文件">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第三步:把 PDF 存下來</div>
+            <div class="help-step-text">PDF 會在瀏覽器新分頁打開,在畫面上按 <b>右鍵 → 另存新檔</b>,存到電腦。</div>
+            <img src="help/shopee-save-pdf.png" alt="PDF 右鍵 → 另存新檔">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第四步:丟進這裡</div>
+            <div class="help-step-text">回到出貨小幫手的 <b>蝦皮</b> 頁,把剛存的 PDF 拖進「把當天的檔案丟進來」卡片,或按 <b>選擇檔案</b>。</div>
+            <img src="help/shopee-tool-upload.png" alt="蝦皮頁:選擇檔案">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第五步:檢查後產生出貨單</div>
+            <div class="help-step-text">下面的 <b>逐頁預覽</b> 會列出每一張,先看品項代號對不對(不對可以按 <b>編輯</b> 改;送禮不想印價錢的勾 <b>不印發票</b>)。確認好按 <b>產生出貨單</b> 列印。</div>
+            <img src="help/shopee-tool-preview.png" alt="逐頁預覽 → 產生出貨單">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">超商訂單:自己列印寄件單</div>
+            <div class="help-step-text">物流是 <b>超商</b>(7-ELEVEN、全家…)的訂單,在 <b>我的銷售</b> 找到那一筆,按右邊的 <b>列印寄件單</b> 自行列印。</div>
+            <img src="help/shopee-print-cvs.png" alt="我的銷售:列印寄件單">
+          </div>
+        `
+      },
       shipping: {
         title: "LINE禮物出貨 怎麼做?",
         html: `
