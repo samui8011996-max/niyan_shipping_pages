@@ -5,8 +5,11 @@
 //   - 下載黑貓出貨表、離島貼紙 → 用改過的「黑貓備註」(_備註)
 //   - 上傳廠商試算表、雷雕 D1 → 也用改過的備註(雷雕網站從裡面的「刻印文字: …」抓字)
 // 偵測到的問題訂單會自動列在最上面。重新載入訂單檔就全部清掉(只存在這一次)。
+// 也能刪除整筆訂單(使用者 2026-10-28:抽單用):同訂單編號的每個品項一起從 loadedRows 拿掉,
+// 下載黑貓出貨表、上傳、離島貼紙、分區列印、統計字卡就都不會有它;可以還原,重新載入訂單檔也會回來。
 // ===================================================================
 let noteEditQuery = "";
+let noteDeletedRows = [];   // 被刪掉的列(還原用),每列帶 _序 = 載入時的位置
 
 function noteEditIsLaser(r) {
   return (r["_類別列表"] || []).includes("雷雕");
@@ -28,11 +31,13 @@ function engravingTextOf(full) {
 
 // handleFile 讀完訂單檔後叫這支:記下原本的值(還原用),清掉上一個檔的修改
 function initNoteEdits(rows) {
-  rows.forEach(r => {
+  rows.forEach((r, idx) => {
     r["_原備註"] = r["_備註"];
     r["_原備註完整"] = r["_備註完整"];
     r["_已改備註"] = false;
+    r["_序"] = idx;
   });
+  noteDeletedRows = [];
   noteEditQuery = "";
   const input = document.getElementById("noteEditSearch");
   if (input) input.value = "";
@@ -59,9 +64,27 @@ function renderNoteEditor() {
     rows = loadedRows.filter(r => problems.has(String(r["訂單編號"] ?? "").trim()) || r["_已改備註"]);
   }
   const edited = loadedRows.filter(r => r["_已改備註"]).length;
+  const deletedIds = [...new Set(noteDeletedRows.map(r => String(r["訂單編號"] ?? "").trim()))];
   document.getElementById("noteEditHint").textContent =
-    (edited ? `已改 ${edited} 筆 · ` : "") + (q ? `找到 ${rows.length} 筆` : (rows.length ? "問題訂單和改過的列在下面" : "輸入訂單編號、收件人或品項搜尋"));
+    (edited ? `已改 ${edited} 筆 · ` : "") + (deletedIds.length ? `已刪除 ${deletedIds.length} 筆 · ` : "") +
+    (q ? `找到 ${rows.length} 筆` : (rows.length ? "問題訂單和改過的列在下面" : "輸入訂單編號、收件人或品項搜尋"));
   const shown = rows.slice(0, 40);
+  const deletedHtml = deletedIds.map(id => {
+    const first = noteDeletedRows.find(r => String(r["訂單編號"] ?? "").trim() === id);
+    return `<div class="problem-item note-edit-item is-deleted">
+      <div class="problem-item-main">
+        <div class="problem-item-row1">
+          <span class="pi-id">${escapeHtml(id)}</span>
+          <span class="pi-time">${escapeHtml(first["收件人姓名"] ?? "")}</span>
+          <span class="pi-removed">已刪除</span>
+        </div>
+        <div class="pi-note">${escapeHtml(first["_備註"] ?? "")}</div>
+      </div>
+      <div class="problem-item-btns">
+        <button type="button" class="pi-edit" data-act="undelete" data-id="${escapeHtml(id)}">還原</button>
+      </div>
+    </div>`;
+  }).join("");
   box.innerHTML = shown.map(r => {
     const i = loadedRows.indexOf(r);
     const laser = noteEditIsLaser(r);
@@ -80,10 +103,47 @@ function renderNoteEditor() {
       </div>
       <div class="problem-item-btns">
         <button type="button" class="pi-edit" data-act="save">存</button>
-        ${r["_已改備註"] ? '<button type="button" class="pi-resolve" data-act="revert">還原</button>' : ""}
+        ${r["_已改備註"] ? '<button type="button" class="pi-edit" data-act="revert">還原</button>' : ""}
+        <button type="button" class="pi-resolve" data-act="delete">刪除</button>
       </div>
     </div>`;
-  }).join("") + (rows.length > shown.length ? `<p class="abbr-hint">只列前 ${shown.length} 筆,打更多字縮小範圍</p>` : "");
+  }).join("") + (rows.length > shown.length ? `<p class="abbr-hint">只列前 ${shown.length} 筆,打更多字縮小範圍</p>` : "")
+    + deletedHtml;
+}
+
+// 刪掉/還原之後,統計字卡、離島鈕、分區列印、問題訂單警示都照新的 loadedRows 重算
+function refreshAfterRowsChange() {
+  renderStats(computeStats(loadedRows));
+  document.getElementById("offshorePdfBtn").disabled = !loadedRows.some(r => r["_離島"]);
+  if (typeof updateZonedStats === "function") updateZonedStats(loadedRows);
+  if (typeof checkProblemOrdersAgainstLoaded === "function") checkProblemOrdersAgainstLoaded();
+  renderNoteEditor();
+}
+
+function deleteOrder(i) {
+  const r = loadedRows[i];
+  if (!r) return;
+  const id = String(r["訂單編號"] ?? "").trim();
+  const same = loadedRows.filter(x => String(x["訂單編號"] ?? "").trim() === id);
+  const msg = `確定刪除訂單 ${id}(${r["收件人姓名"] ?? ""})?` +
+    (same.length > 1 ? `\n這筆訂單有 ${same.length} 個品項,會一起刪掉。` : "") +
+    `\n\n刪除後,下載黑貓出貨表、上傳、離島貼紙、分區列印都不會有這筆。可以按「還原」拿回來。`;
+  if (!confirm(msg)) return;
+  // 原地刪(splice),其他檔案拿到的 loadedRows 是同一個陣列
+  for (let k = loadedRows.length - 1; k >= 0; k--) {
+    if (String(loadedRows[k]["訂單編號"] ?? "").trim() === id) noteDeletedRows.push(...loadedRows.splice(k, 1));
+  }
+  refreshAfterRowsChange();
+  setStatus("status", "success", `✓ 已刪除訂單 ${id},剩 ${loadedRows.length} 筆`);
+}
+
+function undeleteOrder(id) {
+  const back = noteDeletedRows.filter(r => String(r["訂單編號"] ?? "").trim() === id);
+  noteDeletedRows = noteDeletedRows.filter(r => !back.includes(r));
+  loadedRows.push(...back);
+  loadedRows.sort((a, b) => a["_序"] - b["_序"]);   // 放回原本的排序位置
+  refreshAfterRowsChange();
+  setStatus("status", "success", `✓ 已還原訂單 ${id},共 ${loadedRows.length} 筆`);
 }
 
 function saveNoteEdit(i) {
@@ -119,8 +179,10 @@ function setupNoteEditor() {
   document.getElementById("noteEditList").addEventListener("click", e => {
     const b = e.target.closest("button[data-act]");
     if (!b) return;
+    if (b.dataset.act === "undelete") { undeleteOrder(b.dataset.id); return; }
     const i = Number(b.closest(".note-edit-item").dataset.i);
     if (b.dataset.act === "save") saveNoteEdit(i);
+    else if (b.dataset.act === "delete") deleteOrder(i);
     else revertNoteEdit(i);
   });
   // 在輸入框按 Enter 也算存
