@@ -1009,6 +1009,33 @@
     letter-spacing: 0.08em;
   }
 
+  /* 使用教學 ? 小按鈕 */
+  .help-btn {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-mute);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.6;
+    align-self: center;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .help-btn:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+  .modal.wide { max-width: 720px; }
+  .help-step { margin-bottom: 28px; }
+  .help-step-title { font-size: 24px; font-weight: 800; color: var(--accent); margin-bottom: 8px; letter-spacing: 0.02em; }
+  .help-step-text { font-size: 14px; line-height: 1.9; color: var(--text); margin-bottom: 10px; }
+  .help-step-text b { color: var(--accent); font-weight: 600; }
+  .help-step img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border); margin-top: 8px; }
+  .help-step .help-icons { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
+  .help-step .help-icons figure { margin: 0; font-size: 12px; color: var(--text-dim); }
+  .help-step .help-icons img { width: auto; max-width: 150px; margin: 0 0 4px; }
+  .help-note { font-size: 13px; color: var(--text-dim); line-height: 1.8; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .help-note b { color: var(--text); }
+
   /* Modal */
   .modal-backdrop {
     display: none;
@@ -1810,6 +1837,7 @@
         <button id="logisticsRunBtn" class="btn btn-primary" disabled onclick="generateLogistics()">
           下載 LINE 物流單號表
         </button>
+        <button class="help-btn" onclick="openHelp('logistics')" title="使用教學" aria-label="使用教學">?</button>
       </div>
 
       <div id="logisticsStatus" class="status">請依序選擇兩個檔案…</div>
@@ -2410,6 +2438,72 @@
     </div>
 
   </div>
+
+  <!-- 使用教學 Modal(各功能的教學內容放在下方 HELP_CONTENT) -->
+  <div id="helpModal" class="modal-backdrop" onclick="if(event.target===this) closeHelp()">
+    <div class="modal wide">
+      <h2 id="helpTitle"></h2>
+      <div id="helpBody"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeHelp()">知道了</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const HELP_CONTENT = {
+      logistics: {
+        title: "物流單號回填 怎麼用?",
+        html: `
+          <div class="help-step">
+            <div class="help-step-title">第一步:先下載 LINE 出貨模板</div>
+            <div class="help-step-text">到 <b>LINE 後台 → 待出貨</b>,點右上角 <b>批次出貨</b>,選「全部訂單資訊」,再按 <b>下載批次出貨範本</b>。</div>
+            <img src="help/logistics-step1.png" alt="LINE 後台:待出貨 → 批次出貨 → 下載批次出貨範本">
+            <div class="help-step-text" style="margin-top:10px;">下載到的檔案長這樣(檔名 <b>Order.To_Ship.Mass_Shipping.日期</b>):</div>
+            <div class="help-icons"><figure><img src="help/logistics-line-file.png" alt="LINE 模板檔案"></figure></div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第二步:到黑貓下載出貨明細表</div>
+            <div class="help-step-text">黑貓後台:<b>物流 → 線上印單 → 匯出託運單資料</b>。<b>出貨日</b>選要對的日期區間(最多一個月),按 <b>匯出資料</b>。</div>
+            <img src="help/logistics-bc-menu.png" alt="黑貓後台:線上印單 → 匯出託運單資料 → 選出貨日 → 匯出資料">
+            <div class="help-step-text" style="margin-top:10px;">下載到的檔案長這樣(檔名 <b>出貨明細表+時間</b>):</div>
+            <div class="help-icons"><figure><img src="help/logistics-bc-file.png" alt="黑貓出貨明細表檔案"></figure></div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第三步:兩個檔案放進來</div>
+            <div class="help-step-text"><b>① 選擇檔案</b> 放 LINE 模板,<b>② 選擇檔案</b> 放黑貓出貨明細表。放好後看下方 <b>配對統計</b>:成功幾筆、未配對幾筆。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第四步:處理不出貨的訂單(選填)</div>
+            <div class="help-step-text">有訂單不想出現在要回傳的檔案裡(例如客人取消),有兩種刪法,結果都是「下載的表裡沒有這筆」:</div>
+            <div class="help-note"><b>匯出時刪除</b>:只在下方「未配對訂單」清單出現(黑貓表找不到的訂單),在那筆右邊打勾即可。沒勾的會用紅色排在檔案最下面;也可以直接在那筆填物流單號、選貨運業者代碼,匯出時就會寫進檔案。</div>
+            <div class="help-note"><b>手動從表裡刪除訂單(卡片 ③)</b>:輸入訂單編號按「刪除這筆」。不管這筆有沒有配對到託運單號都能刪,適合客人事後取消、已經配對好的訂單。</div>
+            <img src="help/logistics-tool.png" alt="工具畫面:卡片 ③ 與未配對訂單清單">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第五步:下載並傳回 LINE</div>
+            <div class="help-step-text">按 <b>下載 LINE 物流單號表</b>,會得到這個檔案(檔名 <b>LINE物流單號_日期</b>):</div>
+            <div class="help-icons"><figure><img src="help/logistics-out-file.png" alt="LINE物流單號檔案"></figure></div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第六步:上傳批次出貨</div>
+            <div class="help-step-text">回 LINE 後台 → 待出貨 → 批次出貨,按 <b>步驟二</b> 的「批次出貨」。</div>
+            <img src="help/logistics-upload-btn.png" alt="LINE 後台:批次出貨步驟二">
+            <div class="help-step-text" style="margin-top:10px;">進到上傳頁,按 <b>新增Excel檔案</b>,選剛剛下載的 <b>LINE物流單號_日期</b>,上傳後訂單就會變成配送中。</div>
+            <img src="help/logistics-upload-page.png" alt="LINE 後台:新增Excel檔案">
+          </div>
+        `
+      }
+    };
+    function openHelp(key) {
+      const h = HELP_CONTENT[key];
+      if (!h) return;
+      document.getElementById("helpTitle").textContent = h.title;
+      document.getElementById("helpBody").innerHTML = h.html;
+      document.getElementById("helpModal").classList.add("show");
+    }
+    function closeHelp() { document.getElementById("helpModal").classList.remove("show"); }
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeHelp(); });
+  </script>
 
   <!-- Settings Modal -->
   <!-- 注意品項 / 離島•郵局 清單(attn-list.js);不寫試算表、不放個資 -->
