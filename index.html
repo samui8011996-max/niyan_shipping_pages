@@ -605,11 +605,14 @@
     padding: 12px 14px; border-bottom: 1px solid var(--border);
   }
   .abbr-row:last-of-type { border-bottom: none; }
-  .abbr-code { font-size: 20px; font-weight: 800; color: var(--text); min-width: 200px; }
+  .abbr-codes { display: grid; gap: 6px; min-width: 0; flex: 1 1 320px; }
+  .abbr-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .abbr-kind { font-size: 11px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; flex: none; }
+  .abbr-code { font-size: 20px; font-weight: 800; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
   .abbr-row.unknown .abbr-code { color: var(--warn); }
   .abbr-src { flex: 1 1 260px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
   .abbr-by { margin-left: 8px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; }
-  .abbr-copy { margin-left: auto; }
+  .abbr-copy { margin-left: auto; flex: none; }
   .abbr-hint { margin: 10px 14px; font-size: 12px; color: var(--warn); }
   .gc-notify-btn {
     background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
@@ -1938,6 +1941,7 @@
         <div class="card-label">商品標題</div>
         <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
           打商品標題就會變成出貨單上的簡寫。一行一個,可以一次貼很多行;打官網貨號(例如 FATCATF-WHITE-S-GOLD)也可以。
+          每筆會同時給「中文」跟「代號」兩種寫法 —— 代號是把顏色、款式換成字母:黃 Y、粉 P、綠 G、白 W、黑 B(灰照寫)、招財/金運 $、招福 F;胖胖貓不寫品名、大中小不加括號(胖胖貓(大)黃金 → 大Y$、雙手貓(中)黃 → 雙手貓中Y)。
         </p>
         <textarea id="abbrTitle" class="form-textarea" rows="3" oninput="renderAbbr()"
           placeholder="例如:【開運送禮】胖胖招財招福貓 (小)"></textarea>
@@ -2491,6 +2495,7 @@
 <script src="attn-list.js"></script>
 <script src="pinkoi-orders.js"></script>
 <script src="marhe-orders.js"></script>
+<script src="abbr-code.js"></script>
 <script src="abbr-tool.js"></script>
 <script src="split-button.js"></script>
 <script src="guide-cat.js"></script>

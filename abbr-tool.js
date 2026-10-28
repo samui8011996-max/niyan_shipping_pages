@@ -31,12 +31,21 @@ function renderAbbr() {
     box.innerHTML = `<div class="problem-empty">在上面打商品標題,這裡會出現簡寫</div>`;
     return;
   }
+  // 每筆兩種寫法:中文(出貨單上印的)+ 代號(顏色款式換字母,abbr-code.js),各自一顆複製鈕
+  const line = (kind, text, warn) => `
+        <div class="abbr-line">
+          <span class="abbr-kind">${kind}</span>
+          <span class="abbr-code">${warn ? "⚠ " : ""}${escapeHtml(text)}</span>
+          <button type="button" class="btn btn-secondary btn-small abbr-copy" data-copy="${escapeHtml(text)}"
+            onclick="copyAbbr(this)">複製</button>
+        </div>`;
   box.innerHTML = rows.map(r => `
     <div class="abbr-row${r.unknown ? " unknown" : ""}">
-      <div class="abbr-code">${r.unknown ? "⚠ " : ""}${escapeHtml(r.code)}</div>
+      <div class="abbr-codes">
+        ${line("中文", r.code, r.unknown)}
+        ${line("代號", buildAbbrCode(r.code), r.unknown)}
+      </div>
       <div class="abbr-src">${escapeHtml(r.src)}<span class="abbr-by">${r.by}</span></div>
-      <button type="button" class="btn btn-secondary btn-small abbr-copy" data-copy="${escapeHtml(r.code)}"
-        onclick="copyAbbr(this)">複製</button>
     </div>`).join("")
     + (rows.some(r => r.unknown)
       ? `<p class="abbr-hint">⚠ 有認不出來的部分(會印成 ?),要加規則請跟管理的人說。</p>` : "");
