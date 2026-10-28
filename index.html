@@ -1013,17 +1013,17 @@
   .help-btn {
     width: 22px; height: 22px;
     border-radius: 50%;
-    border: 1px solid var(--border);
+    border: 1.5px solid var(--accent);
     background: transparent;
-    color: var(--text-mute);
-    font-size: 12px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
     line-height: 1;
     cursor: pointer;
-    opacity: 0.6;
     align-self: center;
-    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    transition: background 0.15s, color 0.15s;
   }
-  .help-btn:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+  .help-btn:hover { background: var(--accent); color: var(--on-accent, #fff); }
   .modal.wide { max-width: 720px; }
   .help-step { margin-bottom: 28px; }
   .help-step-title { font-size: 24px; font-weight: 800; color: var(--accent); margin-bottom: 8px; letter-spacing: 0.02em; }
@@ -1717,6 +1717,7 @@
         <button id="resetCardBtn" class="btn btn-secondary" onclick="resetTodayCards()" title="把今天的 Line禮物／離島•郵局 字卡歸零,再按一次上傳就會整批重算">
           重算今天字卡
         </button>
+        <button class="help-btn" onclick="openHelp('shipping')" title="使用教學" aria-label="使用教學">?</button>
 
       </div>
 
@@ -2451,6 +2452,38 @@
   </div>
   <script>
     const HELP_CONTENT = {
+      shipping: {
+        title: "出貨前準備 怎麼做?",
+        html: `
+          <div class="help-step">
+            <div class="help-step-title">第一步:看有沒有未回覆的問題</div>
+            <div class="help-step-text">LINE 後台首頁的 <b>待處理</b>,看 <b>未回覆的問題</b> 有沒有數字。有的話先回覆客人,再往下做。</div>
+            <img src="help/ship-pending-check.png" alt="LINE 後台:待處理 → 未回覆的問題">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第二步:登記問題訂單</div>
+            <div class="help-step-text">客人下單前有問過要<b>修改</b>(顏色/規格、收件資料、配送時間)或<b>抽單</b>的訂單,到上方 <b>問題訂單</b> 登記:填 <b>訂單編號</b>、選 <b>問題類別</b>、需要的話寫 <b>備註</b>,按 <b>送出問題訂單</b>。</div>
+            <img src="help/ship-problem-tool.png" alt="問題訂單:填訂單編號、選類別、送出">
+            <div class="help-note">登記後,當天匯入 LINE 訂單時,只要裡面有這個編號,畫面就會跳出醒目提醒,不會漏掉。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第三步:先檢查「待出貨」有沒有舊訂單</div>
+            <div class="help-step-text">LINE 後台 <b>我的訂單</b> 的 <b>待出貨</b> 分頁,數字要先看清楚。如果不是 0,代表有之前沒處理完的訂單,<b>先處理掉</b>,不然新舊訂單會混在一起。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第四步:把新訂單變成待出貨</div>
+            <div class="help-step-text">到 <b>待確認</b> 分頁,勾左上角的 <b>全選</b>,再按右上角 <b>確認已選取訂單</b>,這些訂單就會進到 <b>待出貨</b>。</div>
+            <img src="help/ship-confirm-orders.png" alt="LINE 後台:待確認 → 全選 → 確認已選取訂單">
+            <div class="help-note"><b>注意:</b>確認後,客人就沒辦法自己取消訂單了。要修改或抽單的訂單,先處理好(第二步)再確認。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第五步:下載訂單 Excel</div>
+            <div class="help-step-text">按左上角 <b>下載Excel檔案</b>,檔名像 <b>Order.To_Ship.日期</b>,這就是這裡要上傳的 <b>LINE 訂單總表</b>。</div>
+            <div class="help-note"><b>下載過的檔案找得到:</b>旁邊的清單按鈕(☰)會列出之前下載的檔案,按「下載」就能再抓一次。報表匯出後只保留 <b>24 小時</b>,超過就要重新匯出。</div>
+            <img src="help/ship-excel-list.png" alt="LINE 後台:下載Excel列表">
+          </div>
+        `
+      },
       logistics: {
         title: "物流單號回填 怎麼用?",
         html: `
