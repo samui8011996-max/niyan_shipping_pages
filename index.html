@@ -2453,7 +2453,7 @@
   <script>
     const HELP_CONTENT = {
       shipping: {
-        title: "出貨前準備 怎麼做?",
+        title: "LINE禮物出貨 怎麼做?",
         html: `
           <div class="help-step">
             <div class="help-step-title">第一步:看有沒有未回覆的問題</div>
@@ -2481,6 +2481,41 @@
             <div class="help-step-text">按左上角 <b>下載Excel檔案</b>,檔名像 <b>Order.To_Ship.日期</b>,這就是這裡要上傳的 <b>LINE 訂單總表</b>。</div>
             <div class="help-note"><b>下載過的檔案找得到:</b>旁邊的清單按鈕(☰)會列出之前下載的檔案,按「下載」就能再抓一次。報表匯出後只保留 <b>24 小時</b>,超過就要重新匯出。</div>
             <img src="help/ship-excel-list.png" alt="LINE 後台:下載Excel列表">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第六步:上傳訂單,下載黑貓出貨表</div>
+            <div class="help-step-text">在這頁 <b>LINE 訂單總表</b> 按「選擇檔案」放進剛下載的 Excel,再按 <b>下載黑貓出貨表</b>。有離島訂單的話,再按 <b>產離島貼紙 PDF</b>。</div>
+            <img src="help/ship-generate.png" alt="出貨單產生:下載黑貓出貨表、上傳包貨平台與試算表、今日訂單統計、廠商對照">
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">有問題訂單?先修改或抽單</div>
+            <div class="help-step-text">載入後如果出現紅色 <b>「偵測到 N 筆問題訂單」</b>,代表第二步登記過的訂單在這批裡面。到下面的 <b>改備註</b> 卡片處理,問題訂單會自動列在最上面(其他訂單可以打訂單編號、收件人或品項搜尋)。<b>要先處理好,再下載黑貓出貨表和上傳。</b></div>
+            <img src="help/ship-note-edit.png" alt="偵測到問題訂單與改備註卡片">
+            <div class="help-note"><b>修改</b>(客人要換顏色、規格、刻字…):直接改那格「黑貓出貨表備註」,按 <b>存</b>(或按 Enter)。改過的內容會用在黑貓出貨表、離島貼紙、上傳的試算表和雷雕網站。改錯了按 <b>還原</b> 回到原本的備註。</div>
+            <div class="help-note"><b>抽單</b>(這筆今天不出貨):按紅色 <b>刪除</b>,確認後這筆訂單(同編號的所有品項)就不會出現在黑貓出貨表、離島貼紙、分區列印和上傳裡,上面的統計也會跟著扣掉。刪錯了,在卡片最下面「已刪除」那筆按 <b>還原</b>。</div>
+            <div class="help-note"><b>注意:</b>修改和刪除都只對這次載入的檔案有效,重新選一次訂單檔就會全部回到原狀,要重做。收件資料(地址、電話)和配送時間這裡改不了,要到 LINE 後台改好再重新下載訂單 Excel。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第七步:檢查下方資料</div>
+            <div class="help-step-text">看 <b>今日訂單統計</b> 和 <b>廠商對照</b>:</div>
+            <div class="help-note"><b>黑熊</b>:有數字就要 <b>聯絡廠商</b>(廠商對照按各自的複製鈕,貼給廠商)。</div>
+            <div class="help-note"><b>注意品項</b>(特殊品項):有數字就 <b>先跟包貨人員說</b>,點字卡可以看清單。</div>
+            <div class="help-note"><b>雷雕</b>:<b>確認數量</b>對不對。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第八步:上傳到包貨平台</div>
+            <div class="help-step-text">都確認好了,按 <b>上傳包貨平台與試算表</b>,資料就會傳到包貨網站和各廠商試算表。</div>
+            <div class="help-note">同一批訂單重複按上傳不會重算。真的要整批重來,先按 <b>重算今天字卡</b> 再上傳一次。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第九步:黑貓匯入並列印託運單</div>
+            <div class="help-step-text">黑貓後台:<b>物流 → 線上印單 → 多筆匯入</b>。</div>
+            <img src="help/ship-bc-import-menu.png" alt="黑貓後台:線上印單 → 多筆匯入">
+            <div class="help-step-text" style="margin-top:10px;">按 <b>瀏覽</b> 選第六步下載的 <b>黑貓出貨表</b>,再按 <b>送出</b>。(黑貓規定一個檔最多 100 筆)</div>
+            <img src="help/ship-bc-import-page.png" alt="黑貓多筆匯入:瀏覽 → 送出,下方異常區與正常區">
+            <div class="help-note"><b>異常區有資料?</b>通常是地址解析不成功。先看 <b>錯誤說明</b>,檢查客人地址 <b>有沒有打錯字</b>;看不出問題的話,<b>聯絡黑貓客服</b> 或 <b>打電話給客人</b> 確認地址。</div>
+            <div class="help-step-text" style="margin-top:10px;">確認都在 <b>正常區</b> 後,按 <b>單頁全選</b>,再按 <b>列印託運單</b>。</div>
+            <img src="help/ship-bc-print.png" alt="正常區:單頁全選 → 列印託運單">
           </div>
         `
       },
