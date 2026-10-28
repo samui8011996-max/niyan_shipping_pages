@@ -74,3 +74,12 @@ CREATE TABLE IF NOT EXISTS laser_orders (
   "日期" TEXT,      -- 上傳日期 YYYY/MM/DD,雷雕網站「只生成指定日期」用
   "建立時間" TEXT NOT NULL
 );
+
+-- 雷雕參數參考表(功率/速度):雷雕網站「雷雕模擬」頁可新增/修改,存這裡。程式會 CREATE TABLE IF NOT EXISTS 就地建表,
+-- 空表時自動塞預設兩列(一對小&星座貓 40/80、辦公室系列 30/50)。
+CREATE TABLE IF NOT EXISTS laser_params (
+  "排序" INTEGER NOT NULL,
+  "名稱" TEXT NOT NULL,
+  "功率" TEXT,
+  "速度" TEXT
+);

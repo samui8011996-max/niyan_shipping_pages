@@ -70,6 +70,8 @@ export async function onRequestPost(context) {
       case 'getLaserOrders':    return await handleGetLaserOrders(env);
       case 'updateLaserOrder':  return await handleUpdateLaserOrder(env, body);   // 雷雕網站的訂單列表改品項/刻印文字
       case 'deleteLaserOrder':  return await handleDeleteLaserOrder(env, body);   // 雷雕網站的訂單列表刪一筆
+      case 'getLaserParams':    return await handleGetLaserParams(env);           // 雷雕網站的功率/速度參考表
+      case 'saveLaserParams':   return await handleSaveLaserParams(env, body);
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
       default:                  return json(await callGas(env, body));
     }
@@ -896,4 +898,50 @@ async function handleDeleteLaserOrder(env, body) {
   if (!key) return json({ ok: false, error: '缺少鍵值' });
   await DB.prepare('DELETE FROM laser_orders WHERE "鍵值"=?').bind(key).run();
   return json({ ok: true });
+}
+
+/* ---------- 雷雕參數參考表(功率/速度，2026-10-28)---------- */
+// 雷雕網站「雷雕模擬」頁的參考表，可新增/修改/刪除，存這裡讓每台電腦看到同一份。
+// 一次整張覆蓋(前端按儲存送全部列)；表是空的時候先塞預設兩列，第一次打開就有東西可以改。
+// 不會被 14 天清除(跟 laser_orders 不同表)。
+const LASER_PARAM_DEFAULTS = [
+  { name: '一對小 & 星座貓', power: '40', speed: '80' },
+  { name: '辦公室系列', power: '30', speed: '50' },
+];
+let _laserParamReady = false;
+
+async function ensureLaserParamTable(DB) {
+  if (_laserParamReady) return;
+  await DB.prepare(
+    'CREATE TABLE IF NOT EXISTS laser_params (' +
+    '"排序" INTEGER NOT NULL, "名稱" TEXT NOT NULL, "功率" TEXT, "速度" TEXT)'
+  ).run();
+  _laserParamReady = true;
+}
+
+async function handleGetLaserParams(env) {
+  const DB = requireDb(env);
+  await ensureLaserParamTable(DB);
+  let rs = await DB.prepare('SELECT "名稱","功率","速度" FROM laser_params ORDER BY "排序"').all();
+  if (!(rs.results || []).length) {
+    await DB.batch(LASER_PARAM_DEFAULTS.map((r, i) =>
+      DB.prepare('INSERT INTO laser_params ("排序","名稱","功率","速度") VALUES (?,?,?,?)').bind(i, r.name, r.power, r.speed)));
+    rs = await DB.prepare('SELECT "名稱","功率","速度" FROM laser_params ORDER BY "排序"').all();
+  }
+  const rows = (rs.results || []).map(r => ({ name: r['名稱'] || '', power: r['功率'] || '', speed: r['速度'] || '' }));
+  return json({ ok: true, rows });
+}
+
+async function handleSaveLaserParams(env, body) {
+  const DB = requireDb(env);
+  await ensureLaserParamTable(DB);
+  const rows = (Array.isArray(body.rows) ? body.rows : [])
+    .map(r => ({ name: String(r.name || '').trim().slice(0, 60), power: String(r.power || '').trim().slice(0, 20), speed: String(r.speed || '').trim().slice(0, 20) }))
+    .filter(r => r.name)
+    .slice(0, 50);
+  const stmts = [DB.prepare('DELETE FROM laser_params')];
+  rows.forEach((r, i) => stmts.push(
+    DB.prepare('INSERT INTO laser_params ("排序","名稱","功率","速度") VALUES (?,?,?,?)').bind(i, r.name, r.power, r.speed)));
+  await DB.batch(stmts);
+  return json({ ok: true, count: rows.length });
 }
