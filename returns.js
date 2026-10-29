@@ -234,6 +234,23 @@ function clearReturnForm() {
   document.getElementById("returnOrderId").focus();
 }
 
+// 讀到退貨資料之後的收尾:更新統計字卡、重畫清單、更新小助手貓的打電話提醒。
+// loadReturns(按鈕) 跟 loadReturnsQuietly(開網站/每小時) 共用 —— 以前只有按鈕那條會重畫,
+// 背景讀完只進快取不畫,所以開網站切到退貨分頁還是停在「尚未載入清單」(使用者 2026-10-29 反映)
+function applyReturnsData(data) {
+  returnListCache = { ...emptyReturnCache(), ...(data.returns || {}) };
+  const total = RETURN_PLATFORMS.reduce((s, p) => s + (returnListCache[p] || []).length, 0);
+  const openTotal = RETURN_PLATFORMS.reduce(
+    (s, p) => s + (returnListCache[p] || []).filter(isReturnOpen).length, 0
+  );
+  const statEl = document.getElementById("stat-return-total");
+  if (statEl) statEl.textContent = total;
+  const statOpenEl = document.getElementById("stat-return-open");
+  if (statOpenEl) statOpenEl.textContent = openTotal;
+  renderReturnList();
+  if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();
+}
+
 function loadReturns() {
   const url = getGsUrl();
   if (!url) {
@@ -253,17 +270,7 @@ function loadReturns() {
     .then(r => r.json())
     .then(data => {
       if (!data.ok) throw new Error(data.error || "讀取失敗");
-      returnListCache = { ...emptyReturnCache(), ...(data.returns || {}) };
-      const total = RETURN_PLATFORMS.reduce((s, p) => s + (returnListCache[p] || []).length, 0);
-      const openTotal = RETURN_PLATFORMS.reduce(
-        (s, p) => s + (returnListCache[p] || []).filter(isReturnOpen).length, 0
-      );
-      const statEl = document.getElementById("stat-return-total");
-      if (statEl) statEl.textContent = total;
-      const statOpenEl = document.getElementById("stat-return-open");
-      if (statOpenEl) statOpenEl.textContent = openTotal;
-      renderReturnList();
-      if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();   // 小助手貓的打電話提醒跟著更新
+      applyReturnsData(data);
     })
     .catch(err => {
       document.getElementById("returnListHint").textContent = "載入失敗";
@@ -461,8 +468,7 @@ function loadReturnsQuietly() {
     .then(r => r.json())
     .then(data => {
       if (!data.ok) return;
-      returnListCache = { ...emptyReturnCache(), ...(data.returns || {}) };
-      if (typeof gcUpdateReturnCalls === "function") gcUpdateReturnCalls();
+      applyReturnsData(data);   // 開網站就自動把清單畫好,不用再手動按重新整理
     })
     .catch(err => console.warn("背景讀取退貨失敗(打電話提醒先不顯示):", err));
 }

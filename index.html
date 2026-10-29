@@ -676,6 +676,27 @@
   .rr-blue { background: #2D5F8F; }
   .rr-red  { background: #A63A3A; }
   .rr-gold { background: #8A6A1E; }
+  /* 退貨清單的篩選列:三張篩選卡 + 右邊一顆「重新整理」(樣式跟篩選卡分開) */
+  .return-filter-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .return-filter-row .problem-type-grid { flex: 1 1 320px; margin-bottom: 0; }
+  .btn-refresh {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+    font-family: inherit; font-size: 12px; line-height: 1;
+    padding: 9px 14px; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--text-dim);
+    border: 1px dashed var(--border);
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .btn-refresh:hover { color: var(--accent); border-color: var(--accent); border-style: solid; }
+  .btn-refresh:active { transform: translateY(1px); }
+  .btn-refresh:disabled { opacity: .5; cursor: default; }
+  .btn-refresh-icon { font-size: 14px; }
+  @media (max-width: 560px) {
+    .return-filter-row { gap: 8px; }
+    .btn-refresh { width: 100%; justify-content: center; }
+  }
   .return-search { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; max-width: 520px; }
   .return-search .form-input { flex: 1; font-family: inherit; }
 
@@ -2105,9 +2126,6 @@
             送出退貨紀錄
           </button>
           <button class="btn btn-secondary" onclick="clearReturnForm()">清空</button>
-          <button class="btn btn-ghost btn-small" onclick="loadReturns()" style="margin-left: auto;">
-            重新整理清單
-          </button>
         </div>
       </section>
 
@@ -2124,23 +2142,29 @@
         <button type="button" class="btn btn-secondary btn-small" onclick="clearReturnSearch()">清除</button>
       </div>
 
-      <div class="problem-type-grid" style="grid-template-columns: repeat(3, 1fr); max-width: 460px; margin-bottom: 12px;">
-        <label class="radio-card">
-          <input type="radio" name="returnFilter" value="closed" onchange="onReturnFilterChange()">
-          <span>已結案<span id="returnClosedCount"></span></span>
-        </label>
-        <label class="radio-card">
-          <input type="radio" name="returnFilter" value="open" checked onchange="onReturnFilterChange()">
-          <span>未結案<span id="returnOpenCount"></span></span>
-        </label>
-        <label class="radio-card">
-          <input type="radio" name="returnFilter" value="returned" onchange="onReturnFilterChange()">
-          <span>已退貨<span id="returnReturnedCount"></span></span>
-        </label>
+      <div class="return-filter-row">
+        <div class="problem-type-grid" style="grid-template-columns: repeat(3, 1fr); max-width: 460px;">
+          <label class="radio-card">
+            <input type="radio" name="returnFilter" value="closed" onchange="onReturnFilterChange()">
+            <span>已結案<span id="returnClosedCount"></span></span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnFilter" value="open" checked onchange="onReturnFilterChange()">
+            <span>未結案<span id="returnOpenCount"></span></span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="returnFilter" value="returned" onchange="onReturnFilterChange()">
+            <span>已退貨<span id="returnReturnedCount"></span></span>
+          </label>
+        </div>
+        <!-- 清單開網站就會自動載入;這顆只是「現在立刻再讀一次」,樣式刻意跟上面三張篩選卡分開 -->
+        <button type="button" class="btn-refresh" onclick="loadReturns()" title="立刻重新讀一次退貨清單">
+          <span class="btn-refresh-icon">↻</span>重新整理
+        </button>
       </div>
 
       <div id="returnList" class="problem-list">
-        <div class="problem-empty">尚未載入清單,點上方「重新整理清單」即可載入。</div>
+        <div class="problem-empty">載入中…</div>
       </div>
     </div>
 
