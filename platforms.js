@@ -24,8 +24,8 @@ const PLATFORMS = [
     ] },
   { id: "shopee", name: "蝦皮", url: "https://seller.shopee.tw/", invoice: true, panel: "shopee" },
   { id: "pinkoi", name: "Pinkoi", url: "https://www.pinkoi.com/panel/home", invoice: true, panel: "pinkoi" },   // 2026-10-19 起可以印出貨單(pinkoi-orders.js)
-  // 官網目前還是舊官網(meepshop);印單功能是給之後的 Shopline 用的,頁面上有「開發中」告示
-  { id: "web", name: "官網後台", url: "https://admin.meepshop.tw/login", invoice: true, panel: "web", gmail: true },
+  // 官網 2026-10-30 起正式換成 Shopline(原本是 meepshop),「開發中」告示拿掉了
+  { id: "web", name: "官網後台", url: "https://admin.shoplineapp.com/admin/niyancement/overview/online", invoice: true, panel: "web", gmail: true },
   { id: "marais", name: "瑪黑", url: "https://www.storemarais.com/marais-provider/login", invoice: false, gmail: true, panel: "marais" },   // 2026-10-19 起可以產黑貓出貨表 + 物流回填(marhe-orders.js)
   // MO+ 2026-10-22 起不再寄新訂單通知信了,改成提醒自己登入後台看(使用者告知)
   { id: "momo", name: "MO+", url: "https://3p.momo.com.tw/", invoice: false, selfCheck: true },
