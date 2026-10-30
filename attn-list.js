@@ -17,7 +17,7 @@ const ATTN_KINDS = {
   },
   offshore: {
     title: "離島・郵局",
-    hint: "地址在澎湖/金門/連江/馬祖/綠島/蘭嶼/琉球,改用郵局寄。貼紙請按下面的「列印離島貼紙」。",
+    hint: "",   // 使用者 2026-10-30:離島這段說明拿掉
     pick: r => !!r["_離島"],
     label: true,   // 視窗裡多一顆「列印離島貼紙」
   },
@@ -40,7 +40,9 @@ function openAttnList(kind) {
   if (!cfg) return;
   const rows = attnRows(kind);
   document.getElementById("attnTitle").textContent = cfg.title;
-  document.getElementById("attnHint").textContent = cfg.hint;
+  const hintEl = document.getElementById("attnHint");
+  hintEl.textContent = cfg.hint;
+  hintEl.hidden = !cfg.hint;
   document.getElementById("attnCount").textContent = rows.length ? `${rows.length} 筆` : "";
 
   const labelBtn = document.getElementById("attnLabelBtn");

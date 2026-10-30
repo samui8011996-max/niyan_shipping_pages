@@ -93,7 +93,9 @@ function buildCakeVendorText(rows) {
 // 統計字卡 → 讀 D1 的清單(新的日期在上面),沿用注意品項那個小視窗
 async function openCakeList() {
   document.getElementById("attnTitle").textContent = CAKE_CATEGORY;
-  document.getElementById("attnHint").textContent = "起士公爵出貨,按「上傳包貨平台與試算表」時存進來的。收件人資料在下面「廠商對照」複製。";
+  const hintEl = document.getElementById("attnHint");
+  hintEl.textContent = "起士公爵出貨,按「上傳包貨平台與試算表」時存進來的。收件人資料在下面「廠商對照」複製。";
+  hintEl.hidden = false;
   document.getElementById("attnCount").textContent = "";
   document.getElementById("attnLabelBtn").hidden = true;
   const box = document.getElementById("attnBody");
