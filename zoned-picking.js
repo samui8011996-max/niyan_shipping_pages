@@ -388,7 +388,7 @@ function getZonedOptions() {
 }
 
 function getZonedExportRows(rows) {
-  const EXCLUDE_FROM_LOCAL = new Set(["黑熊", "盆景公仔組"]);
+  const EXCLUDE_FROM_LOCAL = new Set(VENDOR_SHIP_CATEGORIES);
   return rows.filter(r => !EXCLUDE_FROM_LOCAL.has(r["_類別"]) && !r["_離島"]);
 }
 

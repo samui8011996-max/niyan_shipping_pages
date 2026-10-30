@@ -1203,6 +1203,7 @@
   .vendor-block.bear   { --vendor-color: var(--cat-red-num); }
   .vendor-block.flower { --vendor-color: var(--cat-yellow-num); }
   .vendor-block.plant  { --vendor-color: var(--cat-green-num); }
+  .vendor-block.cake   { --vendor-color: var(--cat-pink-num); }
 
   /* ============ 問題訂單相關樣式 ============ */
 
@@ -1790,10 +1791,10 @@
           <div><span id="stat-offshore" class="stat-number">—</span><span class="stat-unit">筆</span></div>
           <div class="stat-sub">改郵局寄 · 點我 → 看清單</div>
         </div>
-        <div class="stat-card green clickable" onclick="openSheet('盆景公仔組')" title="點我開啟盆景試算表">
-          <div class="stat-label">盆景公仔組</div>
-          <div><span id="stat-bonsai" class="stat-number">—</span><span class="stat-unit">筆</span></div>
-          <div class="stat-sub">點我 → 開啟試算表</div>
+        <div class="stat-card pink clickable" onclick="openCakeList()" title="點我看星座貓X蛋糕清單">
+          <div class="stat-label">星座貓X蛋糕</div>
+          <div><span id="stat-cake" class="stat-number">—</span><span class="stat-unit">筆</span></div>
+          <div class="stat-sub">廠商出貨 · 點我 → 看清單</div>
         </div>
       </div>
 
@@ -2685,6 +2686,7 @@
 <script src="offshore-label.js"></script>
 <script src="sheet-sync.js"></script>
 <script src="laser-sync.js"></script>
+<script src="cake-sync.js"></script>
 <script src="note-edit.js"></script>
 <script src="logistics-match.js"></script>
 <script src="problem-orders.js"></script>

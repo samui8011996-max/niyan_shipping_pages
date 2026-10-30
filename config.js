@@ -32,6 +32,8 @@ const PRODUCT_CODES = {
 };
 
 const SPECIAL_CATEGORIES = [
+  // 起士公爵聯名蛋糕(2026-10-30):廠商直接出貨,存 D1 不寫試算表(cake-sync.js)
+  { keys: ["起士公爵", "星座生日蛋糕"], name: "星座貓X蛋糕", bg: "AD1457", fg: "FFFFFF", priority: 6, uiId: "stat-cake" },
   { keys: ["黑熊"],       name: "黑熊",       bg: "C62828", fg: "FFFFFF", priority: 5, uiId: "stat-bear" },
   { keys: ["永生花"],     name: "永生花",     bg: "FDD835", fg: "000000", priority: 4, uiId: "stat-flower" },
   { keys: ["盆景公仔組"], name: "盆景公仔組", bg: "2E7D32", fg: "FFFFFF", priority: 3, uiId: "stat-bonsai" },
@@ -44,6 +46,9 @@ const SPECIAL_CATEGORIES = [
 // 雷雕 2026-10-21 起不寫試算表,改送 D1 給雷雕網站直接讀(laser-sync.js)
 // 注意品項 2026-10-22 起不寫試算表了(改成點統計字卡看清單 + 包貨字卡橘色標註),所以不在這張表裡
 const UPLOAD_CATEGORIES = ["黑熊", "永生花", "盆景公仔組"];
+
+// 廠商直接出貨的分類:不進黑貓出貨表 / 分區列印 / 一般訂單數
+const VENDOR_SHIP_CATEGORIES = ["黑熊", "盆景公仔組", "星座貓X蛋糕"];
 
 // 離島•郵局:地址含以下關鍵字 → 不用黑貓寄,改用郵局寄,另外上傳到「離島包裹」試算表
 // 澎湖/金門/連江(馬祖)是縣級離島;綠島/蘭嶼(台東縣)、琉球(屏東縣小琉球)是鄉鎮級離島,

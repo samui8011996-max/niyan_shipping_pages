@@ -103,6 +103,8 @@ function uploadAllToSheet() {
 
   // 雷雕:不寫試算表,直接送 D1 給雷雕網站(跟下面的試算表上傳同時跑,失敗互不影響)
   const laserP = uploadLaserOrders(buildLaserRows(loadedRows, today));
+  // 星座貓X蛋糕:也不寫試算表,訂單編號/品項/數量存 D1,點字卡看(cake-sync.js)
+  const cakeP = uploadCakeOrders(buildCakeRows(loadedRows, today));
 
   UPLOAD_CATEGORIES.forEach(cat => {
     // 用完整命中清單比對,一筆訂單如果同時符合兩個分類(例如巨物+雷雕),
@@ -145,8 +147,8 @@ function uploadAllToSheet() {
 
 if (totalCount === 0) {
   // 沒有要寫試算表的分類訂單，但雷雕(D1)跟一般訂單數還是要上傳
-  Promise.all([laserP, offshoreP]).then(([laserMsg, offMsg]) => {
-    const parts = [laserMsg, offMsg].filter(Boolean);
+  Promise.all([laserP, cakeP, offshoreP]).then(([laserMsg, cakeMsg, offMsg]) => {
+    const parts = [laserMsg, cakeMsg, offMsg].filter(Boolean);
     const msg = parts.join(" · ");
     if (msg) setStatus("status", /失敗/.test(msg) ? "error" : "success", (/失敗/.test(msg) ? "✗ " : "✓ ") + msg);
     uploadLineRegular(msg ? msg + " · " : "");
@@ -169,8 +171,7 @@ if (totalCount === 0) {
       // 包貨字卡跟試算表是兩套系統,分開回報:試算表掛了不代表字卡沒進去(反之亦然)
       const offMsg = await offshoreP;
       const packing = offMsg ? ` · ${offMsg}` : "";
-      const laserMsg = await laserP;
-      const laserPart = laserMsg ? ` · ${laserMsg}` : "";
+      const laserPart = [await laserP, await cakeP].filter(Boolean).map(m => ` · ${m}`).join("");
       if (data.ok) {
         const breakdown = Object.entries(data.results || {})
           .map(([c, r]) => (r.ok ? `${c} ${r.count}` : `${c} 試算表失敗(${r.error || "未知錯誤"})`))

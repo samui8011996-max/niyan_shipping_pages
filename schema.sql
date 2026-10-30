@@ -83,3 +83,15 @@ CREATE TABLE IF NOT EXISTS laser_params (
   "功率" TEXT,
   "速度" TEXT
 );
+
+-- 星座貓X蛋糕(起士公爵出貨):2026-10-30 起。廠商直接出貨、不寫試算表,出貨小幫手上傳時寫入,
+-- 統計字卡點開來看。只存訂單編號/品項/數量,不存姓名/電話/地址。鍵值 = LINE「商品訂單編號」。
+-- 超過 30 天的資料由 api.js 在每次讀寫時刪掉。程式會 CREATE TABLE IF NOT EXISTS 就地建表。
+CREATE TABLE IF NOT EXISTS cake_orders (
+  "鍵值" TEXT PRIMARY KEY,
+  "訂單編號" TEXT,
+  "品項" TEXT,      -- 星座貓X蛋糕 規格:天蠍-敢愛敢恨
+  "數量" INTEGER NOT NULL DEFAULT 1,
+  "日期" TEXT,      -- 上傳日期 YYYY/MM/DD
+  "建立時間" TEXT NOT NULL
+);

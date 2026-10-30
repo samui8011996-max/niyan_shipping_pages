@@ -80,8 +80,8 @@ function computeStats(rows) {
     }
   });
 
-  // 一般訂單 = 不屬於黑熊/盆景公仔組,而且不是離島•郵局(離島改郵局寄,不算一般出貨);永生花算一般訂單
-  const excluded = new Set(["黑熊", "盆景公仔組"]);
+  // 一般訂單 = 不屬於廠商出貨(黑熊/盆景公仔組/星座貓X蛋糕),而且不是離島•郵局(離島改郵局寄,不算一般出貨);永生花算一般訂單
+  const excluded = new Set(VENDOR_SHIP_CATEGORIES);
   const regular = rows.filter(r => !excluded.has(r["_類別"]) && !r["_離島"]).length;
 
   return { regular, counts, total: rows.length, bear, flowerCombos, plant, plantOrders, offshore };
@@ -361,9 +361,15 @@ function renderStats(s) {
     }
   }
 
+  // 星座貓X蛋糕:起士公爵出貨,收件人資料整段複製貼給廠商(只在這台瀏覽器,不經伺服器)
+  {
+    const text = Array.isArray(loadedRows) ? buildCakeVendorText(loadedRows) : "";
+    if (text) blocks.push({ title: "星座貓X蛋糕", cls: "cake", lines: [text] });
+  }
+
   const container = document.getElementById("vendor-blocks");
   if (blocks.length === 0) {
-    container.innerHTML = `<div class="vendor-empty">今天沒有黑熊、永生花、植物盆訂單</div>`;
+    container.innerHTML = `<div class="vendor-empty">今天沒有黑熊、永生花、植物盆、星座貓X蛋糕訂單</div>`;
   } else {
     container.innerHTML = blocks.map(b => {
       // 把要複製的文字塞進 data 屬性,複製鈕會讀
@@ -385,7 +391,7 @@ function renderStats(s) {
 
 function resetShippingStats() {
   lastStats = null;
-  ["stat-total", "stat-regular", "stat-bonsai", "stat-offshore"].forEach(id => {
+  ["stat-total", "stat-regular", "stat-offshore"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = "—";
   });
@@ -496,12 +502,12 @@ function generateOutput() {
   setStatus("status", "loading", "產生出貨表中…");
   setTimeout(() => {
     try {
-      const EXCLUDE_FROM_LOCAL = new Set(["黑熊", "盆景公仔組"]);
+      const EXCLUDE_FROM_LOCAL = new Set(VENDOR_SHIP_CATEGORIES);
       const exportRows = loadedRows.filter(r => !EXCLUDE_FROM_LOCAL.has(r["_類別"]) && !r["_離島"]);
 
       if (exportRows.length === 0) {
         setStatus("status", "warn",
-          `全部 ${loadedRows.length} 筆都屬於黑熊/盆景公仔組/離島•郵局,已不下載本地表(請用一鍵上傳)`);
+          `全部 ${loadedRows.length} 筆都屬於廠商出貨(黑熊/盆景/蛋糕)/離島•郵局,已不下載本地表(請用一鍵上傳)`);
         return;
       }
 
@@ -512,7 +518,7 @@ function generateOutput() {
       let msg = fileCount === 1
         ? `✓ 已下載黑貓出貨表_${today}.xlsx  (${exportRows.length} 筆)`
         : `✓ 已下載 ${fileCount} 個檔案  (共 ${exportRows.length} 筆)`;
-      if (excludedCount > 0) msg += `  · 另 ${excludedCount} 筆(黑熊/盆景/離島)請用上傳`;
+      if (excludedCount > 0) msg += `  · 另 ${excludedCount} 筆(黑熊/盆景/蛋糕/離島)請用上傳`;
       if (problemHitInExport > 0) msg += `  · ${problemHitInExport} 筆問題訂單已橘色反白`;
       setStatus("status", "success", msg);
     } catch (e) {
