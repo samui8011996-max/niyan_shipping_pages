@@ -73,6 +73,7 @@ export async function onRequestPost(context) {
       // 星座貓X蛋糕(起士公爵出貨)：純 D1，出貨小幫手的統計字卡點開來看，2026-10-30 起
       case 'addCakeOrders':     return await handleAddCakeOrders(env, body);
       case 'getCakeOrders':     return await handleGetCakeOrders(env);
+      case 'deleteCakeOrders':  return await handleDeleteCakeOrders(env, body);   // 字卡視窗勾選刪除
       case 'getLaserParams':    return await handleGetLaserParams(env);           // 雷雕網站的功率/速度參考表
       case 'saveLaserParams':   return await handleSaveLaserParams(env, body);
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
@@ -989,10 +990,20 @@ async function handleGetCakeOrders(env) {
   const DB = requireDb(env);
   await ensureCakeTable(DB);
   const rs = await DB.prepare(
-    'SELECT "訂單編號","品項","數量","日期" FROM cake_orders ORDER BY "建立時間" DESC, "鍵值"'
+    'SELECT "鍵值","訂單編號","品項","數量","日期" FROM cake_orders ORDER BY "建立時間" DESC, "鍵值"'
   ).all();
   const orders = (rs.results || []).map(row => ({
-    orderId: row['訂單編號'], item: row['品項'], qty: row['數量'], date: row['日期'],
+    key: row['鍵值'], orderId: row['訂單編號'], item: row['品項'], qty: row['數量'], date: row['日期'],
   }));
   return json({ ok: true, orders });
+}
+
+// body.keys = [鍵值, ...]
+async function handleDeleteCakeOrders(env, body) {
+  const DB = requireDb(env);
+  await ensureCakeTable(DB);
+  const keys = (Array.isArray(body.keys) ? body.keys : []).map(k => String(k || '').trim()).filter(Boolean);
+  if (!keys.length) return json({ ok: false, error: '沒有勾選要刪的訂單' });
+  await DB.batch(keys.map(k => DB.prepare('DELETE FROM cake_orders WHERE "鍵值"=?').bind(k)));
+  return json({ ok: true, count: keys.length });
 }

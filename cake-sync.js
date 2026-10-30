@@ -104,6 +104,10 @@ async function openCakeList() {
   document.getElementById("attnCount").textContent = "";
   document.getElementById("attnLabelBtn").hidden = true;
   document.getElementById("attnSheetBtn").hidden = false;
+  const delBtn = document.getElementById("attnDeleteBtn");
+  delBtn.hidden = false;
+  delBtn.disabled = true;
+  delBtn.textContent = "刪除勾選";
   const box = document.getElementById("attnBody");
   box.innerHTML = `<div class="attn-empty">讀取中…</div>`;
   document.getElementById("attnModal").classList.add("show");
@@ -117,15 +121,66 @@ async function openCakeList() {
     if (!data.ok) throw new Error(data.error || "未知錯誤");
     const orders = data.orders || [];
     document.getElementById("attnCount").textContent = orders.length ? `${orders.length} 筆` : "";
-    box.innerHTML = orders.length ? orders.map(o => `
-      <div class="attn-row">
+    box.innerHTML = orders.length
+      ? `<div class="attn-checkall" onclick="cakeRowClick(event, this)"><input type="checkbox" id="cakeCheckAll" onchange="cakeCheckAll(this.checked)">全選</div>` +
+        orders.map(o => `
+      <div class="attn-row checkable" onclick="cakeRowClick(event, this)">
+        <input type="checkbox" class="cake-check" value="${escapeHtml(o.key)}" onchange="cakeCheckChanged()">
         <span class="attn-date">${escapeHtml(o.date)}</span>
         <span class="attn-sn">${escapeHtml(o.orderId)}</span>
         <span class="attn-note">${escapeHtml(o.item)} x${escapeHtml(o.qty)}</span>
-      </div>`).join("") : `<div class="attn-empty">還沒有${CAKE_CATEGORY}訂單</div>`;
+      </div>`).join("")
+      : `<div class="attn-empty">還沒有${CAKE_CATEGORY}訂單</div>`;
   } catch (e) {
     box.innerHTML = `<div class="attn-empty">讀取失敗:${escapeHtml(e.message)}</div>`;
   }
+}
+
+// ---- 勾選刪除(使用者 2026-10-30)----
+// 整列都能點(用 div 不用 label:.modal label 有全域樣式會把版面弄亂)
+function cakeRowClick(ev, row) {
+  if (ev.target.tagName === "INPUT") return;
+  const box = row.querySelector("input");
+  box.checked = !box.checked;
+  box.dispatchEvent(new Event("change"));
+}
+
+function cakeCheckedKeys() {
+  return [...document.querySelectorAll("#attnBody .cake-check:checked")].map(x => x.value);
+}
+
+function cakeCheckChanged() {
+  document.querySelectorAll("#attnBody .cake-check").forEach(x => x.closest(".attn-row").classList.toggle("checked", x.checked));
+  const n = cakeCheckedKeys().length;
+  const btn = document.getElementById("attnDeleteBtn");
+  btn.disabled = n === 0;
+  btn.textContent = n ? `刪除勾選(${n})` : "刪除勾選";
+}
+
+function cakeCheckAll(on) {
+  document.querySelectorAll("#attnBody .cake-check").forEach(x => { x.checked = on; });
+  cakeCheckChanged();
+}
+
+async function deleteCheckedCakes() {
+  const keys = cakeCheckedKeys();
+  if (!keys.length) return;
+  if (!confirm(`確定刪除 ${keys.length} 筆${CAKE_CATEGORY}訂單?刪掉就救不回來。`)) return;
+  const btn = document.getElementById("attnDeleteBtn");
+  btn.disabled = true;
+  btn.textContent = "刪除中…";
+  try {
+    const res = await fetch(getGsUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "deleteCakeOrders", keys }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "未知錯誤");
+  } catch (e) {
+    alert("刪除失敗:" + e.message);
+  }
+  openCakeList();   // 重新讀一次,畫面跟 D1 對齊
 }
 
 if (typeof module !== "undefined" && module.exports) {

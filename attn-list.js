@@ -47,7 +47,8 @@ function openAttnList(kind) {
 
   const labelBtn = document.getElementById("attnLabelBtn");
   labelBtn.hidden = !cfg.label || rows.length === 0;
-  document.getElementById("attnSheetBtn").hidden = true;   // 只有星座貓X蛋糕的視窗有(cake-sync.js)
+  document.getElementById("attnSheetBtn").hidden = true;   // 這兩顆只有星座貓X蛋糕的視窗有(cake-sync.js)
+  document.getElementById("attnDeleteBtn").hidden = true;
 
   const box = document.getElementById("attnBody");
   if (!loadedRows) {

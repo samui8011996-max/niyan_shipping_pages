@@ -1105,8 +1105,15 @@
   .attn-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
   /* .btn 有自己的 display,會蓋掉 hidden 屬性 —— 不加這行「列印離島貼紙」在每個清單都會出現 */
   .attn-foot .btn[hidden] { display: none; }
+  /* 星座貓X蛋糕清單:最前面多一欄勾選框,整列都可以點 */
+  .attn-row.checkable { grid-template-columns: 22px 70px 150px 1fr; cursor: pointer; align-items: start; }
+  .attn-row.checkable input { margin: 3px 0 0; cursor: pointer; }
+  .attn-row.checkable.checked { background: var(--cat-red-bg); }
+  .attn-checkall { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border); cursor: pointer; }
   @media (max-width: 560px) {
     .attn-row { grid-template-columns: 1fr; gap: 2px; }
+    .attn-row.checkable { grid-template-columns: 22px 1fr; }
+    .attn-row.checkable > span { grid-column: 2; }
     .attn-date, .attn-sn { font-size: 11px; }
   }
   .modal input[type="text"]:focus,
@@ -2633,6 +2640,7 @@
       <div class="attn-list" id="attnBody"></div>
       <div class="attn-foot">
         <button type="button" class="btn btn-lavender" id="attnLabelBtn" hidden onclick="attnPrintOffshore()">列印離島貼紙</button>
+        <button type="button" class="btn btn-danger" id="attnDeleteBtn" hidden disabled onclick="deleteCheckedCakes()">刪除勾選</button>
         <button type="button" class="btn btn-gsheet" id="attnSheetBtn" hidden onclick="openCakeSheet()">開啟廠商統計試算表</button>
         <button type="button" class="btn btn-secondary" onclick="closeAttnList()">關閉</button>
       </div>
