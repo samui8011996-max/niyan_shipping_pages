@@ -74,6 +74,8 @@ export async function onRequestPost(context) {
       case 'addCakeOrders':     return await handleAddCakeOrders(env, body);
       case 'getCakeOrders':     return await handleGetCakeOrders(env);
       case 'deleteCakeOrders':  return await handleDeleteCakeOrders(env, body);   // 字卡視窗勾選刪除
+      // 小遊戲留的 Email(game 資料庫 game_leads)：要密碼 LEADS_KEY，只讀不寫
+      case 'getGameLeads':      return await handleGetGameLeads(env, body);
       case 'getLaserParams':    return await handleGetLaserParams(env);           // 雷雕網站的功率/速度參考表
       case 'saveLaserParams':   return await handleSaveLaserParams(env, body);
       // 其餘（分類訂單 → 廠商試算表）原樣轉送
@@ -1006,4 +1008,20 @@ async function handleDeleteCakeOrders(env, body) {
   if (!keys.length) return json({ ok: false, error: '沒有勾選要刪的訂單' });
   await DB.batch(keys.map(k => DB.prepare('DELETE FROM cake_orders WHERE "鍵值"=?').bind(k)));
   return json({ ok: true, count: keys.length });
+}
+
+/* ---------- 遊戲名單(官網分頁) ----------
+ * niyan-game.pages.dev 領券留的 Email，存在另一個 D1(game)，wrangler.toml 綁成 GAME_DB。
+ * 信箱是個資，這支 API 又誰都打得到，所以要帶密碼：Cloudflare Pages 環境變數 LEADS_KEY。
+ * 沒設 LEADS_KEY 一律拒絕(不會因為忘了設就變成公開)。
+ */
+async function handleGetGameLeads(env, body) {
+  const want = String((env && env.LEADS_KEY) || '');
+  if (!want) return json({ ok: false, error: '還沒設定密碼(Cloudflare Pages 環境變數 LEADS_KEY)' });
+  if (String(body.key || '') !== want) return json({ ok: false, badKey: true, error: '密碼不對' });
+  if (!env.GAME_DB) return json({ ok: false, error: '遊戲資料庫尚未綁定(GAME_DB)' });
+  const rs = await env.GAME_DB.prepare(
+    'SELECT email, game, score, src, consent, created_at FROM game_leads ORDER BY created_at DESC'
+  ).all();
+  return json({ ok: true, leads: rs.results || [] });
 }

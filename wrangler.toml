@@ -6,3 +6,9 @@ pages_build_output_dir = "."
 binding = "DB"
 database_name = "niyan-db"
 database_id = "d3c30bdf-c6fc-4990-bd22-5ea3b13d419e"
+
+# 小遊戲(niyan-game.pages.dev)的資料庫:官網分頁的「遊戲名單」只讀 game_leads 這張表
+[[d1_databases]]
+binding = "GAME_DB"
+database_name = "game"
+database_id = "4c9adc73-97cf-4be0-bcde-089f678d6f65"
