@@ -12,6 +12,10 @@
 // ===================================================================
 const CAKE_CATEGORY = "星座貓X蛋糕";
 const CAKE_STYLES = ["閃耀無比", "敢愛敢恨", "情感滿溢", "經典LOGO"];
+// 廠商(起士公爵)統計數量用的試算表,小視窗裡放一顆捷徑(使用者 2026-10-30)
+const CAKE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1omoym5muBdAYd4gBmAvwt5vtUoOoaV_ZPXk7HdJvsjk/edit?gid=41937453#gid=41937453";
+
+function openCakeSheet() { window.open(CAKE_SHEET_URL, "_blank"); }
 
 function isCakeRow(r) {
   return (r["_類別列表"] || []).includes(CAKE_CATEGORY);
@@ -98,6 +102,7 @@ async function openCakeList() {
   hintEl.hidden = false;
   document.getElementById("attnCount").textContent = "";
   document.getElementById("attnLabelBtn").hidden = true;
+  document.getElementById("attnSheetBtn").hidden = false;
   const box = document.getElementById("attnBody");
   box.innerHTML = `<div class="attn-empty">讀取中…</div>`;
   document.getElementById("attnModal").classList.add("show");

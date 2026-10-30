@@ -952,9 +952,8 @@ async function handleSaveLaserParams(env, body) {
 /* ---------- 星座貓X蛋糕(起士公爵出貨) ----------
  * 2026-10-30 起：廠商直接出貨、不寫試算表，只存訂單編號 + 品項 + 數量給出貨小幫手的字卡點開來看。
  * 姓名、電話、地址都不存(那些在出貨小幫手的「廠商對照」複製，只在瀏覽器裡)。
- * 鍵值 = LINE「商品訂單編號」，重複按上傳是更新。超過 30 天的資料每次讀寫時順手刪掉。
+ * 鍵值 = LINE「商品訂單編號」，重複按上傳是更新。資料不會自動刪(使用者 2026-10-30：不要刪)。
  */
-const CAKE_KEEP_DAYS = 30;
 let _cakeReady = false;
 
 async function ensureCakeTable(DB) {
@@ -965,12 +964,6 @@ async function ensureCakeTable(DB) {
     '"日期" TEXT, "建立時間" TEXT NOT NULL)'
   ).run();
   _cakeReady = true;
-}
-
-async function purgeOldCake(DB) {
-  await DB.prepare(
-    `DELETE FROM cake_orders WHERE "建立時間" < datetime('now', '-${CAKE_KEEP_DAYS} days')`
-  ).run();
 }
 
 async function handleAddCakeOrders(env, body) {
@@ -988,7 +981,6 @@ async function handleAddCakeOrders(env, body) {
     ).bind(key, String(r.orderId || ''), String(r.item || ''), parseInt(r.qty, 10) || 1, String(r.date || '')));
   }
   if (stmts.length) await DB.batch(stmts);
-  await purgeOldCake(DB);
   return json({ ok: true, count: stmts.length });
 }
 
@@ -996,7 +988,6 @@ async function handleAddCakeOrders(env, body) {
 async function handleGetCakeOrders(env) {
   const DB = requireDb(env);
   await ensureCakeTable(DB);
-  await purgeOldCake(DB);
   const rs = await DB.prepare(
     'SELECT "訂單編號","品項","數量","日期" FROM cake_orders ORDER BY "建立時間" DESC, "鍵值"'
   ).all();
