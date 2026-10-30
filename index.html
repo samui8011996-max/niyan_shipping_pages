@@ -1103,6 +1103,8 @@
   .attn-note { overflow-wrap: anywhere; }
   .attn-empty { padding: 26px 12px; text-align: center; color: var(--text-dim); font-size: 13px; }
   .attn-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+  /* .btn 有自己的 display,會蓋掉 hidden 屬性 —— 不加這行「列印離島貼紙」在每個清單都會出現 */
+  .attn-foot .btn[hidden] { display: none; }
   @media (max-width: 560px) {
     .attn-row { grid-template-columns: 1fr; gap: 2px; }
     .attn-date, .attn-sn { font-size: 11px; }
