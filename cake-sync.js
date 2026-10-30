@@ -77,7 +77,8 @@ async function uploadCakeOrders(cakeRows) {
   }
 }
 
-// 廠商對照的複製文字:同一張訂單的品項併在同一個收件人底下,訂單之間空一行
+// 廠商對照的複製文字:同一張訂單的品項併在同一個收件人底下;訂單編號放第一行加 ■,
+// 訂單之間用一條粗線隔開(貼到 LINE 給廠商也看得出哪裡換單,使用者 2026-10-30)
 function buildCakeVendorText(rows) {
   const byOrder = new Map();
   rows.filter(isCakeRow).forEach(r => {
@@ -86,12 +87,12 @@ function buildCakeVendorText(rows) {
     byOrder.get(id).items.push(`${cakeItemLabel(r)} x${cakeQty(r)}`);
   });
   return [...byOrder].map(([id, o]) => [
+    `■ 訂單編號:${id}`,
     `姓名:${o.r["收件人姓名"] ?? ""}`,
     `電話:${o.r["收件人聯絡電話"] ?? ""}`,
     `地址:${o.r["配送地址"] ?? ""}`,
-    `訂單編號:${id}`,
     ...o.items,
-  ].join("\n")).join("\n\n");
+  ].join("\n")).join("\n━━━━━━━━━━━━━━━━\n");
 }
 
 // 統計字卡 → 讀 D1 的清單(新的日期在上面),沿用注意品項那個小視窗
