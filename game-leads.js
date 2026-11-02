@@ -7,8 +7,11 @@
 // 密碼設在 Cloudflare Pages 的環境變數 LEADS_KEY,後端比對;這台瀏覽器輸入過一次就記在 localStorage。
 // ===================================================================
 const LEADS_KEY_STORE = "niyan-leads-key";
-const LEADS_GAME_NAMES = { catch: "接東西", zodiac: "星座", guess: "猜猜", other: "其他" };
+const LEADS_GAME_NAMES = { catch: "招財貓", xmas: "聖誕", zodiac: "星座", guess: "猜猜我是誰", other: "其他" };
+// 有排行榜的遊戲(2026-11-02 加):和名單同一次載入、同一把密碼
+const BOARD_GAMES = [["xmas", "聖誕胖胖貓送禮"], ["catch", "招財貓接財氣"]];
 let leadsCache = [];
+let boardCache = {};
 
 function leadsGetKey() {
   try { return localStorage.getItem(LEADS_KEY_STORE) || ""; } catch (e) { return ""; }
@@ -43,8 +46,11 @@ async function loadGameLeads() {
     }
     leadsSetKey(key);
     leadsCache = data.leads || [];
+    boardCache = data.scores || {};
     renderGameLeads();
-    setStatus("leadsStatus", "success", `✓ 共 ${leadsCache.length} 個信箱`);
+    renderGameBoards();
+    setStatus("leadsStatus", "success", `✓ 共 ${leadsCache.length} 個信箱 · 排行榜 ` +
+      BOARD_GAMES.map(([g, n]) => `${n} ${(boardCache[g] || []).length} 人`).join("、"));
   } catch (e) {
     setStatus("leadsStatus", "error", "✗ " + e.message);
   }
@@ -60,6 +66,22 @@ function renderGameLeads() {
       <span class="attn-note">${escapeHtml(l.email)}</span>
       <span class="attn-sn">${escapeHtml(LEADS_GAME_NAMES[l.game] || l.game || "")} · ${escapeHtml(l.score)} 分${l.src ? " · " + escapeHtml(l.src) : ""}${l.consent ? "" : " · 不收電子報"}</span>
     </div>`).join("") : `<div class="attn-empty">還沒有人留信箱</div>`;
+}
+
+function renderGameBoards() {
+  document.getElementById("leadsBoard").innerHTML = BOARD_GAMES.map(([g, name]) => {
+    const rows = boardCache[g] || [];
+    return `
+    <div class="leads-board">
+      <div class="leads-board-title">${escapeHtml(name)} 排行榜</div>
+      <div class="attn-list">${rows.length ? rows.map((r, i) => `
+        <div class="attn-row board-row">
+          <span class="attn-date">${i + 1}</span>
+          <span class="attn-note">${escapeHtml(r.email)}</span>
+          <span class="attn-sn">${escapeHtml(r.score)} 分 · ${escapeHtml(leadsTime(r.updated_at))}</span>
+        </div>`).join("") : `<div class="attn-empty">還沒有人上榜</div>`}</div>
+    </div>`;
+  }).join("");
 }
 
 // 複製只給「同意收電子報」的信箱,一行一個,直接貼進電子報後台

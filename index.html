@@ -1106,6 +1106,9 @@
   /* .btn 有自己的 display,會蓋掉 hidden 屬性 —— 不加這行「列印離島貼紙」在每個清單都會出現 */
   .attn-foot .btn[hidden] { display: none; }
   .attn-row.leads-row { grid-template-columns: 120px 1fr auto; }
+  .attn-row.board-row { grid-template-columns: 36px 1fr auto; }
+  .leads-board { margin-top: 18px; }
+  .leads-board-title { font-size: 13px; font-weight: 700; color: var(--text-dim); }
   .attn-list:empty { display: none; }
   /* 星座貓X蛋糕清單:最前面多一欄勾選框,整列都可以點 */
   .attn-row.checkable { grid-template-columns: 22px 70px 150px 1fr; cursor: pointer; align-items: start; }
@@ -2403,9 +2406,9 @@
       <div id="webPreview" class="problem-list"></div>
 
       <section class="card" style="margin-top: 24px;">
-        <div class="card-label">遊戲名單(小遊戲留的 Email)</div>
+        <div class="card-label">遊戲名單與排行榜(小遊戲留的 Email)</div>
         <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          <a href="https://niyan-game.pages.dev/" target="_blank" rel="noopener">niyan-game.pages.dev</a> 領券時留的信箱。第一次載入要輸入密碼,這台瀏覽器之後會記住。
+          <a href="https://niyan-game.pages.dev/" target="_blank" rel="noopener">niyan-game.pages.dev</a>、<a href="https://niyan-guesswho.pages.dev/" target="_blank" rel="noopener">niyan-guesswho.pages.dev</a> 領券時留的信箱,和聖誕、招財貓的排行榜,一次載入。第一次載入要輸入密碼,這台瀏覽器之後會記住。
           「複製信箱」只複製有同意收電子報的。
         </p>
         <div class="actions" style="margin: 0;">
@@ -2415,6 +2418,7 @@
         </div>
         <div id="leadsStatus" class="status" style="margin-top: 12px;">按「載入名單」…</div>
         <div id="leadsList" class="attn-list"></div>
+        <div id="leadsBoard"></div>
       </section>
     </div>
 

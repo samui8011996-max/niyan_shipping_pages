@@ -1023,5 +1023,17 @@ async function handleGetGameLeads(env, body) {
   const rs = await env.GAME_DB.prepare(
     'SELECT email, game, score, src, consent, created_at FROM game_leads ORDER BY created_at DESC'
   ).all();
-  return json({ ok: true, leads: rs.results || [] });
+  // 同一把密碼順便帶排行榜(game_scores：每個 email 每款遊戲只留最高分)；表還沒建也不擋名單
+  const scores = {};
+  for (const g of ['xmas', 'catch']) {
+    try {
+      const b = await env.GAME_DB.prepare(
+        'SELECT player_id AS email, score, updated_at FROM game_scores WHERE game = ?1 ORDER BY score DESC, updated_at ASC LIMIT 200'
+      ).bind(g).all();
+      scores[g] = b.results || [];
+    } catch (e) {
+      scores[g] = [];
+    }
+  }
+  return json({ ok: true, leads: rs.results || [], scores });
 }
