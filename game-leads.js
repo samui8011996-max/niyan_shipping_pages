@@ -7,7 +7,10 @@
 // 密碼設在 Cloudflare Pages 的環境變數 LEADS_KEY,後端比對;這台瀏覽器輸入過一次就記在 localStorage。
 // ===================================================================
 const LEADS_KEY_STORE = "niyan-leads-key";
-const LEADS_GAME_NAMES = { catch: "招財貓", xmas: "聖誕", zodiac: "星座", guess: "猜猜我是誰", other: "其他" };
+const LEADS_GAME_NAMES = { catch: "招財貓", xmas: "聖誕", zodiac: "星座", guess: "猜猜我是誰", color: "選色測驗", other: "其他" };
+// 選色測驗沒有分數,score 存測出來的顏色編號
+const COLOR_RESULTS = ["", "招財黃", "戀愛粉", "健康綠", "炭錢黑", "純淨白", "清水灰"];
+const leadsResult = l => l.game === "color" ? (COLOR_RESULTS[l.score] || "") : `${l.score} 分`;
 // 有排行榜的遊戲(2026-11-02 加):和名單同一次載入、同一把密碼
 const BOARD_GAMES = [["xmas", "聖誕胖胖貓送禮"], ["catch", "招財貓接財氣"]];
 let leadsCache = [];
@@ -66,7 +69,7 @@ function renderGameLeads() {
     <div class="attn-row leads-row">
       <span class="attn-date">${escapeHtml(leadsTime(l.created_at))}</span>
       <span class="attn-note">${escapeHtml(l.email)}</span>
-      <span class="attn-sn">${escapeHtml(LEADS_GAME_NAMES[l.game] || l.game || "")} · ${escapeHtml(l.score)} 分${l.src ? " · " + escapeHtml(l.src) : ""}${l.consent ? "" : " · 不收電子報"}</span>
+      <span class="attn-sn">${escapeHtml(LEADS_GAME_NAMES[l.game] || l.game || "")} · ${escapeHtml(leadsResult(l))}${l.src ? " · " + escapeHtml(l.src) : ""}${l.consent ? "" : " · 不收電子報"}</span>
     </div>`).join("") : `<div class="attn-empty">還沒有人留信箱</div>`;
 }
 
@@ -97,8 +100,8 @@ function copyGameLeads() {
 
 function downloadGameLeadsCsv() {
   const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Email", "遊戲", "最高分", "來源", "同意電子報", "第一次玩"]]
-    .concat(leadsCache.map(l => [l.email, LEADS_GAME_NAMES[l.game] || l.game, l.score, l.src || "", l.consent ? "是" : "否", leadsTime(l.created_at)]));
+  const rows = [["Email", "遊戲", "最高分／結果", "來源", "同意電子報", "第一次玩"]]
+    .concat(leadsCache.map(l => [l.email, LEADS_GAME_NAMES[l.game] || l.game, leadsResult(l), l.src || "", l.consent ? "是" : "否", leadsTime(l.created_at)]));
   const blob = new Blob(["﻿" + rows.map(r => r.map(esc).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
