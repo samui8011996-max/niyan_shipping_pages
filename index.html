@@ -1107,6 +1107,8 @@
   .attn-foot .btn[hidden] { display: none; }
   .attn-row.leads-row { grid-template-columns: 120px 1fr auto; }
   .attn-row.board-row { grid-template-columns: 36px 1fr auto; }
+  .game-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 12px; }
+  .game-notes { margin: 0 0 16px; padding-left: 18px; font-size: 13px; color: var(--text-dim); line-height: 1.8; }
   .leads-board { margin-top: 18px; }
   .leads-board-title { font-size: 13px; font-weight: 700; color: var(--text-dim); }
   .attn-list:empty { display: none; }
@@ -2407,10 +2409,16 @@
 
       <section class="card" style="margin-top: 24px;">
         <div class="card-label">遊戲名單與排行榜(小遊戲留的 Email)</div>
-        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          <a href="https://niyan-game.pages.dev/" target="_blank" rel="noopener">niyan-game.pages.dev</a>、<a href="https://niyan-guesswho.pages.dev/" target="_blank" rel="noopener">niyan-guesswho.pages.dev</a> 領券時留的信箱,和聖誕、招財貓的排行榜,一次載入。第一次載入要輸入密碼,這台瀏覽器之後會記住。
-          「複製信箱」只複製有同意收電子報的。
-        </p>
+        <div class="game-links">
+          <a class="quick-link" href="https://niyan-game.pages.dev/" target="_blank" rel="noopener noreferrer">聖誕胖胖貓送禮 ↗</a>
+          <a class="quick-link" href="https://niyan-game.pages.dev/catch/" target="_blank" rel="noopener noreferrer">招財貓接財氣 ↗</a>
+          <a class="quick-link" href="https://niyan-guesswho.pages.dev/" target="_blank" rel="noopener noreferrer">猜猜我是誰 ↗</a>
+        </div>
+        <ul class="game-notes">
+          <li>三款遊戲領券留的信箱，一個信箱玩幾款就列幾筆；聖誕、招財貓的排行榜一起載入。</li>
+          <li>第一次載入要輸入密碼，這台瀏覽器之後會記住。</li>
+          <li>「複製信箱」只複製有同意收電子報的，重複的信箱只算一次。</li>
+        </ul>
         <div class="actions" style="margin: 0;">
           <button class="btn btn-primary" onclick="loadGameLeads()">載入名單</button>
           <button id="leadsCopyBtn" class="btn btn-secondary" disabled onclick="copyGameLeads()">複製信箱</button>

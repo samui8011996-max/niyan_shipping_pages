@@ -1020,9 +1020,18 @@ async function handleGetGameLeads(env, body) {
   if (!want) return json({ ok: false, error: '還沒設定密碼(Cloudflare Pages 環境變數 LEADS_KEY)' });
   if (String(body.key || '') !== want) return json({ ok: false, badKey: true, error: '密碼不對' });
   if (!env.GAME_DB) return json({ ok: false, error: '遊戲資料庫尚未綁定(GAME_DB)' });
-  const rs = await env.GAME_DB.prepare(
-    'SELECT email, game, score, src, consent, created_at FROM game_leads ORDER BY created_at DESC'
-  ).all();
+  // 遊玩紀錄 game_plays：每個 email 每款遊戲一筆(三款都玩就三筆)；表還沒建就退回 game_leads(一個 email 一筆)
+  let rs;
+  try {
+    rs = await env.GAME_DB.prepare(
+      `SELECT p.email, p.game, p.score, l.src, COALESCE(l.consent, 1) AS consent, p.created_at
+       FROM game_plays p LEFT JOIN game_leads l ON l.email = p.email ORDER BY p.created_at DESC`
+    ).all();
+  } catch (e) {
+    rs = await env.GAME_DB.prepare(
+      'SELECT email, game, score, src, consent, created_at FROM game_leads ORDER BY created_at DESC'
+    ).all();
+  }
   // 同一把密碼順便帶排行榜(game_scores：每個 email 每款遊戲只留最高分)；表還沒建也不擋名單
   const scores = {};
   for (const g of ['xmas', 'catch']) {

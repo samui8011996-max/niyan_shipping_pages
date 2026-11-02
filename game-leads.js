@@ -49,7 +49,9 @@ async function loadGameLeads() {
     boardCache = data.scores || {};
     renderGameLeads();
     renderGameBoards();
-    setStatus("leadsStatus", "success", `✓ 共 ${leadsCache.length} 個信箱 · 排行榜 ` +
+    // 一個信箱玩幾款就幾筆
+    const people = new Set(leadsCache.map(l => l.email)).size;
+    setStatus("leadsStatus", "success", `✓ 共 ${leadsCache.length} 筆(${people} 個信箱) · 排行榜 ` +
       BOARD_GAMES.map(([g, n]) => `${n} ${(boardCache[g] || []).length} 人`).join("、"));
   } catch (e) {
     setStatus("leadsStatus", "error", "✗ " + e.message);
@@ -86,7 +88,8 @@ function renderGameBoards() {
 
 // 複製只給「同意收電子報」的信箱,一行一個,直接貼進電子報後台
 function copyGameLeads() {
-  const list = leadsCache.filter(l => l.consent).map(l => l.email);
+  // 同一個信箱玩過好幾款只複製一次
+  const list = [...new Set(leadsCache.filter(l => l.consent).map(l => l.email))];
   navigator.clipboard.writeText(list.join("\n")).then(
     () => setStatus("leadsStatus", "success", `✓ 已複製 ${list.length} 個信箱(只含同意收電子報的)`),
     () => setStatus("leadsStatus", "error", "✗ 複製失敗,瀏覽器不讓寫剪貼簿"));
@@ -94,7 +97,7 @@ function copyGameLeads() {
 
 function downloadGameLeadsCsv() {
   const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Email", "遊戲", "最高分", "來源", "同意電子報", "第一次領券"]]
+  const rows = [["Email", "遊戲", "最高分", "來源", "同意電子報", "第一次玩"]]
     .concat(leadsCache.map(l => [l.email, LEADS_GAME_NAMES[l.game] || l.game, l.score, l.src || "", l.consent ? "是" : "否", leadsTime(l.created_at)]));
   const blob = new Blob(["﻿" + rows.map(r => r.map(esc).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
