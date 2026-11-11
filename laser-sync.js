@@ -25,7 +25,8 @@ function laserTypeFor(note) {
   const o = laserParseNote(t);
   const size = (t.match(/[(（]([小中大])[)）]/) || [])[1] || "";
   // 玻璃球的星座常寫在規格裡、前面沒有「星座:」(「櫻花粉 ♈ 牡羊座」),所以整段找「○○座」(「星座」兩字不算)
-  if (t.includes("玻璃球") && (o.zodiac || (t.match(/[一-鿿]{2}座/g) || []).some(z => z !== "星座"))) return "星座小卡";
+  // 貓掌款(2026-11-11 加)不是星座,寫到「貓掌」也算小卡
+  if (t.includes("玻璃球") && (o.zodiac || t.includes("貓掌") || (t.match(/[一-鿿]{2}座/g) || []).some(z => z !== "星座"))) return "星座小卡";
   if (t.includes("辦公室")) return (t.includes("一對") ? "辦公室一對" : "辦公室單隻") + (size ? "(" + size + ")" : "");
   if (t.includes("胖胖貓") && t.includes("一對")) return "一對" + size;
   if (t.includes("胖胖招財貓") && !t.includes("招福")) return (o.text ? "雷雕" : "木片") + size;
