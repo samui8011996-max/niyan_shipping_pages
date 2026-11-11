@@ -2,7 +2,7 @@
 // 出貨小助手貓(2026-10-16):畫面右邊一隻招福胖胖貓,給新人用。
 //   - 每次打開網站隨機一種顏色,偶爾換成金運款(平常是招福款)。六色:招財黃/戀愛粉/健康綠/炭錢黑/純淨白/清水灰,
 //     配色跟官網首頁「招財貓切換」那份一樣)
-//   - 平常泡泡寫「我是出貨小助手」,點貓會輪流講小提醒(點了也不會蓋掉上面的提醒卡)
+//   - 平常泡泡寫「我是出貨小助手」,點貓打開印單教學(print-guide.js;2026-11-11 取代原本 6 條輪播小提醒)
 //   - 三種提醒(看蝦皮訊息 / 打電話 / 檢查新訂單)各自一張卡,同時成立就由上往下並排
 //     (2026-10-20 使用者要求;以前是優先序只顯示最急的一張,另外兩張看不到)
 //   - 三種都有自己的桌面通知:蝦皮每個時段一次,打電話、檢查新訂單各一天一次
@@ -30,15 +30,6 @@ const GC_COLORS = [
   { name: "清水灰", css: "--o:#5E5E5A;--b:#BDBDB8;--l:#5E5E5A;--e:#F2B8B5" },
 ];
 
-const GC_TIPS = [
-  "先點上面的<b>平台按鈕</b>,再按「開啟後台」就能進平台。",
-  "<b>蝦皮、Pinkoi、官網</b>要開發票,其他平台不用。",
-  "LINE禮物:丟訂單總表 → 下載黑貓出貨表 → 上傳包貨平台與試算表。",
-  "印單前先看預覽,有 ⚠ 或 ❗ 的先問人再印。",
-  "紙張預設是黑貓熱感應,按印單鈕旁邊的<b>小箭頭</b>可以換 4×6。",
-  "客人有狀況記到「問題訂單」,退回來的包裹記到「包裹退貨」。",
-];
-
 const GC_REMIND_HOURS = [9, 11, 13, 15, 17];       // 定點提醒的時間(整點)
 const GC_SHOPEE_CHAT = "https://seller.shopee.tw/webchat/conversations";
 const GC_KEY = "guideCatLastAck";
@@ -49,7 +40,6 @@ const GC_PLATFORM_CHECK_KEY = "guideCatPlatformCheck";   // 今天已經「已�
 const GC_PLAT_NOTIFIED_KEY = "guideCatPlatNotified";   // 今天的「檢查新訂單」通知跳過了沒(一天只跳一次)
 let gcCalls = 0;                                  // 今天還要打幾筆
 let gcCallItems = [];                             // 今天要打電話的那幾筆(拿訂單編號出來顯示用)
-let gcTip = -1;
 let gcReminding = false;
 const gcTitle = document.title;
 
@@ -250,18 +240,16 @@ function gcPlatCard() {
 }
 
 function gcTipCard() {
-  if (gcTip < 0) return `<div class="gc-bubble">我是出貨小助手<br>點我看小提醒</div>`;
-  return `<div class="gc-bubble"><span class="gc-n">${gcTip + 1}/${GC_TIPS.length}</span>${GC_TIPS[gcTip]}</div>`;
+  return `<div class="gc-bubble gc-guide-bubble" onclick="gcOpenGuide()">我是出貨小助手<br>點我看印單教學</div>`;
 }
 
 // 現在畫面上「應該」長怎樣。跟上次畫的一樣就不重畫,不然每分鐘一次的檢查會把
-// 閃爍動畫重頭跑、也會把同事正在看的小提醒洗掉
+// 閃爍動畫重頭跑、也會把同事正在看的卡片洗掉
 function gcSig() {
   return [
     gcReminding,
     gcWantCall() ? gcCalls : 0,
     gcWantPlat() ? gcUncheckedPlatforms().map(p => p.id).join(",") : "",
-    gcTip,
   ].join("|");
 }
 let gcLastSig = null;
@@ -276,8 +264,8 @@ function gcRender() {
   if (gcReminding) cards.push(gcShopeeCard());
   if (call) cards.push(gcCallCard());
   if (plat) cards.push(gcPlatCard());
-  // 沒有任何提醒就顯示平常那句;有提醒時只有點過貓(看小提醒)才多掛一張在最下面
-  if (cards.length === 0 || gcTip >= 0) cards.push(gcTipCard());
+  // 沒有任何提醒才顯示平常那句
+  if (cards.length === 0) cards.push(gcTipCard());
   box.innerHTML = cards.join("");
 
   // 貓本身的動畫速度還是看狀態(class 留著,gcCheck 也沒在看了,但樣式有用到)
@@ -338,10 +326,9 @@ function gcSkipCalls() {
   gcRender();   // 同上:只收掉打電話那張
 }
 
-// 點貓:小提醒多掛一張卡在最下面,上面的提醒卡照樣留著(以前會被整個蓋掉)
-function gcNextTip() {
-  gcTip = (gcTip + 1) % GC_TIPS.length;
-  gcRender();
+// 點貓:打開印單教學(print-guide.js),上面的提醒卡照樣留著
+function gcOpenGuide() {
+  if (typeof openPrintGuide === "function") openPrintGuide();
 }
 
 // 時間到:蝦皮那張卡變橘色、一閃一閃,不按按鈕不會變回來(使用者 2026-10-16:不要正中間跳窗,變色就好)
@@ -415,9 +402,9 @@ function gcCheck() {
 }
 
 // ---- 拖曳:貓咪小助手可以拖到畫面任何地方,位置記在 localStorage,重新整理、換頁都還在原位 ----
-// 使用者 2026-10-20 要求。拖的手把是貓本身那顆按鈕(本來點一下是「看小提醒」),
+// 使用者 2026-10-20 要求。拖的手把是貓本身那顆按鈕(點一下是「看印單教學」),
 // 用 Pointer Events 分辨「點一下」跟「拖曳」:移動超過 4px 才算拖曳,拖完那一下
-// 放開滑鼠要擋掉接下來那個 click,不然放開的瞬間會順便觸發一次「看小提醒」。
+// 放開滑鼠要擋掉接下來那個 click,不然放開的瞬間會順便打開一次印單教學。
 const GC_POS_KEY = "guideCatPos";
 function gcSavePos(left, top) {
   try { localStorage.setItem(GC_POS_KEY, JSON.stringify({ left, top })); } catch (e) {}
@@ -452,7 +439,7 @@ function gcSetupDrag(el) {
     document.removeEventListener("pointerup", onUp);
     if (moved) {
       el.classList.remove("dragging");
-      // 拖完放開那一下不要順便觸發貓的 onclick(看小提醒)
+      // 拖完放開那一下不要順便觸發貓的 onclick(印單教學)
       handle.addEventListener("click", (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
     }
   };
@@ -478,7 +465,7 @@ function setupGuideCat() {
   el.innerHTML = `
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">${GC_SYMBOL}${GC_SYMBOL_GOLD}</svg>
     <div id="gcCards" class="gc-cards"></div>
-    <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看小提醒" onclick="gcNextTip()">
+    <button type="button" class="gc-cat-btn" title="${c.name}${kind}貓:點我看印單教學" onclick="gcOpenGuide()">
       <svg class="gc-cat" viewBox="0 0 418 462" style="${c.css}" aria-hidden="true"><use href="#${gold ? "gc-cat-gold" : "gc-cat-fu"}"/></svg>
     </button>
     <div id="gcNotify" class="gc-notify"></div>`;
