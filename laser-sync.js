@@ -24,7 +24,8 @@ function laserTypeFor(note) {
   const t = String(note || "");
   const o = laserParseNote(t);
   const size = (t.match(/[(（]([小中大])[)）]/) || [])[1] || "";
-  if (t.includes("玻璃球") && (o.zodiac || /座/.test(o.pattern))) return "星座小卡";
+  // 玻璃球的星座常寫在規格裡、前面沒有「星座:」(「櫻花粉 ♈ 牡羊座」),所以整段找「○○座」(「星座」兩字不算)
+  if (t.includes("玻璃球") && (o.zodiac || (t.match(/[一-鿿]{2}座/g) || []).some(z => z !== "星座"))) return "星座小卡";
   if (t.includes("辦公室")) return (t.includes("一對") ? "辦公室一對" : "辦公室單隻") + (size ? "(" + size + ")" : "");
   if (t.includes("胖胖貓") && t.includes("一對")) return "一對" + size;
   if (t.includes("胖胖招財貓") && !t.includes("招福")) return (o.text ? "雷雕" : "木片") + size;
@@ -32,8 +33,14 @@ function laserTypeFor(note) {
   return "";
 }
 
+// 永生花玻璃球附的星座小卡也要雷雕,但品名沒有「雷雕」兩字(被歸在永生花),要另外挑出來送(使用者 2026-11-11)
+function isLaserRow(r) {
+  if ((r["_類別列表"] || []).includes("雷雕")) return true;
+  return laserTypeFor(r["_備註完整"] ?? r["_備註"] ?? "") === "星座小卡";
+}
+
 function buildLaserRows(rows, date) {
-  return rows.filter(r => (r["_類別列表"] || []).includes("雷雕")).map(r => {
+  return rows.filter(isLaserRow).map(r => {
     const item = r["_備註完整"] ?? r["_備註"] ?? "";
     const type = laserTypeFor(item);
     return {
