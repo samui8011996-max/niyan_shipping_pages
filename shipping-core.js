@@ -366,8 +366,9 @@ function renderStats(s) {
     const text = Array.isArray(loadedRows) ? buildCakeVendorText(loadedRows) : "";
     // 第二顆鈕:複製成起士公爵試算表的格式(Tab 分欄,貼上去自動分到各欄)
     if (text) blocks.push({ title: "星座貓X蛋糕", cls: "cake", lines: [text],
-      extra: { label: "複製成試算表格式", text: buildCakeSheetTsv(loadedRows),
-               title: "到起士公爵的試算表,點 A 欄第一個空白格再貼上" } });
+      extra: { label: "複製成試算表格式", onclick: "copyCakeSheet(this)",
+               title: "會先對起士試算表,已經在上面的訂單不會複製" },
+      noteId: "cakeSheetNote" });
   }
 
   const container = document.getElementById("vendor-blocks");
@@ -384,10 +385,11 @@ function renderStats(s) {
           <div class="vendor-block-header">
             <span class="vendor-block-title">【${b.title}】</span>
             <span class="vendor-block-btns">
-              ${b.extra ? `<button class="vendor-block-copy" data-copy="${escapeHtml(b.extra.text)}" title="${escapeHtml(b.extra.title || "")}" onclick="copyVendorBlock(this)">${b.extra.label}</button>` : ""}
+              ${b.extra ? `<button class="vendor-block-copy" title="${escapeHtml(b.extra.title || "")}" onclick="${b.extra.onclick}">${b.extra.label}</button>` : ""}
               <button class="vendor-block-copy" data-copy="${dataCopy}" onclick="copyVendorBlock(this)">複製</button>
             </span>
           </div>
+          ${b.noteId ? `<div class="vendor-block-note" id="${b.noteId}" hidden></div>` : ""}
           <div class="vendor-block-body">${bodyHtml}</div>
         </div>
       `;

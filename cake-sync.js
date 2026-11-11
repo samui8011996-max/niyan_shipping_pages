@@ -112,9 +112,26 @@ const CAKE_UNIT_PRICE = 660;   // 單品免運價,對方表「總金額」欄 = 
 // 欄位裡如果有 Tab / 換行會把格子拆歪,換成空白
 const cakeCell = v => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim();
 
-function buildCakeSheetTsv(rows, now = new Date()) {
+// opts.skipIds:已經在起士試算表上的訂單編號(Set),這些整張單都不放進來
+// 回傳 { tsv, rows:放進來的, dup:被挑掉的(已在表上), multi:同一張單有好幾個蛋糕的訂單編號 }
+function buildCakeSheet(rows, opts = {}) {
+  const now = opts.now || new Date();
+  const skip = opts.skipIds || new Set();
   const date = `${now.getMonth() + 1}/${now.getDate()}`;
-  return rows.filter(isCakeRow).map(r => {
+  const seen = new Set();   // 同一份訂單表裡重複出現的同一個商品(商品訂單編號一樣)只算一次
+  const keep = [], dup = [];
+  rows.filter(isCakeRow).forEach(r => {
+    const id = String(r["訂單編號"] ?? "").trim();
+    const key = String(r["商品訂單編號"] ?? "").trim() || (id + "|" + cakeItemLabel(r) + "|" + cakeQty(r));
+    if (seen.has(key)) return;
+    seen.add(key);
+    (skip.has(id) ? dup : keep).push(r);
+  });
+  const perId = new Map();
+  keep.forEach(r => { const id = String(r["訂單編號"] ?? "").trim(); perId.set(id, (perId.get(id) || 0) + 1); });
+  const multi = [...perId].filter(([, n]) => n > 1).map(([id]) => id);
+
+  const tsv = keep.map(r => {
     const label = cakeItemLabel(r);
     const detail = label.replace(CAKE_CATEGORY, "").replace(/^\s*規格:/, "").trim();   // 天蠍-閃耀無比
     const qty = cakeQty(r);
@@ -133,6 +150,58 @@ function buildCakeSheetTsv(rows, now = new Date()) {
     };
     return CAKE_SHEET_HEADERS.map(h => cakeCell(v[h])).join("\t");
   }).join("\n");
+  return { tsv, rows: keep, dup, multi };
+}
+
+// 讀起士試算表的「訂單編號」欄(G 欄),只拿編號、不拿個資;瀏覽器直接讀(試算表是公開檢視),不經伺服器
+const CAKE_SHEET_ID_URL = "https://docs.google.com/spreadsheets/d/1omoym5muBdAYd4gBmAvwt5vtUoOoaV_ZPXk7HdJvsjk/gviz/tq?tqx=out:csv&gid=0&tq=" + encodeURIComponent("select G");
+
+async function fetchCakeSheetIds() {
+  const res = await fetch(CAKE_SHEET_ID_URL + "&_=" + Date.now(), { cache: "no-store" });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const lines = (await res.text()).split(/\r?\n/).map(s => s.replace(/^"|"$/g, "").trim());
+  // 欄位被搬動的話 G 欄就不是訂單編號了,這時候寧可說檢查不了,也不要假裝沒有重複
+  if (lines[0] !== "訂單編號") throw new Error("起士試算表的 G 欄不是「訂單編號」,欄位可能被搬動了");
+  return new Set(lines.slice(1).filter(Boolean));
+}
+
+// 「複製成試算表格式」:先對起士試算表,已經在上面的訂單挑出來不複製,結果寫在卡片下面
+async function copyCakeSheet(btn) {
+  const note = document.getElementById("cakeSheetNote");
+  const orig = btn.dataset.label || (btn.dataset.label = btn.textContent);
+  btn.disabled = true;
+  btn.textContent = "檢查重複中…";
+  let ids = null, err = "";
+  try { ids = await fetchCakeSheetIds(); } catch (e) { err = e.message; console.warn("[星座貓X蛋糕] 讀起士試算表失敗", e); }
+  const r = buildCakeSheet(loadedRows || [], { skipIds: ids || new Set() });
+  const msgs = [];
+  if (err) msgs.push(`<div class="cake-note-warn">⚠ 沒辦法讀起士的試算表(${escapeHtml(err)}),<b>這次沒有檢查重複</b>,貼之前請自己對一下訂單編號</div>`);
+  if (r.dup.length) {
+    const dupIds = [...new Set(r.dup.map(x => String(x["訂單編號"]).trim()))];
+    msgs.push(`<div class="cake-note-dup">已經在起士試算表上、這次沒有複製(${dupIds.length} 張單):</div>` +
+      dupIds.map(id => {
+        const items = r.dup.filter(x => String(x["訂單編號"]).trim() === id).map(x => `${cakeItemLabel(x).replace(CAKE_CATEGORY + " 規格:", "")} x${cakeQty(x)}`);
+        return `<div class="cake-note-row">${escapeHtml(id)} ${escapeHtml(r.dup.find(x => String(x["訂單編號"]).trim() === id)["收件人姓名"] || "")} — ${escapeHtml(items.join("、"))}</div>`;
+      }).join(""));
+  }
+  if (r.multi.length) msgs.push(`<div class="cake-note-warn">同一張單有好幾個蛋糕,訂單編號會出現在好幾列:${r.multi.map(escapeHtml).join("、")}</div>`);
+
+  if (!r.rows.length) {
+    msgs.unshift(`<div class="cake-note-ok">沒有新的蛋糕單要貼,全部都已經在起士試算表上了</div>`);
+    btn.textContent = orig;
+  } else {
+    try {
+      await navigator.clipboard.writeText(r.tsv);
+      msgs.unshift(`<div class="cake-note-ok">✓ 已複製 ${r.rows.length} 列,到起士試算表點 A 欄第一個空白格貼上</div>`);
+      btn.textContent = "✓ 已複製";
+    } catch (e) {
+      msgs.unshift(`<div class="cake-note-warn">複製失敗(${escapeHtml(e.message)}),再按一次試試</div>`);
+      btn.textContent = orig;
+    }
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
+  btn.disabled = false;
+  if (note) { note.innerHTML = msgs.join(""); note.hidden = false; }
 }
 
 // 統計字卡 → 讀 D1 的清單(新的日期在上面),沿用注意品項那個小視窗
@@ -224,5 +293,5 @@ async function deleteCheckedCakes() {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { cakeItemLabel, buildCakeRows, buildCakeVendorText, buildCakeSheetTsv };
+  module.exports = { cakeItemLabel, buildCakeRows, buildCakeVendorText, buildCakeSheet };
 }
