@@ -95,6 +95,46 @@ function buildCakeVendorText(rows) {
   ].join("\n")).join("\n━━━━━━━━━━━━━━━━\n");
 }
 
+// ---- 起士公爵出貨試算表的貼上格式(使用者 2026-11-11)----
+// 對方的試算表我們沒辦法直接寫,改成「一筆一列、欄位用 Tab 隔開」,在對方試算表點 A 欄第一個空白列 Ctrl+V 就會自動分到各欄。
+// 欄位順序照對方表頭(41 欄),起士填寫的欄位(小精靈單號/宅配單號/到貨日)跟用不到的欄位都留空。
+// 個資只從這次載入的訂單表拿,只放剪貼簿,不經伺服器、不存 D1。
+const CAKE_SHEET_HEADERS = [
+  "拋單日期", "小精靈單號(起士填寫)", "宅配單號(起士填寫)", "到貨日(起士填寫)", "總金額(單品免運)", "星座",
+  "訂單編號", "商品訂單編號", "訂單狀態", "商品名稱", "規格設定", "客製刻印選項", "商品編號", "賣家商品代碼",
+  "規格管理代碼", "品牌編號", "品牌名稱", "數量", "價格", "每個商品的折扣", "成本", "商品總金額",
+  "訂單優惠券折抵金額", "合計運費", "訂單下單日期", "完成付款日", "地址填寫日", "訂單確認日期", "出貨日期",
+  "寄送完成日期", "配送方式", "貨運業者", "物流單編號", "合併運送群組編號", "運費類型", "寄件人", "寄件人電話",
+  "收件人姓名", "收件人聯絡電話", "配送地址", "備註",
+];
+const CAKE_UNIT_PRICE = 660;   // 單品免運價,對方表「總金額」欄 = 660 x 數量
+
+// 欄位裡如果有 Tab / 換行會把格子拆歪,換成空白
+const cakeCell = v => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim();
+
+function buildCakeSheetTsv(rows, now = new Date()) {
+  const date = `${now.getMonth() + 1}/${now.getDate()}`;
+  return rows.filter(isCakeRow).map(r => {
+    const label = cakeItemLabel(r);
+    const detail = label.replace(CAKE_CATEGORY, "").replace(/^\s*規格:/, "").trim();   // 天蠍-閃耀無比
+    const qty = cakeQty(r);
+    const v = {
+      "拋單日期": date,
+      "總金額(單品免運)": CAKE_UNIT_PRICE * qty,
+      "星座": /經典LOGO/i.test(detail) ? "經典LOGO" : detail,
+      "訂單編號": r["訂單編號"],
+      "數量": qty,
+      "寄件人": SENDER_NAME,
+      "寄件人電話": OFFSHORE_SENDER.phone,
+      "收件人姓名": r["收件人姓名"],
+      "收件人聯絡電話": r["收件人聯絡電話"],
+      "配送地址": r["配送地址"],
+      "備註": `${detail || label} x${qty}`,
+    };
+    return CAKE_SHEET_HEADERS.map(h => cakeCell(v[h])).join("\t");
+  }).join("\n");
+}
+
 // 統計字卡 → 讀 D1 的清單(新的日期在上面),沿用注意品項那個小視窗
 async function openCakeList() {
   document.getElementById("attnTitle").textContent = CAKE_CATEGORY;
@@ -184,5 +224,5 @@ async function deleteCheckedCakes() {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { cakeItemLabel, buildCakeRows, buildCakeVendorText };
+  module.exports = { cakeItemLabel, buildCakeRows, buildCakeVendorText, buildCakeSheetTsv };
 }
