@@ -50,7 +50,7 @@ const PG_TABS = [
       <h3>列印視窗設定</h3>
       <table class="pg-table">
         <tr><th>項目</th><th>設成</th></tr>
-        <tr><td>印表機</td><td>Xprinter XP-420B</td></tr>
+        <tr><td>印表機</td><td>Xprinter XP-490B</td></tr>
         <tr><td>列印的頁數</td><td>所有頁面</td></tr>
         <tr><td>頁面大小調整和處理</td><td>按「大小」→ 選「縮小超過大小的頁面」</td></tr>
         <tr><td>依 PDF 頁面大小選擇紙張來源</td><td>打勾</td></tr>
