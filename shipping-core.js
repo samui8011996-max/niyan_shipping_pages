@@ -53,6 +53,12 @@ function computeStats(rows) {
 
     if (code === PRODUCT_CODES.BEAR_BASEBALL) bear.baseball += qty;
     else if (code === PRODUCT_CODES.BEAR_NORMAL) bear.normal += qty;
+    // 商品編號對不上(LINE 換了編號)但品名有「黑熊」:改看品名,有「棒球」算棒球熊、其他算一般熊,
+    // 不然黑熊卡片會整張消失、廠商也就沒被通知(使用者 2026-11-12)
+    else if ((r["_類別列表"] || []).includes("黑熊")) {
+      const hs = [r["商品名稱"], r["規格設定"], r["客製刻印選項"]].map(x => String(x ?? "")).join(" ");
+      if (hs.includes("棒球")) bear.baseball += qty; else bear.normal += qty;
+    }
 
     // 永生花:商品編號決定花色,規格設定決定公仔
     if (r["_類別"] === "永生花") {
@@ -361,14 +367,15 @@ function renderStats(s) {
     }
   }
 
-  // 星座貓X蛋糕:起士公爵出貨,收件人資料整段複製貼給廠商(只在這台瀏覽器,不經伺服器)
+  // 星座貓X蛋糕:起士公爵出貨,只留「複製成試算表格式」(Tab 分欄貼進起士試算表)
+  // 原本整段收件人文字(■ 訂單編號/姓名/電話/地址)使用者 2026-11-12 說不需要了,拿掉
   {
-    const text = Array.isArray(loadedRows) ? buildCakeVendorText(loadedRows) : "";
-    // 第二顆鈕:複製成起士公爵試算表的格式(Tab 分欄,貼上去自動分到各欄)
-    if (text) blocks.push({ title: "星座貓X蛋糕", cls: "cake", lines: [text],
+    const n = Array.isArray(loadedRows) ? loadedRows.filter(isCakeRow).length : 0;
+    if (n) blocks.push({ title: "星座貓X蛋糕", cls: "cake",
+      lines: [`今天 ${n} 筆蛋糕單,按右邊「複製成試算表格式」貼到起士試算表`],
       extra: { label: "複製成試算表格式", onclick: "copyCakeSheet(this)",
                title: "會先對起士試算表,已經在上面的訂單不會複製" },
-      noteId: "cakeSheetNote" });
+      noCopy: true, noteId: "cakeSheetNote" });
   }
 
   const container = document.getElementById("vendor-blocks");
@@ -386,7 +393,7 @@ function renderStats(s) {
             <span class="vendor-block-title">【${b.title}】</span>
             <span class="vendor-block-btns">
               ${b.extra ? `<button class="vendor-block-copy" title="${escapeHtml(b.extra.title || "")}" onclick="${b.extra.onclick}">${b.extra.label}</button>` : ""}
-              <button class="vendor-block-copy" data-copy="${dataCopy}" onclick="copyVendorBlock(this)">複製</button>
+              ${b.noCopy ? "" : `<button class="vendor-block-copy" data-copy="${dataCopy}" onclick="copyVendorBlock(this)">複製</button>`}
             </span>
           </div>
           ${b.noteId ? `<div class="vendor-block-note" id="${b.noteId}" hidden></div>` : ""}
