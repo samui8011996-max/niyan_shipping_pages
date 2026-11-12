@@ -102,7 +102,7 @@ function setShopeeFormat(fmt) {
   Object.assign(SHOPEE_LABEL_BOX, base.label, f.label);
   Object.assign(SHOPEE_NOLABEL, base.nolabel, f.nolabel);
   setFormatPills("shopeeFormatPills", fmt);
-  try { localStorage.setItem("shopeeFormat", fmt); } catch (e) {}
+  try { localStorage.setItem("shopeeFormat2", fmt); } catch (e) {}
 }
 
 // 紙張格式的選取狀態(蝦皮、官網、離島貼紙共用;下拉選單或膠囊鈕都吃)

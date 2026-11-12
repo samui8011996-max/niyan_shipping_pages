@@ -29,8 +29,8 @@ const PG_TABS = [
       <p>產生按鈕旁的小箭頭 ⌄ 可以切換,要跟印表機裡的紙一樣。</p>
       <table class="pg-table">
         <tr><th>格式</th><th>尺寸</th><th>用在</th></tr>
-        <tr><td>黑貓熱感應 95×193</td><td>95 × 193 mm,中間預印區不印字</td><td>蝦皮、Pinkoi、官網出貨單</td></tr>
-        <tr><td>4×6</td><td>101.6 × 152.4 mm</td><td>離島郵局貼紙</td></tr>
+        <tr><td>黑貓熱感應 95×193</td><td>95 × 193 mm,中間預印區不印字</td><td>Pinkoi、官網出貨單</td></tr>
+        <tr><td>4×6</td><td>101.6 × 152.4 mm</td><td>蝦皮出貨單、超商的單、離島郵局貼紙</td></tr>
       </table>
       <h3>要不要開發票</h3>
       <p><b>蝦皮、Pinkoi、官網</b>要開發票,其他平台不用。印完到
@@ -39,7 +39,7 @@ const PG_TABS = [
   {
     id: "printer", name: "印表機設定",
     html: `
-      <p class="pg-lead"><b>黑貓託運單不要在瀏覽器裡直接印。</b>要從資料夾打開、用 Adobe 檢視軟體印,尺寸才會對。</p>
+      <p class="pg-lead"><b>黑貓託運單(HotPrint.pdf)不要在瀏覽器裡直接印</b>,要從資料夾打開、用 Adobe 檢視軟體印,尺寸才會對。<b>超商的單(4×6)</b>直接用瀏覽器印就可以(看最下面)。</p>
       <h3>打開黑貓單</h3>
       <ol>
         <li>黑貓後台按「列印託運單」後,會下載一個檔名結尾是 <b>HotPrint.pdf</b> 的檔。</li>
@@ -65,6 +65,16 @@ const PG_TABS = [
         <tr><td>標籤樣式名稱</td><td>郵政物流 (100.0 mm x 180.0 mm)</td></tr>
         <tr><td>方向</td><td>直向 180</td></tr>
         <tr><td>效果</td><td>鏡映影像、反白都不勾</td></tr>
+      </table>
+      <h3>超商的單(4×6):直接用瀏覽器印</h3>
+      <p>超商的單(4×6 貼紙)不用存檔,在瀏覽器按列印(Ctrl+P)就可以:</p>
+      <table class="pg-table">
+        <tr><th>項目</th><th>設成</th></tr>
+        <tr><td>目的地</td><td>Xprinter XP-490B</td></tr>
+        <tr><td>頁面</td><td>全部</td></tr>
+        <tr><td>紙張大小</td><td>4 x 6(在「顯示更多」裡)</td></tr>
+        <tr><td>每張工作表頁數</td><td>1</td></tr>
+        <tr><td>縮放比例</td><td>自訂 120</td></tr>
       </table>`
   },
   {
@@ -129,7 +139,7 @@ const PG_TABS = [
             <li>送禮不想露價錢 → 勾那張的「不印發票」</li>
             <li>不要印的 → 按 ✕(右上「復原」可救回)</li>
           </ul></li>
-        <li>${pgAt("小幫手")}<b>印出貨單</b>:紙張選「黑貓熱感應 95×193」→「產生出貨單」,全部合成一個 PDF 列印。</li>
+        <li>${pgAt("小幫手")}<b>印出貨單</b>:紙張選「4×6」(預設就是)→「產生出貨單」,全部合成一個 PDF 列印(4×6 會把品項明細和標籤分成兩張)。</li>
         <li><b>手寫金額</b>:金額格留空(有人用蝦幣折抵,報表金額對不上),印好後手寫。</li>
         <li>${pgAt("蝦皮後台")}<b>印超商單</b>:7-ELEVEN、全家…的訂單,在「我的銷售」找到那筆 → 右邊「列印寄件單」。</li>
         <li>${pgAt("電子發票平台")}<b>開發票</b>:到<a href="${PG_INVOICE_URL}" target="_blank" rel="noopener noreferrer">電子發票平台 ↗</a>開立。</li>
