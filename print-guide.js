@@ -144,7 +144,7 @@ const PG_TABS = [
         <li>${pgAt("蝦皮後台")}<b>印超商單</b>:7-ELEVEN、全家…的訂單,在「我的銷售」找到那筆 → 右邊「列印寄件單」。</li>
         <li>${pgAt("電子發票平台")}<b>開發票</b>:到<a href="${PG_INVOICE_URL}" target="_blank" rel="noopener noreferrer">電子發票平台 ↗</a>開立。</li>
       </ol>
-      <p class="pg-note">黑貓宅急便的單沒有熱感應條碼,會印成「蝦皮黑貓」加大字物流單號。標籤印歪才需要調「位置微調」(mm,正數往上)。</p>`
+      <p class="pg-note"><b>黑貓宅急便的蝦皮訂單:託運單改手寫。</b>這種單沒有熱感應條碼,小幫手只會印一張「蝦皮黑貓」加大字物流單號的頁。標籤印歪才需要調「位置微調」(mm,正數往上)。</p>`
   },
   {
     id: "pinkoi", name: "Pinkoi",
