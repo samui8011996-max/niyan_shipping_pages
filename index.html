@@ -1845,13 +1845,17 @@
       </section>
 
       <section class="card">
-        <div class="card-label"><span class="num">2</span>黑貓出貨明細表 (.xls / .xlsx)</div>
+        <div class="card-label"><span class="num">2</span>黑貓出貨明細表 / 起士公爵單號表 (.xls / .xlsx)</div>
+        <p style="color: var(--text-dim); font-size: 12px; margin-bottom: 10px; line-height: 1.7;">
+          可以放好幾個檔,單號會合在一起配對:黑貓出貨明細表、起士公爵給的「泥研製所ｘ起士公爵(…).xlsx」。分批放會累加。
+        </p>
         <div class="file-row">
           <div id="bcDetailDisplay" class="file-display empty">尚未選擇檔案…</div>
-          <input type="file" id="bcDetailInput" class="file-input-hidden" accept=".xls,.xlsx">
+          <input type="file" id="bcDetailInput" class="file-input-hidden" accept=".xls,.xlsx" multiple>
           <button class="btn btn-secondary" onclick="document.getElementById('bcDetailInput').click()">
             選擇檔案…
           </button>
+          <button id="bcDetailClearBtn" class="btn btn-secondary" onclick="clearBcDetail()" hidden>清除</button>
         </div>
       </section>
 
@@ -2630,7 +2634,7 @@
           </div>
           <div class="help-step">
             <div class="help-step-title">第三步:兩個檔案放進來</div>
-            <div class="help-step-text"><b>① 選擇檔案</b> 放 LINE 模板,<b>② 選擇檔案</b> 放黑貓出貨明細表。放好後看下方 <b>配對統計</b>:成功幾筆、未配對幾筆。</div>
+            <div class="help-step-text"><b>① 選擇檔案</b> 放 LINE 模板,<b>② 選擇檔案</b> 放黑貓出貨明細表(有星座貓X蛋糕的訂單,起士公爵給的單號表也放進 ② 同一格)。放好後看下方 <b>配對統計</b>:成功幾筆、未配對幾筆。</div>
           </div>
           <div class="help-step">
             <div class="help-step-title">第四步:處理不出貨的訂單(選填)</div>

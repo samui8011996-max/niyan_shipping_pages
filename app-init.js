@@ -64,12 +64,10 @@ document.getElementById("lineTemplateInput").addEventListener("change", (e) => {
   handleLineTemplate(file);
 });
 document.getElementById("bcDetailInput").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const d = document.getElementById("bcDetailDisplay");
-  d.textContent = file.name;
-  d.classList.remove("empty"); d.classList.add("has-file");
-  handleBcDetail(file);
+  const files = [...e.target.files];
+  if (!files.length) return;
+  handleBcDetailFiles(files);   // 可以一次放好幾個(黑貓明細 + 起士公爵),累加
+  e.target.value = "";          // 同一個檔再選一次也要觸發
 });
 
 // 蝦皮出貨(BETA):裝箱單和熱感應單共用一個欄位,依副檔名自己分。

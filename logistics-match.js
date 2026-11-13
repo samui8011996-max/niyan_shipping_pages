@@ -66,47 +66,98 @@ async function handleLineTemplate(file) {
   }
 }
 
-async function handleBcDetail(file) {
-  setStatus("logisticsStatus", "loading", "讀取黑貓明細中…");
+// ② 託運單號來源可以放好幾個檔,單號合併在一起配對(2026-11-13):
+//   - 黑貓出貨明細表:「訂單編號」+「託運單號」
+//   - 起士公爵(星座貓X蛋糕廠商)回給我們的表「泥研製所ｘ起士公爵(…).xlsx」:
+//     「訂單編號」+「宅配單號(起士填寫)」,也是黑貓單號;第 1 列是說明、表頭在第 2 列,
+//     起士還沒填單號的列直接跳過。每張工作表都看(之後可能一個月一張)
+// 分批選檔是累加,同檔名的蓋掉舊的;要重來按「清除」。
+const bcDetailSources = new Map();   // 檔名 → { label, map }
+
+function normTracking(v) {
+  if (typeof v === "number") return String(Math.round(v));   // Excel 存成數字的單號會變 907968950572.0
+  return String(v ?? "").trim().replace(/\.0$/, "");
+}
+
+function parseTrackingWorkbook(wb) {
+  const map = new Map();
+  let label = "";
+  wb.SheetNames.forEach(name => {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "" });
+    for (let i = 0; i < Math.min(10, aoa.length); i++) {
+      const headers = aoa[i].map(v => String(v ?? "").trim());
+      let orderIdCol = headers.findIndex(h => h === "訂單編號");
+      if (orderIdCol < 0) orderIdCol = headers.findIndex(h => h.includes("訂單編號"));
+      let trackingCol = headers.findIndex(h => h.includes("託運單號"));
+      let kind = "黑貓明細";
+      if (trackingCol < 0) { trackingCol = headers.findIndex(h => h.includes("宅配單號")); kind = "起士公爵"; }
+      if (orderIdCol < 0 || trackingCol < 0) continue;
+      label = label || kind;
+      for (let r = i + 1; r < aoa.length; r++) {
+        const oid = String(aoa[r][orderIdCol] ?? "").trim();
+        const track = normTracking(aoa[r][trackingCol]);
+        if (oid && track) map.set(oid, track);
+      }
+      break;
+    }
+  });
+  if (!label) throw new Error("找不到「訂單編號」+「託運單號/宅配單號」的表頭列");
+  return { label, map };
+}
+
+async function handleBcDetailFiles(files) {
+  setStatus("logisticsStatus", "loading", "讀取託運單號中…");
   lastUnmatchedOrders = [];
   unmatchedDeleteSet.clear();
   unmatchedManualMap.clear();
   renderUnmatchedSection();
-  try {
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-
-    let headerRow = -1;
-    for (let i = 0; i < Math.min(10, aoa.length); i++) {
-      const row = aoa[i].map(v => String(v ?? ""));
-      if (row.some(v => v.includes("訂單編號")) && row.some(v => v.includes("託運單號"))) {
-        headerRow = i;
-        break;
-      }
+  const errors = [];
+  for (const file of files) {
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      bcDetailSources.set(file.name, parseTrackingWorkbook(wb));
+    } catch (e) {
+      errors.push(`${file.name}:${e.message}`);
     }
-    if (headerRow < 0) throw new Error("找不到「訂單編號」+「託運單號」的表頭列");
-
-    const headers = aoa[headerRow].map(v => String(v ?? "").trim());
-    const orderIdCol = headers.findIndex(h => h.includes("訂單編號"));
-    const trackingCol = headers.findIndex(h => h.includes("託運單號"));
-
-    const map = new Map();
-    for (let i = headerRow + 1; i < aoa.length; i++) {
-      const oid = String(aoa[i][orderIdCol] ?? "").trim();
-      const track = String(aoa[i][trackingCol] ?? "").trim();
-      if (oid && track) map.set(oid, track);
-    }
-
-    bcDetailData = map;
-    checkBothLoaded();
-    setStatus("logisticsStatus", "success", `✓ 黑貓明細已載入 ${map.size} 筆託運單號`);
-  } catch (e) {
-    bcDetailData = null;
-    setStatus("logisticsStatus", "error", `✗ 黑貓明細讀取失敗:${e.message}`);
-    document.getElementById("logisticsRunBtn").disabled = true;
   }
+  rebuildBcDetail();
+  if (errors.length) setStatus("logisticsStatus", "error", `✗ 讀取失敗:${errors.join(";")}`);
+}
+
+function rebuildBcDetail() {
+  const d = document.getElementById("bcDetailDisplay");
+  const clearBtn = document.getElementById("bcDetailClearBtn");
+  if (clearBtn) clearBtn.hidden = bcDetailSources.size === 0;
+  if (bcDetailSources.size === 0) {
+    bcDetailData = null;
+    d.textContent = "尚未選擇檔案…";
+    d.classList.add("empty"); d.classList.remove("has-file");
+    document.getElementById("logisticsRunBtn").disabled = true;
+    return;
+  }
+  const merged = new Map();
+  const parts = [];
+  bcDetailSources.forEach(({ label, map }) => {
+    map.forEach((t, id) => merged.set(id, t));
+    parts.push(`${label} ${map.size} 筆`);
+  });
+  bcDetailData = merged;
+  d.textContent = [...bcDetailSources.keys()].join("、");
+  d.classList.remove("empty"); d.classList.add("has-file");
+  setStatus("logisticsStatus", "success", `✓ 託運單號已載入:${parts.join(" + ")}`);
+  checkBothLoaded();
+}
+
+function clearBcDetail() {
+  bcDetailSources.clear();
+  const input = document.getElementById("bcDetailInput");
+  if (input) input.value = "";
+  lastUnmatchedOrders = [];
+  renderUnmatchedSection();
+  document.getElementById("stat-matched").textContent = "—";
+  document.getElementById("stat-unmatched").textContent = "—";
+  rebuildBcDetail();
+  setStatus("logisticsStatus", "", "已清除託運單號檔案");
 }
 
 function checkBothLoaded() {
