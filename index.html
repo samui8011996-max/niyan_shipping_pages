@@ -2288,7 +2288,7 @@
       <section class="card" id="shopeeDrop">
         <div class="card-label">把當天的檔案丟進來</div>
         <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          請匯入裝箱單和熱感應單
+          請匯入裝箱單、熱感應單和全家寄件單圖片
         </p>
         <div class="dropzone-body">
           <div class="dropzone-hint">
@@ -2300,7 +2300,7 @@
               清除
             </button>
           </div>
-          <input type="file" id="shopeeInput" class="file-input-hidden" accept=".xlsx,.xls,.pdf" multiple>
+          <input type="file" id="shopeeInput" class="file-input-hidden" accept=".xlsx,.xls,.pdf,.gif,.png,.jpg,.jpeg" multiple>
           <div id="shopeeFileList" class="file-display file-display-wrap empty">尚未選擇檔案…</div>
         </div>
       </section>
@@ -2542,8 +2542,8 @@
             <img src="help/shopee-tool-preview.png" alt="逐頁預覽 → 產生出貨單">
           </div>
           <div class="help-step">
-            <div class="help-step-title">超商訂單:自己列印寄件單</div>
-            <div class="help-step-text">物流是 <b>超商</b>(7-ELEVEN、全家…)的訂單,在 <b>我的銷售</b> 找到那一筆,按右邊的 <b>列印寄件單</b> 自行列印。</div>
+            <div class="help-step-title">超商訂單:全家丟進來、7-ELEVEN 自己印</div>
+            <div class="help-step-text">物流是 <b>超商</b> 的訂單,在 <b>我的銷售</b> 找到那一筆,按右邊的 <b>列印寄件單</b>。<b>全家</b>:跳出來的寄件單圖片按右鍵另存,跟 PDF 一起丟進來,會自動合在同一份出貨單。<b>7-ELEVEN</b>:直接在蝦皮後台列印。</div>
             <img src="help/shopee-print-cvs.png" alt="我的銷售:列印寄件單">
           </div>
         `
@@ -2750,6 +2750,7 @@
 <script src="shopee-shortcode.js"></script>
 <script src="shopee-pack.js"></script>
 <script src="shopee-label.js"></script>
+<script src="shopee-image-label.js"></script>
 <script src="web-shortcode.js"></script>
 <script src="marhe-shortcode.js"></script>
 <script src="order-edit.js"></script>

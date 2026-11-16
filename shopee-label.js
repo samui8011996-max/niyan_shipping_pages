@@ -364,13 +364,16 @@ async function onShopeeFiles(files) {
   const list = Array.from(files || []);
   const packs = list.filter(f => /\.xlsx?$/i.test(f.name));
   const pdfs = list.filter(f => /\.pdf$/i.test(f.name));
+  const imgs = list.filter(f => /\.(gif|png|jpe?g)$/i.test(f.name));   // 全家寄件單是圖片(shopee-image-label.js)
   if (packs.length) await onShopeePackFiles(packs);
   if (pdfs.length) await onShopeePdfFiles(pdfs);
+  if (imgs.length) await onShopeeImageFiles(imgs);
 }
 
 function clearShopeeFiles() {
   shopeePacks = [];
   shopeePdfs = [];
+  shopeeImgLabels = [];
   shopeeNoInvoice.clear();
   shopeeRemoved.clear();
   const input = document.getElementById("shopeeInput");
@@ -514,6 +517,23 @@ function shopeeBuildJobs() {
         shiftLeft: p.shiftLeft || 0,
         orderSn: p.orderSn || (order && order.orderSn) || "",
         tracking: p.tracking || (order && order.tracking) || "",
+        order,
+      });
+    });
+  });
+
+  // 全家寄件單(圖片):QR code 讀出來的訂單編號去對商品。PDF 已經有這筆的標籤就不重複
+  shopeeImgLabels.forEach((img, imgIdx) => {
+    img.labels.forEach((lb, k) => {
+      if (usedOrders.has(lb.orderSn)) return;
+      const order = shopeeFindOrder({ orderSn: lb.orderSn, tracking: "" });
+      usedOrders.add(lb.orderSn);
+      jobs.push({
+        uid: "I" + imgIdx + "#" + k,
+        kind: "image",
+        imgIdx, imgSlot: k,
+        orderSn: lb.orderSn,
+        tracking: "",
         order,
       });
     });
@@ -749,7 +769,7 @@ async function generateShopeeLabels() {
         page.drawText(sanitizeCode(job.orderSn || job.tracking || ""), {
           x: SHOPEE_ITEMS.x1, y: fromTop(26 + 16), size: 16, font, color: PDFLib.rgb(0, 0, 0),
         });
-      } else if (job.kind === "label") {
+      } else if (job.kind === "label" || job.kind === "image") {
         // 黑貓熱感應紙:有寄件單的也在最上面印訂單編號(使用者 2026-10-19 指定),小字一行,品項接在下面。
         // 沒寄件單的那種下半部本來就有大字訂單編號,不重複印
         page.drawText(sanitizeCode("訂單編號 " + (job.orderSn || job.tracking || "")), {
@@ -789,6 +809,18 @@ async function generateShopeeLabels() {
             yScale: scale,
           });
         }
+      } else if (job.kind === "image") {
+        // 全家寄件單(圖片):裁好的 PNG 直接貼,寬度撐滿、不超過可用高度
+        const lb = shopeeImgLabels[job.imgIdx].labels[job.imgSlot];
+        const png = await out.embedPng(lb.png);
+        const maxH = Math.min(SHOPEE_LABEL_BOX.maxH, SHOPEE_PAGE.h - SHOPEE_LABEL_BOX.top - 6);
+        const scale = Math.min(SHOPEE_LABEL_BOX.w / lb.w, maxH / lb.h);
+        const drawW = lb.w * scale, drawH = lb.h * scale;
+        labelPage.drawImage(png, {
+          x: SHOPEE_LABEL_BOX.x ?? (SHOPEE_PAGE.w - drawW) / 2,
+          y: fromTop(SHOPEE_LABEL_BOX.top) - drawH + nudge,
+          width: drawW, height: drawH,
+        });
       } else {
         let y = SHOPEE_NOLABEL.top;
         const put = (text, size) => {
@@ -879,6 +911,7 @@ function renderShopeeFileList() {
     parts.push(p.name + "(" + p.pages.length + " 張標籤"
       + (items ? "、自帶 " + items + " 筆商品" : "") + ")");
   });
+  shopeeImgLabels.forEach(p => parts.push(p.name + "(" + p.labels.length + " 張全家寄件單)"));
   el.textContent = parts.length ? parts.join("、") : "尚未選擇檔案…";
   el.classList.toggle("empty", !parts.length);
   el.classList.toggle("has-file", parts.length > 0);
