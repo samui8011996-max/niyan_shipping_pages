@@ -26,12 +26,30 @@ function categorize(row) {
   return matches.length > 0 ? matches[0] : null;
 }
 
+// 這列是棒球熊("baseball")、一般熊("normal"),還是不是熊(null)
+function bearKind(r) {
+  const code = String(r["商品編號"] ?? "").trim();
+  if (code === PRODUCT_CODES.BEAR_BASEBALL) return "baseball";
+  if (code === PRODUCT_CODES.BEAR_NORMAL) return "normal";
+  // 商品編號對不上(LINE 換了編號)但品名有「黑熊」:改看品名,有「棒球」算棒球熊、其他算一般熊,
+  // 不然黑熊卡片會整張消失、廠商也就沒被通知(使用者 2026-11-12)
+  if ((r["_類別列表"] || []).includes("黑熊")) {
+    const hs = [r["商品名稱"], r["規格設定"], r["客製刻印選項"]].map(x => String(x ?? "")).join(" ");
+    return hs.includes("棒球") ? "baseball" : "normal";
+  }
+  return null;
+}
+
 // 計算各種數量(含黑熊細分、永生花細分、植物盆)
 function computeStats(rows) {
   const counts = Object.fromEntries(SPECIAL_CATEGORIES.map(c => [c.name, 0]));
   rows.forEach(r => {
     const cats = r["_類別列表"] && r["_類別列表"].length ? r["_類別列表"] : (r["_類別"] ? [r["_類別"]] : []);
-    cats.forEach(c => { if (counts[c] !== undefined) counts[c]++; });
+    cats.forEach(c => {
+      // 已經給過廠商的黑熊單不算進字卡 —— 字卡有數字就代表要聯絡廠商(sheet-sync.js 的防重複)
+      if (c === "黑熊" && r["_已給廠商"]) return;
+      if (counts[c] !== undefined) counts[c]++;
+    });
   });
 
   // ---- 細分統計 ----
@@ -40,6 +58,7 @@ function computeStats(rows) {
   // flowerCombos 是 Map<"花色|公仔", 累計數量>:
   //   花色由商品編號決定(粉/藍),公仔由規格設定決定(黃金運貓/粉招福貓)
   const bear = { baseball: 0, normal: 0 };
+  const bearDup = [];               // 已經在黑熊試算表上的列(不算進上面的數量)
   const flowerCombos = new Map();   // ex: "粉|黃金運貓" => 3
   const plant = { beige: 0, green: 0, other: 0 };
   let plantOrders = 0;
@@ -51,13 +70,10 @@ function computeStats(rows) {
     const code = String(r["商品編號"] ?? "").trim();
     const qty = parseInt(r["數量"], 10) || 1;
 
-    if (code === PRODUCT_CODES.BEAR_BASEBALL) bear.baseball += qty;
-    else if (code === PRODUCT_CODES.BEAR_NORMAL) bear.normal += qty;
-    // 商品編號對不上(LINE 換了編號)但品名有「黑熊」:改看品名,有「棒球」算棒球熊、其他算一般熊,
-    // 不然黑熊卡片會整張消失、廠商也就沒被通知(使用者 2026-11-12)
-    else if ((r["_類別列表"] || []).includes("黑熊")) {
-      const hs = [r["商品名稱"], r["規格設定"], r["客製刻印選項"]].map(x => String(x ?? "")).join(" ");
-      if (hs.includes("棒球")) bear.baseball += qty; else bear.normal += qty;
+    const kind = bearKind(r);
+    if (kind) {
+      if (r["_已給廠商"]) bearDup.push({ row: r, kind, qty });
+      else bear[kind] += qty;
     }
 
     // 永生花:商品編號決定花色,規格設定決定公仔
@@ -90,7 +106,7 @@ function computeStats(rows) {
   const excluded = new Set(VENDOR_SHIP_CATEGORIES);
   const regular = rows.filter(r => !excluded.has(r["_類別"]) && !r["_離島"]).length;
 
-  return { regular, counts, total: rows.length, bear, flowerCombos, plant, plantOrders, offshore };
+  return { regular, counts, total: rows.length, bear, bearDup, flowerCombos, plant, plantOrders, offshore };
 }
 
 // 從商品名稱 + 規格設定 + 客製刻印抓「(小)/(中)/(大)」尺寸(有些品項尺寸是寫在規格設定,不是商品名稱)
@@ -270,6 +286,8 @@ rows.sort((a, b) => {
 });
 
     loadedRows = rows;
+    // 黑熊防重複:先對黑熊試算表,已經上傳過的單不算進字卡和廠商訊息(對完會自己重畫)
+    if (typeof checkVendorDuplicates === "function") checkVendorDuplicates(rows);
     renderStats(computeStats(rows));
     document.getElementById("runBtn").disabled = false;
     const counts = lastStats.counts;
@@ -329,8 +347,29 @@ function renderStats(s) {
     const parts = [];
     if (s.bear.baseball > 0) parts.push(`棒球熊 ${s.bear.baseball} 隻`);
     if (s.bear.normal > 0) parts.push(`一般熊 ${s.bear.normal} 隻`);
-    if (parts.length > 0) {
-      blocks.push({ title: "黑熊", cls: "bear", lines: [`${PREFIX}${parts.join(",")}`] });
+    // 防重複(sheet-sync.js):還在對黑熊試算表的時候先不給複製,對完才知道哪幾張是新的
+    const dedup = typeof vendorDedupState === "undefined" ? {} : vendorDedupState;
+    const dup = s.bearDup || [];
+    const oid = d => String(d.row["訂單編號"] ?? "").trim();
+    const notes = [];
+    if (dedup.error) notes.push(`<div class="cake-note-warn">⚠ 沒辦法讀黑熊試算表(${escapeHtml(dedup.error)}),<b>這次沒有檢查重複</b>,傳給廠商前請自己對一下訂單編號</div>`);
+    if (dup.length) {
+      const ids = [...new Set(dup.map(oid))];
+      notes.push(`<div class="cake-note-dup">已經上傳過、這次不會再給廠商(${ids.length} 張單):</div>` +
+        ids.map(id => {
+          const mine = dup.filter(d => oid(d) === id);
+          const items = mine.map(d => `${d.kind === "baseball" ? "棒球熊" : "一般熊"} x${d.qty}`).join("、");
+          return `<div class="cake-note-row">${escapeHtml(id)} ${escapeHtml(mine[0].row["收件人姓名"] || "")} — ${escapeHtml(items)}(${escapeHtml(mine[0].row["_已給廠商"])} 上傳過)</div>`;
+        }).join("") +
+        `<div class="cake-note-row">真的要重送:先把黑熊試算表上那一列刪掉,再重新載入訂單表</div>`);
+    }
+    const noteHtml = notes.join("");
+    if (dedup.checking && (parts.length > 0 || dup.length)) {
+      blocks.push({ title: "黑熊", cls: "bear", lines: ["正在檢查有沒有重複上傳…"], noCopy: true });
+    } else if (parts.length > 0) {
+      blocks.push({ title: "黑熊", cls: "bear", lines: [`${PREFIX}${parts.join(",")}`], noteHtml });
+    } else if (dup.length) {
+      blocks.push({ title: "黑熊", cls: "bear", lines: ["沒有新的黑熊單,全部都已經上傳過了,不用再傳給廠商"], noCopy: true, noteHtml });
     }
   }
 
@@ -397,6 +436,7 @@ function renderStats(s) {
             </span>
           </div>
           ${b.noteId ? `<div class="vendor-block-note" id="${b.noteId}" hidden></div>` : ""}
+          ${b.noteHtml ? `<div class="vendor-block-note">${b.noteHtml}</div>` : ""}
           <div class="vendor-block-body">${bodyHtml}</div>
         </div>
       `;

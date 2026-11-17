@@ -86,6 +86,64 @@ function closeSettings() { document.getElementById("settingsModal").classList.re
 function getGsUrl() { return GS_URL; }
 
 // ===================================================================
+// 黑熊防重複(使用者 2026-11-17):同事把同一張黑熊單上傳兩次,廠商就出了兩次貨。
+// 載入訂單表時先問後端「這幾張單是不是已經在黑熊試算表上」,已經在的標 r["_已給廠商"] = 上傳日期:
+//   - 不算進黑熊字卡、不算進廠商對照的複製訊息(computeStats / renderStats)
+//   - 上傳時不送(後端自己也會再擋一次,兩個人同時開著也不會重複寫)
+// 列還是留在「黑熊」分類裡,不會掉進黑貓出貨表。
+// ===================================================================
+const VENDOR_DEDUP_CATEGORY = "黑熊";
+// checking:還在對 / error:這次對不了(字串),卡片上會提醒人工對
+let vendorDedupState = { checking: false, error: "" };
+
+const isVendorDedupRow = r => (r["_類別列表"] || []).includes(VENDOR_DEDUP_CATEGORY) || !!bearKind(r);
+
+// sent = { 訂單編號: 日期 };回傳有幾列被標成重複
+function markVendorSent(rows, sent) {
+  let n = 0;
+  rows.forEach(r => {
+    if (!isVendorDedupRow(r) || r["_已給廠商"]) return;
+    const id = String(r["訂單編號"] ?? "").trim();
+    if (id && sent[id] !== undefined) { r["_已給廠商"] = sent[id] || "之前"; n++; }
+  });
+  return n;
+}
+
+function checkVendorDuplicates(rows) {
+  const ids = [...new Set(rows.filter(isVendorDedupRow).map(r => String(r["訂單編號"] ?? "").trim()).filter(Boolean))];
+  vendorDedupState = { checking: ids.length > 0, error: "" };
+  if (!ids.length) return;
+  fetch(getGsUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "checkVendorSent", category: VENDOR_DEDUP_CATEGORY, orderIds: ids }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) throw new Error(d.error || "未知錯誤");
+      if (rows !== loadedRows) return;   // 中途換了別的檔
+      markVendorSent(rows, d.sent || {});
+      vendorDedupState = { checking: false, error: "" };
+    })
+    .catch(e => {
+      console.warn("[黑熊防重複] 檢查失敗", e);
+      if (rows === loadedRows) vendorDedupState = { checking: false, error: e.message };
+    })
+    .finally(() => { if (rows === loadedRows) renderStats(computeStats(loadedRows)); });
+}
+
+// 上傳回來之後:後端擋下來的(別人剛好先傳了)也標起來,廠商訊息跟著更新;回傳狀態列要補的一句
+function applyVendorDedupResult(dedup) {
+  const d = dedup && dedup[VENDOR_DEDUP_CATEGORY];
+  if (!d || !loadedRows) return "";
+  if (d.error) return ` · ⚠ ${VENDOR_DEDUP_CATEGORY}這次沒檢查到重複(${d.error})`;
+  if (!d.skipped || !d.skipped.length) return "";
+  const sent = Object.fromEntries(d.skipped.map(x => [x.orderId, x.date]));
+  if (markVendorSent(loadedRows, sent)) renderStats(computeStats(loadedRows));
+  return ` · ${VENDOR_DEDUP_CATEGORY} ${d.skipped.length} 張已上傳過(沒有重複寫)`;
+}
+
+// ===================================================================
 // 一鍵上傳分類訂單(雷雕/黑熊/永生花/注意品項/盆景)到廠商試算表
 // ===================================================================
 function uploadAllToSheet() {
@@ -109,7 +167,9 @@ function uploadAllToSheet() {
   UPLOAD_CATEGORIES.forEach(cat => {
     // 用完整命中清單比對,一筆訂單如果同時符合兩個分類(例如巨物+雷雕),
     // 兩邊廠商試算表都要收到這筆
-    const catRows = loadedRows.filter(r => (r["_類別列表"] || []).includes(cat));
+    // 已經在黑熊試算表上的單不再送(防重複,見上面)
+    const catRows = loadedRows.filter(r => (r["_類別列表"] || []).includes(cat) &&
+      !(cat === VENDOR_DEDUP_CATEGORY && r["_已給廠商"]));
     if (catRows.length > 0) {
       targets[cat] = catRows.map(r => {
         const base = {
@@ -176,7 +236,8 @@ if (totalCount === 0) {
         const breakdown = Object.entries(data.results || {})
           .map(([c, r]) => (r.ok ? `${c} ${r.count}` : `${c} 試算表失敗(${r.error || "未知錯誤"})`))
           .join(" · ");
-        const summary = `✓ 已上傳 ${data.totalWritten} 筆 · ${breakdown}${laserPart}${packing}`;
+        const dedupPart = applyVendorDedupResult(data.dedup);
+        const summary = `✓ 已上傳 ${data.totalWritten} 筆${breakdown ? " · " + breakdown : ""}${dedupPart}${laserPart}${packing}`;
         setStatus("status", "success", summary);
         // 把這段當前綴傳下去 —— 不然 Line禮物 那行馬上就把它蓋掉,
         // 離島字卡到底有沒有進去、試算表哪一類失敗,全都看不到

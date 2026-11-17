@@ -53,6 +53,8 @@ export async function onRequestPost(context) {
       case 'resetTodayCards':   return await handleResetTodayCards(env, body);
       // 分類訂單 → 廠商試算表（Apps Script），離島那批順便填包貨「離島•郵局(郵局)」字卡
       case 'append':            return await handleAppend(env, body);
+      // 這幾張單是不是已經在廠商試算表上了(黑熊防重複):載入訂單表時前端先問一次
+      case 'checkVendorSent':   return await handleCheckVendorSent(env, body);
       // 只補「離島•郵局」字卡，完全不碰試算表：
       // 試算表已經寫好、但字卡沒進去時用這個重送，不會在試算表留下重複列。
       // body.rows = [{orderId, qty}]，body.items = [{訂單編號,品項,件數}]（可省略）
@@ -272,14 +274,101 @@ async function callGas(env, body) {
 // （權限、配額、被搬動的工作表…），Apps Script 回 results["離島•郵局"].ok=false，
 // 包貨的離島字卡就整天空白沒人知道 —— 但那批貨明明已經出了。
 // 現在改成兩邊各做各的，試算表失敗不影響字卡，前端會分開回報兩個結果。
+/* ---------- 廠商試算表防重複(黑熊,使用者 2026-11-17) ----------
+ * 同事把同一張黑熊單上傳兩次 → 試算表多一列 → 廠商出兩次貨。
+ * 以「廠商實際在看的那張試算表」為準:訂單編號已經在上面就不再寫。
+ * 好處是以前上傳過的都算數,真的要重送時把試算表那列刪掉就可以。
+ * 只讀「日期 / 訂單編號」兩欄,不碰姓名地址電話。
+ * 讀不到(試算表權限被改、Google 掛掉)就照舊上傳,但回報 error 讓前端提醒「這次沒檢查」
+ * —— 寧可提醒人工對,也不要讓廠商整天沒收到單。
+ */
+const VENDOR_DEDUP_SHEETS = {
+  '黑熊': { id: '1SVuzdacjbJrX82pIRkkdB7B1kD3pF9nggkynzxzUTII', sheet: '黑熊', dateCol: 'A', idCol: 'F' },
+};
+
+// gviz 回來的 CSV 一行 → 欄位陣列(欄位都有雙引號包著)
+function parseCsvLine(line) {
+  const cells = [];
+  line.replace(/"((?:[^"]|"")*)"|([^,]+)/g, (_, q, bare) => {
+    cells.push((q !== undefined ? q.replace(/""/g, '"') : bare).trim());
+    return '';
+  });
+  return cells;
+}
+
+// 回傳 Map<訂單編號, 第一次上傳的日期>
+async function fetchVendorSheetIds(category) {
+  const cfg = VENDOR_DEDUP_SHEETS[category];
+  if (!cfg) throw new Error(`未設定防重複的分類: ${category}`);
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv` +
+    `&sheet=${encodeURIComponent(cfg.sheet)}&headers=1` +
+    `&tq=${encodeURIComponent(`select ${cfg.dateCol},${cfg.idCol}`)}&_=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`讀不到${category}試算表(HTTP ${res.status})`);
+  const lines = (await res.text()).split(/\r?\n/).filter(Boolean).map(parseCsvLine);
+  // 欄位被搬動的話這欄就不是訂單編號了:寧可說檢查不了,也不要假裝沒有重複
+  // (試算表變成不公開時 Google 回的是登入頁 HTML,也會在這裡被擋下來)
+  if (!lines.length || lines[0][1] !== '訂單編號') throw new Error(`讀不到${category}試算表的「訂單編號」欄`);
+  const map = new Map();
+  for (const [date, id] of lines.slice(1)) {
+    if (id && !map.has(id)) map.set(id, date || '');
+  }
+  return map;
+}
+
+// body: { category: '黑熊', orderIds: [...] } → { ok, sent: { 訂單編號: 日期 } }
+async function handleCheckVendorSent(env, body) {
+  const category = String(body.category || '');
+  const ids = (Array.isArray(body.orderIds) ? body.orderIds : []).map(x => String(x || '').trim()).filter(Boolean);
+  const onSheet = await fetchVendorSheetIds(category);
+  const sent = {};
+  ids.forEach(id => { if (onSheet.has(id)) sent[id] = onSheet.get(id); });
+  return json({ ok: true, sent });
+}
+
+// 把已經在廠商試算表上的訂單從 targets 拿掉。回傳 { targets, dedup }
+// dedup[分類] = { skipped: [{orderId, date}] },讀不到試算表時多一個 error(這類沒檢查,照舊全送)
+async function dropVendorDuplicates(allTargets) {
+  const targets = { ...allTargets };
+  const dedup = {};
+  for (const category of Object.keys(VENDOR_DEDUP_SHEETS)) {
+    const rows = targets[category];
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+    let onSheet;
+    try {
+      onSheet = await fetchVendorSheetIds(category);
+    } catch (err) {
+      dedup[category] = { skipped: [], error: err.message || String(err) };
+      continue;
+    }
+    const skipped = new Map();
+    const keep = rows.filter(r => {
+      const id = String((r && r.orderId) || '').trim();
+      if (!id || !onSheet.has(id)) return true;
+      skipped.set(id, onSheet.get(id));
+      return false;
+    });
+    dedup[category] = { skipped: [...skipped].map(([orderId, date]) => ({ orderId, date })) };
+    if (keep.length) targets[category] = keep; else delete targets[category];
+  }
+  return { targets, dedup };
+}
+
 async function handleAppend(env, body) {
   const offshoreRows = (body.targets || {})[OFFSHORE_PLATFORM];
+  const { targets, dedup } = await dropVendorDuplicates(body.targets || {});
+  const hasRows = Object.values(targets).some(rows => Array.isArray(rows) && rows.length > 0);
   // Apps Script 連不上/逾時會 throw,不能讓它把下面的字卡同步一起拖下水
   let gas;
-  try {
-    gas = await callGas(env, body);
-  } catch (err) {
-    gas = { ok: false, error: `試算表轉送失敗:${err.message || String(err)}` };
+  if (!hasRows) {
+    // 全部都是重複的:沒有東西要寫,就不用呼叫 Apps Script 了
+    gas = { ok: true, totalWritten: 0, results: {} };
+  } else {
+    try {
+      gas = await callGas(env, { ...body, targets });
+    } catch (err) {
+      gas = { ok: false, error: `試算表轉送失敗:${err.message || String(err)}` };
+    }
   }
 
   let packingSync = null;
@@ -303,6 +392,7 @@ async function handleAppend(env, body) {
     out.results[OFFSHORE_PLATFORM] = { ...(out.results[OFFSHORE_PLATFORM] || {}), packingSync };
     out.packingSync = packingSync;
   }
+  if (Object.keys(dedup).length) out.dedup = dedup;
   return json(out);
 }
 
