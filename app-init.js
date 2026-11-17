@@ -102,6 +102,7 @@ const DROP_ZONES = [
   { input: "bcDetailInput",     accept: [".xlsx", ".xls"], status: "logisticsStatus" },
   { input: "shopeeInput",       accept: [".xlsx", ".xls", ".pdf", ".gif", ".png", ".jpg", ".jpeg"], status: "shopeeStatus" },
   { input: "webInput",          accept: [".xls", ".xlsx"], status: "webStatus" },
+  { input: "slbInput",          accept: [".pdf"],          status: "slbStatus" },
   { input: "pinkoiInput",       accept: [".csv", ".tsv", ".txt"], status: "pinkoiStatus" },
   { input: "marheInput",        accept: [".xls", ".xlsx"], status: "marheStatus" },
   { input: "marheBcDetailInput", accept: [".xls", ".xlsx"], status: "marheTrackStatus" },

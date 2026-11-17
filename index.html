@@ -2419,6 +2419,28 @@
       <div id="webPreview" class="problem-list"></div>
 
       <section class="card" style="margin-top: 24px;">
+        <div class="card-label">Shopline 黑貓託運單 → 黑貓熱感應 (.pdf)</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          Shopline 後台印出來的黑貓單是 A4,丟進來轉成黑貓熱感應紙(95×193)的版面,可以一次放好幾個檔
+        </p>
+        <div class="file-row">
+          <div id="slbFileDisplay" class="file-display empty">尚未選擇檔案…</div>
+          <input type="file" id="slbInput" class="file-input-hidden" accept=".pdf" multiple>
+          <button class="btn btn-secondary" onclick="document.getElementById('slbInput').click()">
+            選擇檔案…
+          </button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button id="slbBtn" class="btn btn-primary" disabled onclick="generateShoplineBcat()">
+          轉成黑貓熱感應
+        </button>
+      </div>
+
+      <div id="slbStatus" class="status">把 Shopline 印出來的黑貓單 PDF 丟進來…</div>
+
+      <section class="card" style="margin-top: 24px;">
         <div class="card-label">遊戲名單與排行榜(小遊戲留的 Email)</div>
         <div class="game-links">
           <a class="quick-link" href="https://niyan-game.pages.dev/" target="_blank" rel="noopener noreferrer">聖誕胖胖貓送禮 ↗</a>
@@ -2755,6 +2777,7 @@
 <script src="marhe-shortcode.js"></script>
 <script src="order-edit.js"></script>
 <script src="web-orders.js"></script>
+<script src="shopline-bcat.js"></script>
 <script src="attn-list.js"></script>
 <script src="pinkoi-orders.js"></script>
 <script src="marhe-orders.js"></script>
