@@ -19,7 +19,7 @@ const SLB_SHIP  = { x0: 276, x1: 578, top: -43, bottom: 221 };   // 配送聯(�
 
 // 黑貓熱感應紙 95x193mm:上下兩聯的切線大約在 205~212pt(黑貓自己的 HotPrint 上段也印到 202pt)
 const SLB_PAGE = { w: 95 * 72 / 25.4, h: 193 * 72 / 25.4 };       // 269.3 x 547.1
-const SLB_TOP_AREA    = { top: 2,   bottom: 203 };                // 上段:放黏貼聯(2026-11-17 使用者試印後要求放大)
+const SLB_TOP_AREA    = { top: 6,   bottom: 205 };                // 上段:放黏貼聯(使用者試印後:放大、再往下一點免得最上面條碼被切到)
 const SLB_BOTTOM_AREA = { top: 216, bottom: 543 };                // 下段:放配送聯 + 大字號碼
 const SLB_SIDE = 4;                                               // 左右邊界
 const SLB_TRACK_SIZE = 30;                                        // 最底下大字查詢號碼
