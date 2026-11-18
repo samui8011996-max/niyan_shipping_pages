@@ -200,9 +200,17 @@ const SC_ITEMS = [
   // 蝦皮的「胖胖招財招福貓組(大…、小…、原木片)」是一次三件的組合,括號裡的大/小是內容物,
   // 不是可選尺寸 —— 要排在下面「胖胖…貓」那條之前,不然會被當成單隻貓
   [/胖胖[^,，]{0,8}貓組/,     SC_SET_LABEL],
+  // 禮盒裡除了貓還有別的東西,只印「胖胖貓(小)」會讓撿貨的人漏拿(使用者 2026-11-18):
+  // 聖誕擴香石禮盒 = 聖誕樹 + 胖胖貓(小) + 精油;口金包禮盒 = 口金包 + 胖胖貓(小)。
+  // 尺寸已經寫在名稱裡,見 SC_ITEM_HAS_SIZE。一樣要排在「胖胖…貓」那條之前
+  [/聖誕擴香石禮盒|聖誕樹\s*\+\s*胖胖/, "【聖誕禮盒】聖誕樹+胖胖貓(小)"],
+  [/口金包/,                  "【口金包禮盒】胖胖貓(小)"],
   [/開運胖胖貓/,             "星座貓"],   // 星座貓跟胖胖貓是不同商品,不能混在一起叫;星座另外抽
   [/胖胖[^,，]{0,6}貓/,       "胖胖貓"],
 ];
+
+// 主體名稱本身已經含尺寸的品項,不要再從品名抓一次 (小) 接在後面
+const SC_ITEM_HAS_SIZE = new Set(["【聖誕禮盒】聖誕樹+胖胖貓(小)", "【口金包禮盒】胖胖貓(小)"]);
 
 function scText(row) {
   return [row["商品名稱"], row["規格設定"], row["客製刻印選項"]]
@@ -336,7 +344,8 @@ function buildShortCode(row) {
   // 消波塊、可愛兔看的是幾公分,不是尺寸/顏色/款式
   if (item === "消波塊" || item === "可愛兔") {
     const cm = all.match(/(\d+(?:\.\d+)?)\s*(?:cm|公分)/);
-    seg.push(item + (cm ? cm[1] + "cm" : ""));
+    // 「特大水泥消波塊」品名沒寫幾公分,不補的話跟一般消波塊印得一模一樣(使用者 2026-11-18)
+    seg.push(item + (cm ? cm[1] + "cm" : (item === "消波塊" && /特大/.test(all) ? "特大" : "")));
   } else if (item === "犬") {
     // 同一個狗狗賣場也賣樟木片(Pinkoi 規格欄寫「原木樟木片」),那就不是狗
     if (/樟木片/.test(spec)) {
@@ -382,7 +391,8 @@ function buildShortCode(row) {
     if (oil) seg.push(oil[1] + "精油");
     else { seg.push(scPlainName(name)); unknown = true; }
   } else {
-    let size = (rule && rule.size !== undefined) ? rule.size : scSize(name);
+    let size = (rule && rule.size !== undefined) ? rule.size
+      : (SC_ITEM_HAS_SIZE.has(item) ? "" : scSize(name));
     // 胖胖貓同色一對寫成「胖胖貓(大)黃一對」(使用者 2026-10-19 指定),「一對」接在顏色後面,
     // 不寫進尺寸括號、也不寫「金福」—— 一對本來就是金運+招福各一隻
     if (item === "胖胖貓") size = size.replace("一對", "").replace("()", "");
