@@ -484,6 +484,7 @@ async function handleResetTodayCards(env, body) {
     }
     result[platform] = { 歸零: !!row, 清掉登記: (del.meta && del.meta.changes) || 0 };
   }
+  await bumpPackingVersion(DB);
   return json({ ok: true, date, result });
 }
 
@@ -849,6 +850,7 @@ async function upsertPlatform(DB, p, mode) {
     ).bind(id, date, platform, JSON.stringify(detail), qty, '', '', '', n, n, '', '',
            picking ? JSON.stringify(picking) : null,
            (notice && notice.length) ? JSON.stringify(notice) : null).run();
+    await bumpPackingVersion(DB);
     return { updated: false, total: qty, id };
   }
 
@@ -908,7 +910,21 @@ async function upsertPlatform(DB, p, mode) {
 
   await DB.prepare(`UPDATE platform_orders SET "明細"=?,"總件數"=?,"更新時間"=?${pickingSql}${noticeSql} WHERE id=?`)
     .bind(...binds).run();
+  await bumpPackingVersion(DB);
   return { updated: true, total, id: existing.id };
+}
+
+/* 包貨系統的輪詢只看 app_version 表裡 packing 的版本號(只讀 1 列,省 D1 額度),
+ * 所以這裡改了 platform_orders 之後要把版本號 +1,包貨畫面才會在 10 秒內更新。
+ * 失敗不影響寫入本身(包貨那邊每 5 分鐘還有一次保險整包重抓)。 */
+async function bumpPackingVersion(DB) {
+  try {
+    await DB.prepare(
+      "INSERT INTO app_version (app, v) VALUES ('packing', 1) ON CONFLICT(app) DO UPDATE SET v = v + 1"
+    ).run();
+  } catch (e) {
+    console.error('bumpPackingVersion failed', e);
+  }
 }
 
 /* ---------- 雷雕訂單（2026-10-21 起取代雷雕試算表）---------- */
