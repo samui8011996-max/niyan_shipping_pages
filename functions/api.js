@@ -76,6 +76,7 @@ export async function onRequestPost(context) {
       case 'addCakeOrders':     return await handleAddCakeOrders(env, body);
       case 'getCakeOrders':     return await handleGetCakeOrders(env);
       case 'deleteCakeOrders':  return await handleDeleteCakeOrders(env, body);   // 字卡視窗勾選刪除
+      case 'setCakeTracking':   return await handleSetCakeTracking(env, body);    // LINE 回填時記物流單號
       // 小遊戲留的 Email(game 資料庫 game_leads)：要密碼 LEADS_KEY，只讀不寫
       case 'getGameLeads':      return await handleGetGameLeads(env, body);
       case 'getLaserParams':    return await handleGetLaserParams(env);           // 雷雕網站的功率/速度參考表
@@ -1056,6 +1057,12 @@ async function ensureCakeTable(DB) {
     '"鍵值" TEXT PRIMARY KEY, "訂單編號" TEXT, "品項" TEXT, "數量" INTEGER NOT NULL DEFAULT 1, ' +
     '"日期" TEXT, "建立時間" TEXT NOT NULL)'
   ).run();
+  // 2026-11-18 加:物流單號(LINE 回填時順便記)。舊表沒有這兩欄就補上 —— 一律都跑,
+  // 不能綁在「這次有沒有用到」上(注意明細那次的教訓:沒補到欄位,INSERT/SELECT 直接炸)
+  for (const col of ['"物流單號" TEXT', '"回填時間" TEXT']) {
+    try { await DB.prepare('ALTER TABLE cake_orders ADD COLUMN ' + col).run(); }
+    catch (e) { if (!/duplicate column/i.test(String(e.message || e))) throw e; }
+  }
   _cakeReady = true;
 }
 
@@ -1082,12 +1089,29 @@ async function handleGetCakeOrders(env) {
   const DB = requireDb(env);
   await ensureCakeTable(DB);
   const rs = await DB.prepare(
-    'SELECT "鍵值","訂單編號","品項","數量","日期" FROM cake_orders ORDER BY "建立時間" DESC, "鍵值"'
+    'SELECT "鍵值","訂單編號","品項","數量","日期","物流單號" FROM cake_orders ORDER BY "建立時間" DESC, "鍵值"'
   ).all();
   const orders = (rs.results || []).map(row => ({
     key: row['鍵值'], orderId: row['訂單編號'], item: row['品項'], qty: row['數量'], date: row['日期'],
+    tracking: row['物流單號'] || '',
   }));
   return json({ ok: true, orders });
+}
+
+// LINE 物流單號回填時,把起士給的單號記到我們的蛋糕單上(只更新已經存在的蛋糕單)
+// body.items = [{ orderId, tracking }, ...]
+async function handleSetCakeTracking(env, body) {
+  const DB = requireDb(env);
+  await ensureCakeTable(DB);
+  const items = (Array.isArray(body.items) ? body.items : [])
+    .map(x => ({ id: String(x.orderId || '').trim(), t: String(x.tracking || '').trim() }))
+    .filter(x => x.id && x.t);
+  if (!items.length) return json({ ok: true, count: 0 });
+  const res = await DB.batch(items.map(x => DB.prepare(
+    'UPDATE cake_orders SET "物流單號"=?, "回填時間"=datetime(' + "'now'" + ') WHERE "訂單編號"=?'
+  ).bind(x.t, x.id)));
+  const count = res.reduce((n, r) => n + ((r.meta && r.meta.changes) || 0), 0);
+  return json({ ok: true, count });
 }
 
 // body.keys = [鍵值, ...]

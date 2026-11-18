@@ -41,6 +41,10 @@ const GC_PLAT_NOTIFIED_KEY = "guideCatPlatNotified";   // 今天的「檢查新�
 let gcCalls = 0;                                  // 今天還要打幾筆
 let gcCallItems = [];                             // 今天要打電話的那幾筆(拿訂單編號出來顯示用)
 let gcReminding = false;
+// 起士試算表新填的物流單號(2026-11-18):跟這台電腦上次看過的比,多出來的訂單編號
+let gcCakeNew = [];
+const GC_CAKE_NOTIFIED_KEY = "guideCatCakeNotified";   // 上次跳桌面通知的那批(同一批只跳一次)
+const GC_CAKE_POLL_MS = 15 * 60 * 1000;
 const gcTitle = document.title;
 
 // 今天已經到了的最後一個提醒時段(Date),還沒到 9:00 就是 null
@@ -191,6 +195,60 @@ function gcTogglePlatformChecked(id) {
 // 現在幾個成立就畫幾張,顏色掛在卡片自己身上,最下面那張才有指著貓的尖角。
 function gcWantCall() { return gcCalls > 0 && !gcCallSkippedToday() && gcCanRemind(); }
 function gcWantPlat() { return gcCanRemind() && gcUncheckedPlatforms().length > 0; }
+function gcWantCake() { return gcCakeNew.length > 0 && gcCanRemind(); }
+
+// 起士試算表有更新:新填了物流單號 → 去 LINE 回填。只提醒「新填的」,不是把還沒回填的全部拿出來唸(使用者 2026-11-18)
+function gcCakeCard() {
+  return `<div class="gc-bubble is-cake">
+      <b class="gc-remind-title">起士試算表更新了!</b>新填了 ${gcCakeNew.length} 筆蛋糕物流單號,要回填到 LINE
+      <span class="gc-btns">
+        <button type="button" class="gc-btn" onclick="gcGoCakeBackfill()">去回填</button>
+        <button type="button" class="gc-btn ghost" onclick="gcAckCake()">知道了</button>
+      </span>
+    </div>`;
+}
+
+// 讀起士試算表,算出這台電腦還沒看過的新單號。第一次(還沒有紀錄)只記下現況、不提醒,
+// 不然一打開就把以前的單號全部當成「新的」
+async function gcRefreshCakeTrack() {
+  if (typeof fetchCakeSheetTracking !== "function") return;
+  try {
+    const map = await fetchCakeSheetTracking();
+    const seen = cakeTrackSeen();
+    if (!seen) { cakeMarkTrackSeen([...map.keys()]); gcCakeNew = []; }
+    else gcCakeNew = [...map.keys()].filter(id => !seen.has(id));
+  } catch (e) {
+    console.warn("[小助手] 讀起士試算表失敗", e);   // 讀不到就安靜跳過,下次再試(狀態列保持乾淨)
+    return;
+  }
+  if (gcSig() !== gcLastSig) gcRender();
+  gcNotifyCake();
+}
+
+function gcNotifyCake() {
+  if (!gcWantCake() || !gcNotifySupported() || Notification.permission !== "granted") return;
+  const sig = gcCakeNew.slice().sort().join(",");
+  let last = "";
+  try { last = localStorage.getItem(GC_CAKE_NOTIFIED_KEY) || ""; } catch (e) {}
+  if (last === sig) return;
+  gcNotify("起士試算表更新了!", `新填了 ${gcCakeNew.length} 筆蛋糕物流單號,記得回填到 LINE。`, "gc-cake");
+  try { localStorage.setItem(GC_CAKE_NOTIFIED_KEY, sig); } catch (e) {}
+}
+
+// 去回填:切到 LINE禮物 → 物流單號回填,順便把起士試算表的單號讀進來。
+// 這裡不算「看過」—— 真的按了產生 LINE 物流單號表(或按「知道了」)才收掉提醒
+function gcGoCakeBackfill() {
+  switchTab("logistics");
+  const btn = document.getElementById("cakeSheetTrackBtn");
+  if (typeof loadCakeSheetTracking === "function") loadCakeSheetTracking(btn);
+  document.getElementById("tab-logistics")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function gcAckCake() {
+  cakeMarkTrackSeen(gcCakeNew);
+  gcCakeNew = [];
+  gcRender();
+}
 
 function gcShopeeCard() {
   const slot = gcCurrentSlot();
@@ -250,6 +308,7 @@ function gcSig() {
     gcReminding,
     gcWantCall() ? gcCalls : 0,
     gcWantPlat() ? gcUncheckedPlatforms().map(p => p.id).join(",") : "",
+    gcWantCake() ? gcCakeNew.length : 0,
   ].join("|");
 }
 let gcLastSig = null;
@@ -264,6 +323,7 @@ function gcRender() {
   if (gcReminding) cards.push(gcShopeeCard());
   if (call) cards.push(gcCallCard());
   if (plat) cards.push(gcPlatCard());
+  if (gcWantCake()) cards.push(gcCakeCard());
   // 沒有任何提醒才顯示平常那句
   if (cards.length === 0) cards.push(gcTipCard());
   box.innerHTML = cards.join("");
@@ -374,6 +434,14 @@ function gcTestPlatCheck() {
   gcIdle();
 }
 
+// 測試用:網址後面加 #test-cake,假裝起士試算表新填了 2 筆物流單號
+function gcTestCake() {
+  gcTestMode = true;
+  gcCakeNew = ["#test-1", "#test-2"];
+  gcReminding = false;
+  gcIdle();
+}
+
 // 測試用:網址後面加 #test-all,三種提醒一起出現(看並排的樣子)
 function gcTestAll() {
   gcTestMode = true;
@@ -399,6 +467,7 @@ function gcCheck() {
   else if (gcSig() !== gcLastSig) gcRender();   // 該出現/該消失的才重畫
   gcNotifyCalls();
   gcNotifyPlatCheck();
+  gcNotifyCake();
 }
 
 // ---- 拖曳:貓咪小助手可以拖到畫面任何地方,位置記在 localStorage,重新整理、換頁都還在原位 ----
@@ -487,11 +556,18 @@ function setupGuideCat() {
     else if (location.hash === "#test-notify") gcTestNotify();
     else if (location.hash === "#test-platcheck") gcTestPlatCheck();
     else if (location.hash === "#test-all") gcTestAll();
+    else if (location.hash === "#test-cake") gcTestCake();
   };
-  if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck", "#test-all"].includes(location.hash)) runTest();
+  if (["#test-remind", "#test-call", "#test-notify", "#test-platcheck", "#test-all", "#test-cake"].includes(location.hash)) runTest();
   else gcCheck();
   setInterval(gcCheck, 60 * 1000);
   window.addEventListener("hashchange", runTest);
+
+  // 起士試算表的物流單號:開網站先看一次,之後每 15 分鐘(上班時間才看,下班不提醒也就不用讀)
+  if (location.hash !== "#test-cake") {
+    gcRefreshCakeTrack();
+    setInterval(() => { if (gcCanRemind()) gcRefreshCakeTrack(); }, GC_CAKE_POLL_MS);
+  }
 
   // 打電話提醒:開網站先讀一次退貨,之後每小時再讀(過了半夜也會換成新的一天)
   if (location.hash !== "#test-call" && typeof loadReturnsQuietly === "function") {
