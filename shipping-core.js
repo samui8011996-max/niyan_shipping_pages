@@ -230,7 +230,9 @@ async function handleFile(file, statusId = "status") {
       r["_備註完整"] = buildNoteFull(r);   // 原本寫法,上傳廠商試算表(雷雕網站靠它抓關鍵字)
       r["_類別列表"] = categorizeAll(r);
       r["_類別"] = r["_類別列表"][0] || null;
-      r["_離島"] = extractOffshoreCounty(r["配送地址"]);
+      // 起司蛋糕、黑熊是廠商直接出貨,就算寄離島也不算我們的離島•郵局(使用者 2026-11-17)
+      const vendorShipped = r["_類別"] === "星座貓X蛋糕" || r["_類別"] === "黑熊";
+      r["_離島"] = vendorShipped ? null : extractOffshoreCounty(r["配送地址"]);
     });
 
     const prioMap = Object.fromEntries(SPECIAL_CATEGORIES.map(c => [c.name, c.priority]));
