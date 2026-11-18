@@ -135,6 +135,8 @@ const SC_SKU_RULES = {
   // 現場叫「繽紛精油組」(跟【大小貓組】一樣用【】框起來,一眼看出是組合);這個賣場只出金運,顏色由買家選,只有一種尺寸所以不印尺寸。
   // 品名已經說了是精油組,再印一次「+油組」是廢話。
   "niyan_RedGiftBag": { item: "【繽紛精油組】", size: "", style: "金", dropAddons: ["油組"] },
+  // 【送禮首選NO.1】胖胖招財招福貓:品名沒寫尺寸,說明寫高度 8cm = 大貓(2026-11-18 對過賣場說明)
+  "FAT": { size: "(大)" },
 };
 
 function scSkuRule(row) {
@@ -251,6 +253,8 @@ function scStyle(spec, name) {
   // 單一款式的賣場規格欄是空的,款式只寫在品名(使用者 2026-11-18):
   // 胖胖招財貓 = 金運、胖胖招福貓 = 招福;「胖胖招財招福貓」兩款都有,只能看規格,不猜
   if (/胖胖招財貓/.test(name)) return "金";
+  // 聖誕禮盒、口金包禮盒裡的是「胖胖金運貓」,只有金運一款(「胖胖金運招福貓」兩款都有,不吃這條)
+  if (/胖胖金運貓/.test(name)) return "金";
   if (/胖胖招福貓/.test(name)) return "福";
   return "";
 }
@@ -393,6 +397,14 @@ function buildShortCode(row) {
   } else {
     let size = (rule && rule.size !== undefined) ? rule.size
       : (SC_ITEM_HAS_SIZE.has(item) ? "" : scSize(name));
+    // 雷雕加購的規格寫的是刻在哪一隻(6cm中貓/8cm大貓/15cm巨貓/樟木片),字數上限不同,
+    // 只印「加購」看不出要刻哪個(使用者 2026-11-18)
+    if (item === "加購") {
+      if (/巨貓|15\s*cm/i.test(spec)) size = "(巨)";
+      else if (/大貓|8\s*cm/i.test(spec)) size = "(大)";
+      else if (/中貓|6\s*cm/i.test(spec)) size = "(中)";
+      else if (/樟木片/.test(spec)) size = "樟木片";
+    }
     // 胖胖貓同色一對寫成「胖胖貓(大)黃一對」(使用者 2026-10-19 指定),「一對」接在顏色後面,
     // 不寫進尺寸括號、也不寫「金福」—— 一對本來就是金運+招福各一隻
     if (item === "胖胖貓") size = size.replace("一對", "").replace("()", "");
@@ -407,7 +419,8 @@ function buildShortCode(row) {
   if (pair && pair2) {
     seg.push(scColor(pair[1]) + "金+" + scColor(pair2[1]) + "福");
   // 馬貓沒有顏色可選,品名的「黑馬」會被當成顏色「黑」,所以也排除
-  } else if (item !== "消波塊" && item !== "可愛兔" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
+  // 可愛兔有清水灰/炭錢黑兩色(蝦皮規格欄),要印顏色,所以不排除
+  } else if (item !== "消波塊" && item !== "千里眼順風耳" && item !== "精油" && item !== "馬貓") {
     // 先試胖胖貓那組嚴格的六色表,比對不到才退而用裝飾公仔線的延伸色表
     // (北歐白/桃花粉/矢車藍/灰藍/米,還有單字黑/灰/黃/白/粉/綠/藍 的 fallback)
     const color = scColor(spec) || scColor(name) || scColorDecor(spec) || scColorDecor(name);
@@ -423,6 +436,12 @@ function buildShortCode(row) {
   }
 
   if (item === "團圓") seg.push("三入");   // 雙手貓 黃 三入
+
+  // 口金包禮盒:規格第二格是口金包的顏色(聖誕紅/閃耀黑),盒裡另外附小木片、小元寶(賣場說明的內容物)
+  if (item === "【口金包禮盒】胖胖貓(小)") {
+    const pouch = spec.match(/聖誕紅|閃耀黑/);
+    seg.push("+" + (pouch ? pouch[0] : "") + "口金包+木片+元寶");
+  }
 
   // 組合商品附的木片要排在「買家挑的那隻」後面才對得上使用者要的順序
   // (【大小貓組】大黃金+小灰福+木片),所以沒有跟 lead 放在同一個分支裡
