@@ -196,7 +196,7 @@ const cakeMonthOf = o => String(o.date || "").replace(/-/g, "/").slice(0, 7) || 
 async function openCakeList() {
   document.getElementById("attnTitle").textContent = CAKE_CATEGORY;
   const hintEl = document.getElementById("attnHint");
-  hintEl.textContent = "起士公爵出貨,按「上傳包貨平台與試算表」時存進來的,不會自動刪。收件人資料在下面「廠商對照」按「複製成試算表格式」。物流單號是 LINE 回填時記的。";
+  hintEl.textContent = "起士公爵出貨,按「上傳包貨平台與試算表」時存進來的,不會自動刪。收件人資料在下面「廠商對照」按「複製成試算表格式」。";
   hintEl.hidden = false;
   document.getElementById("attnCount").textContent = "";
   document.getElementById("attnLabelBtn").hidden = true;
@@ -258,12 +258,12 @@ function renderCakeList() {
         <input type="checkbox" class="cake-check" value="${escapeHtml(o.key)}" onchange="cakeCheckChanged()">
         <span class="attn-date">${escapeHtml(o.date)}</span>
         <span class="attn-sn">${escapeHtml(o.orderId)}</span>
-        <span class="attn-note">${escapeHtml(o.item)} x${escapeHtml(o.qty)}${o.tracking ? `<span class="cake-track">物流單號 ${escapeHtml(o.tracking)}</span>` : `<span class="cake-track none">還沒回填物流單號</span>`}</span>
+        <span class="attn-note">${escapeHtml(o.item)} x${escapeHtml(o.qty)}</span>
       </div>`).join("");
   cakeCheckChanged();
 }
 
-// 下載 Excel:每個月一張工作表(舊的月份在前),最後一列是當月合計。只有訂單編號/品項/數量/物流單號,沒有個資
+// 下載 Excel:每個月一張工作表(舊的月份在前),最後一列是當月合計。只有訂單編號/品項/數量,沒有個資
 function downloadCakeExcel() {
   if (!cakeOrdersCache.length) return;
   const wb = XLSX.utils.book_new();
@@ -271,11 +271,11 @@ function downloadCakeExcel() {
     const list = cakeOrdersCache.filter(o => cakeMonthOf(o) === m)
       .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.orderId).localeCompare(String(b.orderId)));
     const total = list.reduce((n, o) => n + (parseInt(o.qty, 10) || 0), 0);
-    const aoa = [["日期", "訂單編號", "品項", "數量", "物流單號"],
-      ...list.map(o => [o.date, String(o.orderId), o.item, parseInt(o.qty, 10) || 0, String(o.tracking || "")]),
-      ["", "", "合計", total, ""]];
+    const aoa = [["日期", "訂單編號", "品項", "數量"],
+      ...list.map(o => [o.date, String(o.orderId), o.item, parseInt(o.qty, 10) || 0]),
+      ["", "", "合計", total]];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 12 }, { wch: 22 }, { wch: 34 }, { wch: 6 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 22 }, { wch: 34 }, { wch: 6 }];
     XLSX.utils.book_append_sheet(wb, ws, m.replace("/", "-"));   // 工作表名稱不能有「/」
   });
   XLSX.writeFile(wb, `${CAKE_CATEGORY}_${todayStr()}.xlsx`);
@@ -331,12 +331,11 @@ async function deleteCheckedCakes() {
 // ===================================================================
 // 起士公爵的物流單號(2026-11-18)
 //   - 起士在他們試算表 C 欄「宅配單號(起士填寫)」填黑貓單號
-//   - 物流單號回填頁可以直接讀線上的起士試算表(不用下載檔案),產生 LINE 物流單號表時順便把單號記到 D1 cake_orders
-//   - 貓咪秘書定時看起士試算表,「有新填的單號」才提醒(跟這台電腦上次看過的比;第一次只記下現況、不提醒)
+//   - 物流單號回填頁可以直接讀線上的起士試算表(不用下載檔案),配對進 LINE 物流單號表
+//   - 2026-11-20 使用者:單號不用記到 D1、貓咪秘書也不要提醒(廠商自己會提醒),那兩段已拿掉
 // 只讀 G 欄訂單編號 + C 欄宅配單號,不讀個資;瀏覽器直接讀(試算表是公開檢視),不經伺服器
 // ===================================================================
 const CAKE_SHEET_TRACK_URL = "https://docs.google.com/spreadsheets/d/1omoym5muBdAYd4gBmAvwt5vtUoOoaV_ZPXk7HdJvsjk/gviz/tq?tqx=out:csv&gid=0&tq=" + encodeURIComponent("select G, C");
-const CAKE_TRACK_SEEN_KEY = "cakeTrackSeen";   // localStorage:已經看過(提醒過/回填過)的訂單編號
 
 // 回傳 Map<訂單編號, 物流單號>,只放起士已經填了單號的
 async function fetchCakeSheetTracking() {
@@ -351,33 +350,6 @@ async function fetchCakeSheetTracking() {
   const map = new Map();
   lines.slice(1).forEach(([id, t]) => { if (id && t) map.set(id, t.replace(/\.0$/, "")); });
   return map;
-}
-
-function cakeTrackSeen() {
-  try { const v = localStorage.getItem(CAKE_TRACK_SEEN_KEY); return v ? new Set(JSON.parse(v)) : null; }
-  catch (e) { return null; }
-}
-function cakeMarkTrackSeen(ids) {
-  const seen = cakeTrackSeen() || new Set();
-  ids.forEach(id => seen.add(String(id)));
-  try { localStorage.setItem(CAKE_TRACK_SEEN_KEY, JSON.stringify([...seen])); } catch (e) {}
-}
-
-// 回填時把單號記到 D1(只會更新已經存在的蛋糕單),回傳一句狀態列用的摘要
-async function recordCakeTracking(pairs) {
-  if (!pairs.length) return "";
-  try {
-    const res = await fetch(getGsUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "setCakeTracking", items: pairs }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "未知錯誤");
-    return `蛋糕物流單號已記錄 ${data.count} 筆`;
-  } catch (e) {
-    return `蛋糕物流單號記錄失敗(${e.message})`;
-  }
 }
 
 if (typeof module !== "undefined" && module.exports) {

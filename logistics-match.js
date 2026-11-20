@@ -400,23 +400,11 @@ function generateLogistics() {
       const filename = `LINE物流單號_${today}.xlsx`;
       XLSX.writeFile(wb, filename, { cellStyles: true, bookType: "xlsx" });
 
-      // 起士給的單號(線上試算表或下載的檔)順便記到 D1 的蛋糕單,貓咪秘書也就不再提醒這幾筆
-      const cakeMap = new Map();
-      bcDetailSources.forEach(({ label, map }) => { if (label === "起士公爵") map.forEach((t, id) => cakeMap.set(id, t)); });
-      const cakePairs = orders
-        .filter(o => cakeMap.has(o.orderId) && !manualDeleteIds.has(o.orderId))
-        .map(o => ({ orderId: o.orderId, tracking: cakeMap.get(o.orderId) }));
-      if (cakePairs.length) cakeMarkTrackSeen(cakePairs.map(p => p.orderId));
-
       let msg = `✓ 已下載:${filename}  (填入 ${matched.length} 筆${manualCount > 0 ? `,其中 ${manualCount} 筆手動填號` : ""})`;
       if (unmatched.length > 0) msg += `,另有 ${unmatched.length} 筆未對應(已紅色反白排在最下面)`;
       if (deletedCount > 0) msg += `,已刪除 ${deletedCount} 筆勾選的未配對訂單`;
       if (manualDeletedCount > 0) msg += `,已刪除 ${manualDeletedCount} 筆手動輸入編號的訂單`;
       setStatus("logisticsStatus", "success", msg);
-      if (cakePairs.length) {
-        recordCakeTracking(cakePairs).then(m => { if (m) setStatus("logisticsStatus", /失敗/.test(m) ? "warn" : "success", `${msg} · ${m}`); });
-        if (typeof gcRefreshCakeTrack === "function") gcRefreshCakeTrack();
-      }
     } catch (e) {
       setStatus("logisticsStatus", "error", `✗ 匯出失敗:${e.message}`);
       console.error(e);

@@ -639,12 +639,6 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(47, 125, 91, 0.5), 0 6px 18px rgba(0, 0, 0, 0.15); }
     50%      { box-shadow: 0 0 0 10px rgba(47, 125, 91, 0), 0 6px 18px rgba(0, 0, 0, 0.15); }
   }
-  /* 起士試算表新填了物流單號:蛋糕卡同一個粉紅(--cat-pink-num 那個色系) */
-  .gc-bubble.is-cake { background: #AD1457; color: #fff; border-color: #AD1457; }
-  .gc-bubble.is-cake:last-child::after { background: #AD1457; border-color: #AD1457; }
-  .gc-bubble.is-cake b { color: #fff; }
-  .gc-bubble.is-cake .gc-btn { background: #fff; color: #AD1457; }
-  .gc-bubble.is-cake .gc-btn.ghost { background: none; color: #fff; border-color: rgba(255, 255, 255, 0.7); }
   /* 貓咪小助手:平台檢查清單(每天要把每個平台都點過「已檢查」)。沒有打電話提醒急,
      所以不閃爍,只是換個底色提醒還有沒檢查的平台 */
   .gc-bubble.is-plat { background: #EAF2F8; color: #1F3A52; border-color: #6FA8C9; }
@@ -1111,8 +1105,6 @@
   .cake-month-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; position: sticky; top: 0; z-index: 1; background: var(--bg-card, var(--bg)); border-bottom: 1px solid var(--border); }
   .cake-month-tab { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--cat-pink-num); background: transparent; color: var(--cat-pink-num); font: inherit; font-size: 12px; cursor: pointer; }
   .cake-month-tab.active { background: var(--cat-pink-num); color: #fff; }
-  .cake-track { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
-  .cake-track.none { color: #FF8F00; font-family: inherit; }
   .attn-empty { padding: 26px 12px; text-align: center; color: var(--text-dim); font-size: 13px; }
   .attn-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
   /* .btn 有自己的 display,會蓋掉 hidden 屬性 —— 不加這行「列印離島貼紙」在每個清單都會出現 */
