@@ -2,20 +2,23 @@
 // 官網訂單(Shopline 後台匯出的「訂單報表」niyancement_orders_*.xls)
 //
 // 報表格式:一列一個商品,同一筆訂單有幾個商品就佔幾列;金額欄只寫在每筆的第一列。
-// 這裡先用「訂單號碼」併回一筆一筆的訂單,再做兩件事:
-//   1. 黑貓出貨表:送貨方式是「黑貓…」的訂單,寫成跟 LINE 一樣的黑貓上傳 xlsx;
-//      貨到付款的把付款總金額填進「代收金額或到付」。
-//   2. 出貨單 PDF:每筆一張,紙張/版面跟蝦皮出貨單同一種熱感應紙(95x193mm,
-//      中間印刷區留白):上半 送貨方式 → 付款方式 → 訂單編號,下半 品項簡稱 → 訂單備註。
+// 這裡先用「訂單號碼」併回一筆一筆的訂單,再產黑貓出貨表:
+//   送貨方式是「黑貓…」的訂單,寫成跟 LINE 一樣的黑貓上傳 xlsx;
+//   貨到付款的把付款總金額填進「代收金額或到付」。
+// 官網的撿貨表/出貨單改用 Shopline 後台的按鈕印(2026-11-24),這裡不再產。
+// 出貨單版面(buildOrderLabelsPdf)留著,Pinkoi 還在用。
 //
-// 未付款的擋下來(兩樣都不出),但取貨付款/貨到付款本來就是收貨時才付,不算未付款。
+// Shopline 送貨方式(2026-11-24):
+//   黑貓宅急便(取貨付款) → 黑貓表,填代收金額
+//   黑貓宅急便(純寄貨)   → 黑貓表,不代收
+//   全家 / 7-11 取貨不付款 (C2C)、取貨付款 (C2C) → 不進黑貓表
+//
+// 未付款的擋下來(不進黑貓表),但取貨付款/貨到付款本來就是收貨時才付,不算未付款。
 // ===================================================================
 
 // 官網寄件人名稱(黑貓單上的寄件人)。照 LINE 那邊 SENDER_NAME「LINE禮物-泥研製所」的寫法,
 // 一看就知道是哪個平台的單
 const WEB_SENDER_NAME = "官網-泥研製所";
-// 出貨單最上面那行的平台註記(接在送貨方式前面)
-const WEB_PLATFORM_TAG = "官網";
 
 // 送貨方式/付款方式出現這些字 = 收貨時才付錢,未付款是正常的
 const WEB_COD_RE = /取貨付款|貨到付款/;
@@ -38,23 +41,13 @@ const WEB_LABEL = {
   bottom: 535,                // 最下面一行(金額)的底線
 };
 
-// 紙張格式(膠囊鈕切換)。4x6 = 101.6x152.4mm 通用熱感應貼紙,沒有中間印刷區,
+// 紙張格式。4x6 = 101.6x152.4mm 通用熱感應貼紙,沒有中間印刷區,
 // 所以品項直接接在上面那段後面(itemsTop: null = 接著排),不用跳過印刷區
 const WEB_FORMATS = {
   bcat: { ...WEB_LABEL },
   "4x6": { ...WEB_LABEL, pageW: 4 * 72, pageH: 6 * 72, x: 18, right: 270,
            itemsTop: null, itemsBottom: 400, bottom: 420 },
 };
-let webFormat = "bcat";
-
-function setWebFormat(fmt) {
-  if (!WEB_FORMATS[fmt]) return;
-  webFormat = fmt;
-  Object.assign(WEB_LABEL, WEB_FORMATS[fmt]);
-  setFormatPills("webFormatPills", fmt);
-  try { localStorage.setItem("webFormat", fmt); } catch (e) {}
-}
-
 let webOrders = [];      // 併好的訂單(含被擋的,UI 要列出來)
 let webFileName = "";
 
@@ -143,7 +136,6 @@ async function onWebFile(file) {
     const d = document.getElementById("webFileDisplay");
     d.textContent = file.name + "(" + webOrders.length + " 筆訂單)";
     d.classList.remove("empty"); d.classList.add("has-file");
-    preloadShopeeFont();
     renderWebPreview();
   } catch (e) {
     webOrders = [];
@@ -160,14 +152,13 @@ function renderWebPreview() {
   const unknown = ok.filter(o => o.unknown);
 
   document.getElementById("webBcatBtn").disabled = !bcat.length;
-  document.getElementById("webLabelBtn").disabled = !ok.length;
   if (!box) return;
 
   box.innerHTML = webOrders.map(o => {
     const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
     const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const pay = o.payMethod + (o.cod ? "" : "(" + o.payStatus + ")");
-    const blockedText = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單、不印出貨單" : "";
+    const blockedText = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單" : "";
     return "<div class=\"" + cls + "\">"
       + "<span class=\"shopee-flag\">" + flag + "</span>"
       + "<span class=\"shopee-sn\">" + escapeHtml(o.id) + "</span>"
@@ -181,7 +172,7 @@ function renderWebPreview() {
     setStatus("webStatus", "", "把官網訂單報表(niyancement_orders_….xls)丟進來…");
     return;
   }
-  const bits = [webOrders.length + " 筆訂單", "黑貓 " + bcat.length + " 筆", "出貨單 " + ok.length + " 張"];
+  const bits = [webOrders.length + " 筆訂單", "黑貓 " + bcat.length + " 筆"];
   if (blocked.length) bits.push(blocked.length + " 筆未付款/已取消已擋下");
   if (unknown.length) bits.push(unknown.length + " 筆有貨號認不出來(照品名印,請看一下)");
   setStatus("webStatus", (blocked.length || unknown.length) ? "warn" : "success", bits.join("、"));
@@ -230,10 +221,10 @@ function webWrap(font, text, size, maxW) {
 }
 
 // ===================================================================
-// 熱感應出貨單(官網、Pinkoi 共用同一個版面)
+// 熱感應出貨單(Pinkoi 用;官網 2026-11-24 起改用 Shopline 後台印)
 //   orders: [{ id, ship, payMethod, cod, store, total, note, items:[{compact}],
 //              hideAmount?, taxId?, taxTitle? }]
-//   tag   : 送貨方式前面的平台名(官網 / Pinkoi)
+//   tag   : 送貨方式前面的平台名(Pinkoi)
 //   fmt   : "bcat"(黑貓熱感應 95x193) / "4x6"
 // hideAmount:有電子發票載具的單不印金額(Pinkoi);taxId:有統編就印在金額上面
 // ===================================================================
@@ -334,25 +325,4 @@ async function buildOrderLabelsPdf(orders, tag, fmt) {
   }
 
   return { bytes: await out.save(), overflow };
-}
-
-async function generateWebLabels() {
-  const btn = document.getElementById("webLabelBtn");
-  const jobs = webOrders.filter(o => !o.blocked);
-  if (!jobs.length) return;
-  if (btn) { btn.disabled = true; btn.textContent = "產生中…"; }
-  try {
-    const { bytes, overflow } = await buildOrderLabelsPdf(withOrderEdits("web", jobs), WEB_PLATFORM_TAG, webFormat);
-    const name = "官網出貨單_" + (webFormat === "4x6" ? "4x6_" : "") + todayStr("") + ".pdf";
-    downloadBlob(new Blob([bytes], { type: "application/pdf" }), name);
-    const skipped = webOrders.length - jobs.length;
-    setStatus("webStatus", overflow ? "warn" : "success",
-      "✓ 已產生 " + name + "(" + jobs.length + " 張)"
-      + (skipped ? "、" + skipped + " 筆未付款/已取消沒有印" : "")
-      + (overflow ? "、" + overflow + " 張品項太多印不完,請檢查" : ""));
-  } catch (e) {
-    setStatus("webStatus", "error", "✗ 產生失敗:" + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "產生出貨單 PDF"; }
-  }
 }

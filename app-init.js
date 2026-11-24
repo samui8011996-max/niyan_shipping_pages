@@ -25,10 +25,9 @@ renderAbbr();
 
 // 出貨單紙張格式:記住這台瀏覽器上次選的(預設黑貓熱感應)
 (() => {
-  let s = null, w = null, o = null;
-  try { s = localStorage.getItem("shopeeFormat2"); w = localStorage.getItem("webFormat"); o = localStorage.getItem("offshoreFormat2"); } catch (e) {}   // 離島、蝦皮改預設 4x6 時換了鍵名,舊的選擇不沿用(蝦皮 2026-11-11 起全部印 4x6)
+  let s = null, o = null;
+  try { s = localStorage.getItem("shopeeFormat2"); o = localStorage.getItem("offshoreFormat2"); } catch (e) {}   // 離島、蝦皮改預設 4x6 時換了鍵名,舊的選擇不沿用(蝦皮 2026-11-11 起全部印 4x6)
   setShopeeFormat(s || "4x6");
-  if (w) setWebFormat(w);
   if (o) setOffshoreFormat(o);
   let p = null;
   try { p = localStorage.getItem("pinkoiFormat"); } catch (e) {}

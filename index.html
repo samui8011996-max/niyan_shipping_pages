@@ -772,7 +772,7 @@
   .fmt-select:hover, .fmt-select:focus { border-color: var(--accent); outline: none; }
   .fmt-select option { background: var(--bg-card); color: var(--text); }
 
-  /* 紙張格式膠囊鈕(蝦皮/官網出貨單) */
+  /* 紙張格式膠囊鈕(蝦皮/Pinkoi 出貨單) */
   .fmt-pills {
     display: inline-flex; align-self: center; margin-left: auto;
     background: var(--bg-input); border: 1px solid var(--border);
@@ -2409,19 +2409,12 @@
         <button id="webBcatBtn" class="btn btn-primary" disabled onclick="downloadWebBcat()">
           下載黑貓出貨表
         </button>
-        <button id="webLabelBtn" class="btn btn-lavender" disabled onclick="generateWebLabels()">
-          產生出貨單 PDF
-        </button>
-        <select id="webFormatPills" class="fmt-select" aria-label="紙張格式" title="紙張格式" onchange="setWebFormat(this.value)">
-          <option value="bcat">黑貓熱感應 95×193</option>
-          <option value="4x6">4×6</option>
-        </select>
       </div>
 
       <div id="webStatus" class="status">把官網訂單報表(niyancement_orders_….xls)丟進來…</div>
 
       <div class="stats-header" style="margin-top: 18px;">
-        <span class="stats-title">訂單預覽(擋下來的不會出)</span>
+        <span class="stats-title">訂單預覽(擋下來的不會進黑貓表)</span>
       </div>
       <div id="webPreview" class="problem-list"></div>
 
