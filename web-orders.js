@@ -110,7 +110,8 @@ function parseWebRows(rows) {
   const orders = [...map.values()];
   orders.forEach(o => {
     o.isBcat = /黑貓/.test(o.ship);
-    o.cod = WEB_COD_RE.test(o.ship) || WEB_COD_RE.test(o.payMethod);
+    // 已付款就不代收,免得重複收錢(Shopline 本身有鎖付款方式,這是多一層保險)
+    o.cod = o.payStatus !== WEB_PAID && (WEB_COD_RE.test(o.ship) || WEB_COD_RE.test(o.payMethod));
     if (/取消/.test(o.status)) o.blocked = "訂單" + o.status;
     else if (!o.cod && o.payStatus !== WEB_PAID) o.blocked = o.payStatus || "付款狀態不明";
     else o.blocked = "";
