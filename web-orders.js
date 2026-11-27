@@ -121,9 +121,130 @@ function parseWebRows(rows) {
   return orders;
 }
 
+// ===================================================================
+// 官網出貨單 PDF(Shopline 後台訂單頁「出貨單」按鈕印的 niyancement_PackingSlip.pdf)(2026-11-27)
+//
+// 使用者改成直接用出貨單產黑貓表,不用再另外匯出訂單報表。
+// PDF 有文字層:上面是「訂單編號: / 收件人: / 收件人電話號碼: / 送貨方式: / 地址:」,
+// 下面是品項表(序號、商品貨號、商品、數量、價格、商品小計)。
+// 商品貨號太長會折成兩行(FAT-YELLO / W-S-GOLD),所以品項用「序號那一欄的 y」切列,
+// 同一列範圍內同一欄的字依上下順序接起來。
+// 出貨單上沒有付款狀態:送貨方式寫「取貨付款/貨到付款」的才代收,其他當已付款。
+// 一筆訂單印一頁;沒有訂單編號的頁當作上一筆的續頁。
+// ===================================================================
+async function parseWebPackingSlip(file) {
+  await ensureShopeeLibs();
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const orders = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const H = page.getViewport({ scale: 1 }).height;
+    const tc = await page.getTextContent();
+    const items = tc.items.filter(t => t.str && t.str.trim())
+      .map(t => ({ s: t.str.trim(), x: t.transform[4], y: H - t.transform[5] }));   // y:離上緣,往下變大
+
+    // 同一條基線的字併成一行(表頭欄位用)
+    const lines = [];
+    [...items].sort((a, b) => a.y - b.y || a.x - b.x).forEach(t => {
+      const L = lines.find(l => Math.abs(l.y - t.y) < 2.5);
+      if (L) L.parts.push(t); else lines.push({ y: t.y, parts: [t] });
+    });
+    lines.forEach(l => { l.parts.sort((a, b) => a.x - b.x); l.text = l.parts.map(t => t.s).join(" "); });
+    const field = (label) => {
+      const l = lines.find(l => l.text.includes(label + ":") || l.text.includes(label + "："));
+      if (!l) return null;
+      return { y: l.y, v: l.text.slice(l.text.search(new RegExp(label + "[:：]")) + label.length + 1).trim() };
+    };
+
+    const head = lines.find(l => /序號/.test(l.text) && /商品貨號/.test(l.text));
+    const snF = field("訂單編號");
+    let o;
+    if (snF) {
+      const sn = snF.v.split(/\s+/)[0];
+      const addrF = field("地址");
+      let address = addrF ? addrF.v : "";
+      // 地址太長會折行:地址下一行起、到下一個「xxx:」欄位或表頭之前,都接上去
+      if (addrF) {
+        for (const l of lines) {
+          if (l.y <= addrF.y + 1) continue;
+          if ((head && l.y >= head.y - 1) || /^[^\s]{2,8}[:：]/.test(l.text)) break;
+          address += l.text;
+        }
+      }
+      address = address.replace(/^台灣\s*/, "").replace(/\s+/g, "");
+      const ship = field("送貨方式")?.v || "";
+      const cod = WEB_COD_RE.test(ship);
+      o = {
+        sn, id: sn.replace(/^#/, ""), status: "",
+        payMethod: cod ? (ship.match(WEB_COD_RE) || [""])[0] : "",
+        payStatus: cod ? "" : WEB_PAID,
+        ship, name: field("收件人")?.v || "", phone: webPhone(field("收件人電話號碼")?.v),
+        address, store: field("取貨門市")?.v || "", note: "",
+        deliveryTime: field("指定到貨時間")?.v || "",
+        total: 0, items: [],
+      };
+      orders.push(o);
+    } else {
+      o = orders[orders.length - 1];
+      if (!o) continue;
+    }
+
+    // 金額:「訂單合計:」同一行右邊那個 NT$
+    const totalLine = lines.find(l => /訂單合計/.test(l.text));
+    if (totalLine) o.total = webNum((totalLine.text.match(/NT\$\s*[\d,]+/g) || []).pop());
+
+    if (!head) continue;
+    const col = name => head.parts.find(t => t.s === name)?.x;
+    const xSku = col("商品貨號"), xName = col("商品"), xQty = col("數量"), xPrice = col("價格");
+    if (xSku == null || xName == null || xQty == null) continue;
+    const endY = (lines.find(l => l.y > head.y && /^總計/.test(l.text)) || { y: H }).y;
+    const body = items.filter(t => t.y > head.y + 2 && t.y < endY - 2);
+    const seqs = body.filter(t => t.x < xSku - 2 && /^\d+$/.test(t.s)).sort((a, b) => a.y - b.y);
+    seqs.forEach((q, i) => {
+      const top = i ? (seqs[i - 1].y + q.y) / 2 : head.y + 2;
+      const bot = i < seqs.length - 1 ? (q.y + seqs[i + 1].y) / 2 : endY - 2;
+      const cell = (x0, x1) => body.filter(t => t.y > top && t.y <= bot && t.x >= x0 - 2 && t.x < x1 - 2)
+        .sort((a, b) => a.y - b.y || a.x - b.x).map(t => t.s);
+      const sku = cell(xSku, xName).join("");
+      const nameParts = cell(xName, xQty).filter(s => s !== "贈品");   // 贈品下面那個小標籤不要
+      const full = nameParts.join("");
+      const qty = webNum(cell(xQty, xPrice ?? xQty + 30)[0]) || 1;
+      const [pname, ...opt] = full.split(/\s*\/\s*/);
+      const row = { "商品貨號": sku, "商品名稱": pname || full, "選項": opt.join(" / "), "數量": qty };
+      o.items.push({ ...buildWebShortCode(row), sku, name: row["商品名稱"], option: row["選項"] });
+    });
+  }
+  orders.forEach(o => {
+    o.isBcat = /黑貓/.test(o.ship);
+    o.cod = WEB_COD_RE.test(o.ship);
+    o.blocked = "";
+    o.unknown = o.items.some(i => i.unknown);
+  });
+  orders.sort((a, b) => a.id.localeCompare(b.id));
+  return orders;
+}
+
 async function onWebFile(file) {
   if (!file) return;
   setStatus("webStatus", "loading", "讀取中…");
+  if (/\.pdf$/i.test(file.name)) {
+    try {
+      const orders = await parseWebPackingSlip(file);
+      if (!orders.length) throw new Error("這不像官網出貨單(找不到「訂單編號:」)");
+      webOrders = orders;
+      clearOrderEdits("web");
+      webFileName = file.name;
+      const d = document.getElementById("webFileDisplay");
+      d.textContent = file.name + "(" + webOrders.length + " 筆訂單)";
+      d.classList.remove("empty"); d.classList.add("has-file");
+      renderWebPreview();
+    } catch (e) {
+      webOrders = [];
+      renderWebPreview();
+      setStatus("webStatus", "error", "✗ 讀取失敗:" + e.message);
+    }
+    return;
+  }
   try {
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, defval: "" });
@@ -170,7 +291,7 @@ function renderWebPreview() {
   }).join("");
 
   if (!webOrders.length) {
-    setStatus("webStatus", "", "把官網訂單報表(niyancement_orders_….xls)丟進來…");
+    setStatus("webStatus", "", "把官網出貨單(niyancement_PackingSlip.pdf)丟進來…");
     return;
   }
   const bits = [webOrders.length + " 筆訂單", "黑貓 " + bcat.length + " 筆"];

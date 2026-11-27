@@ -166,18 +166,36 @@ const PG_TABS = [
       <p class="pg-note">跨境直送、國際包裹只印出貨單。</p>`
   },
   {
+    id: "web", name: "官網",
+    html: `
+      <p class="pg-lead"><b>要開發票。</b>黑貓宅配的單:在官網後台印「出貨單」,丟進小幫手轉成黑貓出貨表,再匯入黑貓;超商的單直接在官網後台印。每張單最後都要印「訂單明細」放進箱子。</p>
+      <ol>
+        <li>${pgAt("Gmail")}<b>看新訂單</b>:看有沒有官網新訂單通知信。</li>
+        <li>${pgAt("官網後台")}<b>看客服、回訊息</b>:客人要改或取消的,先在後台處理好。</li>
+      </ol>
+      <h3>黑貓宅配的單</h3>
+      <ol start="3">
+        <li>${pgAt("官網後台")}<b>下載出貨單</b>:點進訂單 → 右上角「出貨單」,存成 PDF(檔名像 niyancement_PackingSlip.pdf)。</li>
+        <li>${pgAt("小幫手")}<b>丟進小幫手</b>:點「官網後台」,把出貨單 PDF 丟進「官網訂單」那格,看預覽(收件人、地址、品項對不對)。送貨方式寫「取貨付款」的會自動填代收金額,其他當已付款。</li>
+        <li>${pgAt("小幫手")}<b>下載黑貓出貨表</b>:按「下載黑貓出貨表」。</li>
+        <li>${pgAt("黑貓後台")}<b>匯入、印黑貓單</b>:多筆匯入剛下載的出貨表 → 列印託運單(HotPrint.pdf 從資料夾用 Adobe 開來印,設定看「印表機設定」)。</li>
+        <li>${pgAt("官網後台")}<b>記下託運單號</b>:回到那筆訂單頁,往下找「訂單通訊」→ 點「加入備註」分頁 → 打上黑貓託運單號(託運單上的 12 碼,或黑貓後台出貨明細表上的「託運單號」)→ 按「增加」存起來。</li>
+      </ol>
+      <p class="pg-note"><b>注意:不要用官網後台「商品詳情」旁邊的「列印寄貨標籤」(Shopline 的黑貓託運單)。</b>黑貓單一律照上面第 5、6 步,自己從黑貓後台匯入、列印。</p>
+      <h3>超商的單</h3>
+      <ol start="8">
+        <li>${pgAt("官網後台")}<b>直接印超商寄件單</b>:在官網後台列印超商寄件單,用瀏覽器印 4×6、縮放 120(設定看「印表機設定」)。</li>
+      </ol>
+      <h3>每張單都要</h3>
+      <ol start="9">
+        <li>${pgAt("官網後台")}<b>印訂單明細</b>:點進那筆訂單 → 右上角「訂單明細」→ 列印,放進箱子裡。贈品(例如 5mL 檸檬精油)也會列在上面,記得一起裝。</li>
+        <li>${pgAt("電子發票平台")}<b>開發票</b>:發票隨貨寄出。</li>
+      </ol>`
+  },
+  {
     id: "other", name: "其他平台",
     html: `
       <p class="pg-lead">每個平台一樣<b>先看客服、回訊息</b>再印單。</p>
-      <h3>官網(Shopline)— 要開發票</h3>
-      <ol>
-        <li>${pgAt("Gmail")}看有沒有新訂單通知信;${pgAt("官網後台")}回客服。</li>
-        <li>${pgAt("官網後台")}匯出「訂單報表」(niyancement_orders_….xls)。</li>
-        <li>${pgAt("小幫手")}點「官網後台」,選檔,看預覽(未付款、已取消會擋下;貨到付款不算未付)。</li>
-        <li>${pgAt("官網後台")}撿貨表、出貨單直接用 Shopline 後台的按鈕印。</li>
-        <li>${pgAt("小幫手 → 黑貓後台")}送貨方式是黑貓宅急便的單:「下載黑貓出貨表」→ 多筆匯入 → 列印託運單。</li>
-        <li>${pgAt("電子發票平台")}開發票。</li>
-      </ol>
       <h3>瑪黑 — 不用開發票</h3>
       <ol>
         <li>${pgAt("Gmail")}看新訂單通知信;${pgAt("瑪黑後台")}回客服。</li>
@@ -244,8 +262,8 @@ const PG_TABS = [
 function pgDefaultTab() {
   const active = document.querySelector(".tab.active");
   const t = active ? active.dataset.tab : "";
-  if (t === "line" || t === "shopee" || t === "pinkoi") return t;
-  if (["web", "marais", "momo", "rakuten", "books", "coupang"].includes(t)) return "other";
+  if (t === "line" || t === "shopee" || t === "pinkoi" || t === "web") return t;
+  if (["marais", "momo", "rakuten", "books", "coupang"].includes(t)) return "other";
   return "start";
 }
 

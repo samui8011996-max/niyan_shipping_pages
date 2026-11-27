@@ -2392,13 +2392,13 @@
     <div id="tab-web" class="tab-panel">
 
       <section class="card">
-        <div class="card-label">官網訂單報表 (.xls)</div>
+        <div class="card-label">官網出貨單 (.pdf)</div>
         <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          請匯入官網訂單報表
+          請匯入官網後台印的出貨單 PDF(niyancement_PackingSlip.pdf);舊的訂單報表 .xls 也可以
         </p>
         <div class="file-row">
           <div id="webFileDisplay" class="file-display empty">尚未選擇檔案…</div>
-          <input type="file" id="webInput" class="file-input-hidden" accept=".xls,.xlsx">
+          <input type="file" id="webInput" class="file-input-hidden" accept=".pdf,.xls,.xlsx">
           <button class="btn btn-secondary" onclick="document.getElementById('webInput').click()">
             選擇檔案…
           </button>
@@ -2411,7 +2411,7 @@
         </button>
       </div>
 
-      <div id="webStatus" class="status">把官網訂單報表(niyancement_orders_….xls)丟進來…</div>
+      <div id="webStatus" class="status">把官網出貨單(niyancement_PackingSlip.pdf)丟進來…</div>
 
       <div class="stats-header" style="margin-top: 18px;">
         <span class="stats-title">訂單預覽(擋下來的不會進黑貓表)</span>
