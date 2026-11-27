@@ -95,6 +95,7 @@ function renderPlatformBar(top) {
   bar.innerHTML = `
     <div class="pb-head">
       <h2 class="pb-name">${escapeHtml(p.name)}</h2>
+      <button type="button" class="help-btn pb-help" onclick="openPlatformHelp('${top}')" title="使用教學" aria-label="使用教學">?</button>
       <a class="btn btn-primary pb-open" href="${p.url}" target="_blank" rel="noopener noreferrer">開啟 ${escapeHtml(p.name.endsWith("後台") ? p.name : p.name + " 後台")} ↗</a>
     </div>
     ${invoice}
@@ -116,4 +117,14 @@ function renderPlatformBar(top) {
   if (none && (p.panel || "none") === "none" && !p.subs) {
     none.textContent = `${p.name} 目前沒有自動印單,請按上面「開啟 ${p.name} 後台」直接在平台上印單。`;
   }
+}
+
+// 標題後面那顆 ?(2026-11-27 使用者:所有教學都放在標題後)
+// 有專屬圖文教學(HELP_CONTENT)的頁面開那份;LINE禮物看目前的子功能;
+// 其他平台開小助手貓的印單教學對應分頁
+function openPlatformHelp(top) {
+  const key = top === "line" ? lineSub : top;
+  if (typeof HELP_CONTENT !== "undefined" && HELP_CONTENT[key]) { openHelp(key); return; }
+  if (typeof openPrintGuide !== "function") return;
+  openPrintGuide(top === "line" || top === "shopee" || top === "pinkoi" || top === "web" ? top : "other");
 }

@@ -1037,6 +1037,7 @@
     transition: background 0.15s, color 0.15s;
   }
   .help-btn:hover { background: var(--accent); color: var(--on-accent, #fff); }
+  .pb-help { width: 26px; height: 26px; font-size: 15px; margin-left: -6px; }
   .modal.wide { max-width: 720px; }
   .help-step { margin-bottom: 28px; }
   .help-step-title { font-size: 24px; font-weight: 800; color: var(--accent); margin-bottom: 8px; letter-spacing: 0.02em; }
@@ -1757,7 +1758,6 @@
         <button id="resetCardBtn" class="btn btn-secondary" onclick="resetTodayCards()" title="把今天的 Line禮物／離島•郵局 字卡歸零,再按一次上傳就會整批重算">
           重算今天字卡
         </button>
-        <button class="help-btn" onclick="openHelp('shipping')" title="使用教學" aria-label="使用教學">?</button>
 
       </div>
 
@@ -1885,7 +1885,6 @@
         <button id="logisticsRunBtn" class="btn btn-primary" disabled onclick="generateLogistics()">
           下載 LINE 物流單號表
         </button>
-        <button class="help-btn" onclick="openHelp('logistics')" title="使用教學" aria-label="使用教學">?</button>
       </div>
 
       <div id="logisticsStatus" class="status">請依序選擇兩個檔案…</div>
@@ -2329,7 +2328,6 @@
           <option value="bcat">黑貓熱感應 95×193</option>
           <option value="4x6">4×6</option>
         </select>
-        <button class="help-btn" onclick="openHelp('shopee')" title="使用教學" aria-label="使用教學">?</button>
       </div>
 
       <div id="shopeeStatus" class="status">還差裝箱單…</div>
@@ -2417,28 +2415,6 @@
         <span class="stats-title">訂單預覽(擋下來的不會進黑貓表)</span>
       </div>
       <div id="webPreview" class="problem-list"></div>
-
-      <section class="card" style="margin-top: 24px;">
-        <div class="card-label">Shopline 黑貓託運單 → 黑貓熱感應 (.pdf)</div>
-        <p style="margin: 0 0 14px; font-size: 13px; color: var(--text-dim); line-height: 1.7;">
-          Shopline 後台印出來的黑貓單是 A4,丟進來轉成黑貓熱感應紙(95×193)的版面,可以一次放好幾個檔
-        </p>
-        <div class="file-row">
-          <div id="slbFileDisplay" class="file-display empty">尚未選擇檔案…</div>
-          <input type="file" id="slbInput" class="file-input-hidden" accept=".pdf" multiple>
-          <button class="btn btn-secondary" onclick="document.getElementById('slbInput').click()">
-            選擇檔案…
-          </button>
-        </div>
-      </section>
-
-      <div class="actions">
-        <button id="slbBtn" class="btn btn-primary" disabled onclick="generateShoplineBcat()">
-          轉成黑貓熱感應
-        </button>
-      </div>
-
-      <div id="slbStatus" class="status">把 Shopline 印出來的黑貓單 PDF 丟進來…</div>
 
       <section class="card" style="margin-top: 24px;">
         <div class="card-label">遊戲名單與排行榜(小遊戲留的 Email)</div>
@@ -2637,6 +2613,42 @@
           </div>
         `
       },
+      web: {
+        title: "官網出貨 怎麼做?",
+        html: `
+          <div class="help-step">
+            <div class="help-step-title">第一步:看新訂單、回客服</div>
+            <div class="help-step-text">看 <b>Gmail</b> 有沒有官網新訂單通知信,再到 <b>官網後台</b> 回客人訊息。客人要改或取消的,先在後台處理好。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第二步:黑貓的單,下載出貨單</div>
+            <div class="help-step-text">官網後台點進訂單,按右上角 <b>出貨單</b>,存成 PDF(檔名像 <b>niyancement_PackingSlip.pdf</b>)。</div>
+            <img src="help/web-packing-slip-btn.png" alt="官網後台訂單頁:右上角出貨單按鈕">
+            <div class="help-note"><b>注意:不要按「商品詳情」旁邊的「列印寄貨標籤」</b>(Shopline 的黑貓託運單)。黑貓單一律照第四步自己從黑貓後台印。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第三步:丟進這裡,下載黑貓出貨表</div>
+            <div class="help-step-text">把出貨單 PDF 拖進上面 <b>官網出貨單</b> 那格(或按 <b>選擇檔案</b>),看下面的 <b>訂單預覽</b>:收件人、品項對不對。確認好按 <b>下載黑貓出貨表</b>。</div>
+            <div class="help-note">送貨方式寫「取貨付款 / 貨到付款」的會自動填代收金額,其他當已付款。品項旁邊有 ⚠ 的是貨號認不出來、照品名印的(贈品常常這樣),看一下沒問題就好。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第四步:黑貓匯入並列印託運單</div>
+            <div class="help-step-text">黑貓後台:<b>物流 → 線上印單 → 多筆匯入</b>,選剛下載的黑貓出貨表 → <b>送出</b> → 正常區 <b>單頁全選</b> → <b>列印託運單</b>。HotPrint.pdf 從資料夾用 Adobe 開來印(印表機設定看小助手貓的「印單教學」)。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">第五步:記下託運單號</div>
+            <div class="help-step-text">回到官網後台那筆訂單,往下找 <b>訂單通訊 → 加入備註</b>,打上黑貓託運單號(託運單上的 12 碼),按 <b>增加</b>。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">超商的單:直接在官網後台印</div>
+            <div class="help-step-text">全家、7-11 的單不用丟進來,在官網後台列印超商寄件單,用瀏覽器印 <b>4×6、縮放 120</b>。</div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-title">每張單都要:印訂單明細、開發票</div>
+            <div class="help-step-text">訂單頁右上角按 <b>訂單明細</b> 列印,放進箱子(贈品也會列在上面,記得一起裝)。最後到 <b>電子發票平台</b> 開發票,發票隨貨寄出。</div>
+          </div>
+        `
+      },
       logistics: {
         title: "物流單號回填 怎麼用?",
         html: `
@@ -2778,7 +2790,6 @@
 <script src="marhe-shortcode.js"></script>
 <script src="order-edit.js"></script>
 <script src="web-orders.js"></script>
-<script src="shopline-bcat.js"></script>
 <script src="attn-list.js"></script>
 <script src="pinkoi-orders.js"></script>
 <script src="marhe-orders.js"></script>
