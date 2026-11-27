@@ -708,6 +708,9 @@
   .return-form.editing #returnSubmitBtn { background: #E8833A; }
   .problem-item.editing { border: 2px solid #E8833A; background: color-mix(in srgb, #E8833A 8%, var(--bg-card)); }
   /* 改備註:問題訂單用紅色(使用者 2026-10-21),改過之後也還是紅框,看得出是問題單 */
+  .ne-recv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 6px 0 8px; }
+  .ne-recv label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ne-recv .ne-recv-addr { grid-column: 1 / -1; }
   .note-edit-item.is-problem { border: 2px solid var(--cat-red-border); background: var(--cat-red-bg); }
   .problem-item.note-edit-item .pi-type.ne-problem-tag { background: var(--cat-red-border); color: #fff; border-color: var(--cat-red-border); }
 
@@ -1781,7 +1784,7 @@
 
       <!-- 改備註(note-edit.js):載入訂單後每一筆都能改,改完的備註下載黑貓出貨表、上傳都會用 -->
       <section id="noteEditCard" class="card" hidden>
-        <div class="card-label">改備註</div>
+        <div class="card-label">改備註 / 收件資料</div>
         <input type="search" id="noteEditSearch" class="form-input" placeholder="輸入訂單編號、收件人或品項搜尋,例如 202610210130004154">
         <div id="noteEditHint" class="stats-hint" style="margin:8px 0"></div>
         <div id="noteEditList" class="problem-list"></div>
@@ -2586,8 +2589,9 @@
             <div class="help-step-text">載入後如果出現紅色 <b>「偵測到 N 筆問題訂單」</b>,代表第二步登記過的訂單在這批裡面。到下面的 <b>改備註</b> 卡片處理,問題訂單會自動列在最上面(其他訂單可以打訂單編號、收件人或品項搜尋)。<b>要先處理好,再下載黑貓出貨表和上傳。</b></div>
             <img src="help/ship-note-edit.png" alt="偵測到問題訂單與改備註卡片">
             <div class="help-note"><b>修改</b>(客人要換顏色、規格、刻字…):直接改那格「黑貓出貨表備註」,按 <b>存</b>(或按 Enter)。改過的內容會用在黑貓出貨表、離島貼紙、上傳的試算表和雷雕網站。改錯了按 <b>還原</b> 回到原本的備註。</div>
+            <div class="help-note"><b>改收件資料</b>(收件人、電話、地址):同一張卡片上面三格直接改,按 <b>存</b>。同一筆訂單的每個品項會一起改,黑貓出貨表、離島貼紙、上傳都用改過的。</div>
             <div class="help-note"><b>抽單</b>(這筆今天不出貨):按紅色 <b>刪除</b>,確認後這筆訂單(同編號的所有品項)就不會出現在黑貓出貨表、離島貼紙、分區列印和上傳裡,上面的統計也會跟著扣掉。刪錯了,在卡片最下面「已刪除」那筆按 <b>還原</b>。</div>
-            <div class="help-note"><b>注意:</b>修改和刪除都只對這次載入的檔案有效,重新選一次訂單檔就會全部回到原狀,要重做。收件資料(地址、電話)和配送時間這裡改不了,要到 LINE 後台改好再重新下載訂單 Excel。</div>
+            <div class="help-note"><b>注意:</b>修改和刪除都只對這次載入的檔案有效,重新選一次訂單檔就會全部回到原狀,要重做。配送時間這裡改不了,要到 LINE 後台改好再重新下載訂單 Excel。</div>
           </div>
           <div class="help-step">
             <div class="help-step-title">第七步:檢查下方資料</div>

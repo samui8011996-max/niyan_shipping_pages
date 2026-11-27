@@ -8,6 +8,10 @@
 // 也能刪除整筆訂單(使用者 2026-10-28:抽單用):同訂單編號的每個品項一起從 loadedRows 拿掉,
 // 下載黑貓出貨表、上傳、離島貼紙、分區列印、統計字卡就都不會有它;可以還原,重新載入訂單檔也會回來。
 // ===================================================================
+// 2026-11-27 使用者:也要能改收件資料(收件人、電話、地址)。同一筆訂單的每個品項列一起改,
+// 黑貓出貨表、離島貼紙、上傳都用改過的;地址改了會重新判斷是不是離島
+const NE_RECV = [["name", "收件人姓名", "收件人"], ["phone", "收件人聯絡電話", "電話"], ["addr", "配送地址", "地址"]];
+
 let noteEditQuery = "";
 let noteDeletedRows = [];   // 被刪掉的列(還原用),每列帶 _序 = 載入時的位置
 
@@ -35,6 +39,7 @@ function initNoteEdits(rows) {
     r["_原備註"] = r["_備註"];
     r["_原備註完整"] = r["_備註完整"];
     r["_已改備註"] = false;
+    r["_原收件"] = NE_RECV.map(([, col]) => r[col]);
     r["_序"] = idx;
   });
   noteDeletedRows = [];
@@ -98,6 +103,10 @@ function renderNoteEditor() {
           ${laser ? '<span class="pi-type">雷雕</span>' : ""}
           ${r["_已改備註"] ? '<span class="pi-type">已改</span>' : ""}
         </div>
+        <div class="ne-recv">
+          ${NE_RECV.map(([f, col, label]) => `<label class="ne-recv-${f}"><span class="form-label">${label}</span>
+            <input class="form-input" data-f="${f}" value="${escapeHtml(r[col] ?? "")}"></label>`).join("")}
+        </div>
         <label class="form-label" for="ne-note-${i}">黑貓出貨表備註</label>
         <input id="ne-note-${i}" class="form-input" data-f="note" value="${escapeHtml(r["_備註"] ?? "")}">
       </div>
@@ -158,9 +167,28 @@ function saveNoteEdit(i) {
   r["_備註完整"] = noteEditIsLaser(r) && !/刻印文字[:：]/.test(note)
     ? note.replace(/(^|\s)文字[:：]\s*/, "$1刻印文字: ")
     : note;
-  r["_已改備註"] = note !== r["_原備註"] || r["_備註完整"] !== r["_原備註完整"];
-  renderNoteEditor();
-  setStatus("status", "success", `✓ 已改 ${r["訂單編號"] ?? ""} 的備註,下載黑貓出貨表、上傳都會用改過的`);
+  // 收件資料:同訂單編號的每一列一起改
+  const recv = NE_RECV.map(([f]) => card.querySelector(`[data-f="${f}"]`).value.trim());
+  const id = String(r["訂單編號"] ?? "").trim();
+  const recvChanged = NE_RECV.some(([, col], k) => String(r[col] ?? "").trim() !== recv[k]);
+  if (recvChanged) {
+    loadedRows.filter(x => String(x["訂單編號"] ?? "").trim() === id).forEach(x => { neApplyRecv(x, recv); neMarkEdited(x); });
+  }
+  neMarkEdited(r);
+  if (recvChanged) refreshAfterRowsChange(); else renderNoteEditor();
+  setStatus("status", "success", `✓ 已改 ${id}${recvChanged ? " 的收件資料" : " 的備註"},下載黑貓出貨表、上傳都會用改過的`);
+}
+
+function neApplyRecv(x, vals) {
+  NE_RECV.forEach(([, col], k) => { x[col] = vals[k]; });
+  // 地址改了重新判斷離島(廠商直接出貨的照舊不算)
+  const vendorShipped = x["_類別"] === "星座貓X蛋糕" || x["_類別"] === "黑熊";
+  if (typeof extractOffshoreCounty === "function") x["_離島"] = vendorShipped ? null : extractOffshoreCounty(x["配送地址"]);
+}
+
+function neMarkEdited(r) {
+  const recvEdited = NE_RECV.some(([, col], k) => String(r[col] ?? "") !== String((r["_原收件"] || [])[k] ?? ""));
+  r["_已改備註"] = recvEdited || r["_備註"] !== r["_原備註"] || r["_備註完整"] !== r["_原備註完整"];
 }
 
 function revertNoteEdit(i) {
@@ -168,8 +196,13 @@ function revertNoteEdit(i) {
   if (!r) return;
   r["_備註"] = r["_原備註"];
   r["_備註完整"] = r["_原備註完整"];
+  const id = String(r["訂單編號"] ?? "").trim();
+  loadedRows.filter(x => String(x["訂單編號"] ?? "").trim() === id).forEach(x => {
+    if (x["_原收件"]) neApplyRecv(x, x["_原收件"]);
+    if (x !== r) neMarkEdited(x);
+  });
   r["_已改備註"] = false;
-  renderNoteEditor();
+  refreshAfterRowsChange();
 }
 
 function setupNoteEditor() {
