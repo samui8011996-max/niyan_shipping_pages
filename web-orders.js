@@ -271,21 +271,21 @@ function renderWebPreview() {
   const ok = webOrders.filter(o => !o.blocked);
   const bcat = ok.filter(o => o.isBcat);
   const blocked = webOrders.filter(o => o.blocked);
-  const unknown = ok.filter(o => o.unknown);
 
   document.getElementById("webBcatBtn").disabled = !bcat.length;
   if (!box) return;
 
   box.innerHTML = webOrders.map(o => {
-    const cls = o.blocked ? "shopee-row miss" : (o.unknown ? "shopee-row unknown" : "shopee-row");
-    const flag = o.blocked ? "⛔" : (o.unknown ? "⚠" : "");   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
+    const cls = o.blocked ? "shopee-row miss" : "shopee-row";
+    const flag = o.blocked ? "⛔" : "";   // 預覽旗標保留 emoji(使用者 2026-10-15 指定)
     const pay = o.payMethod + (o.cod ? "" : "(" + o.payStatus + ")");
     const blockedText = o.blocked ? "擋下:" + o.blocked + ",不出黑貓單" : "";
     return "<div class=\"" + cls + "\">"
       + "<span class=\"shopee-flag\">" + flag + "</span>"
       + "<span class=\"shopee-sn\">" + escapeHtml(o.id) + "</span>"
       + "<span class=\"web-ship\">" + escapeHtml(o.ship) + "<br><small>" + escapeHtml(pay) + "</small></span>"
-      + orderEditCell("web", o, blockedText)
+      + "<span class=\"web-recv\">" + (blockedText ? "<b>" + escapeHtml(blockedText) + "</b><br>" : "")
+      + escapeHtml(o.name) + " " + escapeHtml(o.phone) + "<br><small>" + escapeHtml(o.address || o.store) + "</small></span>"
       + "<span class=\"shopee-total\">$" + o.total + "</span>"
       + "</div>";
   }).join("");
@@ -296,8 +296,7 @@ function renderWebPreview() {
   }
   const bits = [webOrders.length + " 筆訂單", "黑貓 " + bcat.length + " 筆"];
   if (blocked.length) bits.push(blocked.length + " 筆未付款/已取消已擋下");
-  if (unknown.length) bits.push(unknown.length + " 筆有貨號認不出來(照品名印,請看一下)");
-  setStatus("webStatus", (blocked.length || unknown.length) ? "warn" : "success", bits.join("、"));
+  setStatus("webStatus", blocked.length ? "warn" : "success", bits.join("、"));
 }
 
 function downloadWebBcat() {
@@ -306,7 +305,7 @@ function downloadWebBcat() {
     "收件人姓名": o.name,
     "收件人聯絡電話": o.phone,
     "配送地址": o.address,
-    "_備註": orderLines("web", o).join("、"),   // 手改過就用手改的;品項裡已經有空白(… x1),用頓號分隔
+    "_備註": "",   // 官網黑貓單不寫品項(使用者 2026-11-27):品項看隨箱的「訂單明細」
     "_代收金額": o.cod ? o.total : "",
     "_類別": null,
   }));
